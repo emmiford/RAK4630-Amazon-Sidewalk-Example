@@ -10,16 +10,15 @@ manifest:
         - patches/west-sidewalk
 
   remotes:
-    - name: ncs
+    - name: nrfconnect
       url-base: https://github.com/nrfconnect
 
   projects:
-    - name: nrf
-      remote: ncs
-      repo-path: sdk-nrf
-      revision: v2.9.1
-      import: true
     - name: sidewalk
-      remote: ncs
+      remote: nrfconnect
       repo-path: sdk-sidewalk
-      revision: v2.9.1
+      revision: v1.0.0-add-on
+      import: true
+
+self:
+    path: rak-sid

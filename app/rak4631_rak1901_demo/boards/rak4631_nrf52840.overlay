@@ -19,8 +19,13 @@
 };
 
 &spi1 {
-    compatible = "nordic,nrf-spi";
-    status = "okay";
+	compatible = "nordic,nrf-spi";
+	status = "okay";
+	clock-frequency = <DT_FREQ_M(8)>;
+	/delete-property/ cs-gpios;
+	lora: lora@0 {
+		status = "disabled";
+	};
 };
 &spi2 {
 	compatible = "nordic,nrf-spi";

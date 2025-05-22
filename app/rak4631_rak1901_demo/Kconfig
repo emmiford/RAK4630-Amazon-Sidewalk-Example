@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
 #
-rsource "../../../sidewalk/samples/sid_end_device/Kconfig.defconfig"
 
 config SIDEWALK_SPI_BUS
     default y

@@ -1,0 +1,25 @@
+From 806bb23613a4d5d321b39b3088ffd282638e1db5 Mon Sep 17 00:00:00 2001
+From: srcnert <sercanerat@gmail.com>
+Date: Thu, 22 May 2025 23:46:31 +0300
+Subject: [PATCH] rotate BLE address with every advert
+
+---
+ Kconfig.dependencies | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/Kconfig.dependencies b/Kconfig.dependencies
+index 833b73a..c5b5fdc 100644
+--- a/Kconfig.dependencies
++++ b/Kconfig.dependencies
+@@ -44,6 +44,8 @@ config SIDEWALK_BLE
+ 	imply BT_CTLR_ADVANCED_FEATURES
+ 	imply BT_EXT_ADV
+ 	imply BT_GATT_AUTHORIZATION_CUSTOM
++	imply BT_SMP
++	imply BT_PRIVACY
+ 	help
+ 		Sidewalk Bluetooth Low Energy (BLE) module
+ 
+-- 
+2.39.5 (Apple Git-154)
+
