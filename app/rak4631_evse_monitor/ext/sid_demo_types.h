@@ -44,6 +44,7 @@ enum sid_demo_class_id {
 enum sid_demo_class_cmd_id {
     SID_DEMO_APP_CLASS_CMD_CAP_DISCOVERY_ID = 0x0,
     SID_DEMO_APP_CLASS_CMD_ACTION = 0x1,
+    SID_DEMO_APP_CLASS_CMD_CHARGE_CONTROL = 0x2,
     SID_DEMO_APP_CLASS_CMD_LAST,
 };
 

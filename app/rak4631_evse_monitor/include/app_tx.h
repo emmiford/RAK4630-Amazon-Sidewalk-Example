@@ -17,6 +17,8 @@ typedef enum event_type {
 	APP_EVENT_NOTIFY_BUTTON,
 	APP_EVENT_RESP_LED_ON,
 	APP_EVENT_RESP_LED_OFF,
+	APP_EVENT_RESP_CHARGE_ALLOW,
+	APP_EVENT_RESP_CHARGE_PAUSE,
 } app_event_t;
 
 int app_tx_event_send(app_event_t event);

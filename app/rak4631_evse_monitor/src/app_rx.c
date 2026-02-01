@@ -8,6 +8,7 @@
 #include <app_tx.h>
 #include <app_buttons.h>
 #include <app_leds.h>
+#include <charge_control.h>
 #include <sid_demo_parser.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -18,6 +19,25 @@ LOG_MODULE_REGISTER(app_rx, CONFIG_SIDEWALK_LOG_LEVEL);
 #define ACTION_REQ_LED_ALL (0xFF)
 
 K_MSGQ_DEFINE(rx_msgq, sizeof(struct app_rx_msg), CONFIG_SID_END_DEVICE_RX_THREAD_QUEUE_SIZE, 4);
+
+static void app_rx_charge_control_process(struct sid_demo_msg *msg)
+{
+	if (msg == NULL || msg->payload == NULL) {
+		LOG_ERR("Charge control: invalid message");
+		return;
+	}
+
+	LOG_INF("Charge control command received, payload_size=%zu", msg->payload_size);
+
+	int ret = charge_control_process_cmd(msg->payload, msg->payload_size);
+	if (ret < 0) {
+		LOG_ERR("Charge control processing failed: %d", ret);
+	}
+
+	/* Send response event */
+	app_tx_event_send(charge_control_is_allowed() ?
+			  APP_EVENT_RESP_CHARGE_ALLOW : APP_EVENT_RESP_CHARGE_PAUSE);
+}
 
 static void app_rx_led_req_process(struct sid_demo_msg *msg)
 {
@@ -71,7 +91,25 @@ void app_rx_task(void *dummy1, void *dummy2, void *dummy3)
 		struct app_rx_msg rx_msg = { 0 };
 		int err = k_msgq_get(&rx_msgq, &rx_msg, K_FOREVER);
 		if (!err) {
-			// Deserialize message
+			LOG_HEXDUMP_DBG(rx_msg.rx_payload, rx_msg.pld_size, "RX raw: ");
+
+			/* Check for raw charge control command (first byte = 0x10) */
+			if (rx_msg.pld_size >= sizeof(charge_control_cmd_t) &&
+			    rx_msg.rx_payload[0] == CHARGE_CONTROL_CMD_TYPE) {
+				LOG_INF("Raw charge control command received");
+				int ret = charge_control_process_cmd(rx_msg.rx_payload,
+								     rx_msg.pld_size);
+				if (ret < 0) {
+					LOG_ERR("Charge control processing failed: %d", ret);
+				} else {
+					app_tx_event_send(charge_control_is_allowed() ?
+							  APP_EVENT_RESP_CHARGE_ALLOW :
+							  APP_EVENT_RESP_CHARGE_PAUSE);
+				}
+				continue;
+			}
+
+			/* Try to deserialize as demo protocol message */
 			static uint8_t msg_payload[APP_RX_PAYLOAD_MAX_SIZE] = { 0 };
 			struct sid_demo_msg msg = { 0 };
 			msg.payload = msg_payload;
@@ -121,6 +159,9 @@ void app_rx_task(void *dummy1, void *dummy2, void *dummy3)
 				switch (msg_desc.cmd_id) {
 				case SID_DEMO_APP_CLASS_CMD_ACTION:
 					app_rx_led_req_process(&msg);
+					break;
+				case SID_DEMO_APP_CLASS_CMD_CHARGE_CONTROL:
+					app_rx_charge_control_process(&msg);
 					break;
 				case SID_DEMO_APP_CLASS_CMD_CAP_DISCOVERY_ID:
 				default:

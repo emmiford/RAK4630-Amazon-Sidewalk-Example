@@ -7,6 +7,7 @@
 #include <app_tx.h>
 #include <app_buttons.h>
 #include <app_leds.h>
+#include <charge_control.h>
 #include <sidewalk.h>
 #include <sid_demo_parser.h>
 #include <sid_pal_uptime_ifc.h>
@@ -174,6 +175,8 @@ static void state_init(void *o)
 	case APP_EVENT_NOTIFY_SENSOR:
 	case APP_EVENT_RESP_LED_ON:
 	case APP_EVENT_RESP_LED_OFF:
+	case APP_EVENT_RESP_CHARGE_ALLOW:
+	case APP_EVENT_RESP_CHARGE_PAUSE:
 		break;
 	}
 }
@@ -229,6 +232,8 @@ static void state_notify_capability(void *o)
 	case APP_EVENT_NOTIFY_BUTTON:
 	case APP_EVENT_RESP_LED_ON:
 	case APP_EVENT_RESP_LED_OFF:
+	case APP_EVENT_RESP_CHARGE_ALLOW:
+	case APP_EVENT_RESP_CHARGE_PAUSE:
 		LOG_WRN("Operation not supported, waiting for capability response.");
 		break;
 	case APP_EVENT_TIME_SYNC_SUCCESS:
@@ -351,6 +356,18 @@ static void state_notify_data(void *o)
 		}
 
 		LOG_INF("Response LED OFF send");
+	} break;
+	case APP_EVENT_RESP_CHARGE_ALLOW:
+	case APP_EVENT_RESP_CHARGE_PAUSE: {
+		/* Log charge control state change */
+		bool allowed = charge_control_is_allowed();
+		LOG_INF("Charge control response: %s", allowed ? "ALLOW" : "PAUSE");
+
+		/* Note: In a production system, we could send a notification
+		 * to the cloud confirming the charge state change. For now,
+		 * we just log it locally since the Lambda already knows
+		 * what command it sent.
+		 */
 	} break;
 	case APP_EVENT_TIME_SYNC_FAIL:
 		smf_set_state(SMF_CTX(sm), &app_states[STATE_APP_NOTIFY_CAPABILITY]);

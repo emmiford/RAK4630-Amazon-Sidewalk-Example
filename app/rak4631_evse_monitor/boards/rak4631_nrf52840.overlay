@@ -28,6 +28,15 @@
 			label = "Thermostat Cool Call";
 		};
 	};
+
+	/* EVSE charge control output - active high enables charging */
+	evse_outputs {
+		compatible = "gpio-leds";
+		charge_enable: charge_enable {
+			gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
+			label = "EVSE Charge Enable";
+		};
+	};
 };
 
 &adc {

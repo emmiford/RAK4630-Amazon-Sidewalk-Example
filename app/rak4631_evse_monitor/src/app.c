@@ -9,6 +9,7 @@
 #include <app_rx.h>
 #include <app_buttons.h>
 #include <app_leds.h>
+#include <charge_control.h>
 #include <app_ble_config.h>
 #include <sidewalk_dfu/nordic_dfu.h>
 #include <app_subGHz_config.h>
@@ -45,6 +46,7 @@ static void notify_timer_cb(struct k_timer *timer_id)
 {
 	ARG_UNUSED(timer_id);
 	app_tx_event_send(APP_EVENT_NOTIFY_SENSOR);
+	charge_control_tick();
 }
 
 static sidewalk_ctx_t sid_ctx;
@@ -208,6 +210,10 @@ void app_start(void)
 
 	if (app_led_init()) {
 		LOG_ERR("Cannot init leds");
+	}
+
+	if (charge_control_init()) {
+		LOG_ERR("Cannot init charge control");
 	}
 
 	static struct sid_event_callbacks event_callbacks = {
