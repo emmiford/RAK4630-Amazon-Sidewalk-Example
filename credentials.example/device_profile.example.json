@@ -1,0 +1,7 @@
+{
+  "COMMENT": "Copy this file to ~/.sidewalk/credentials/<device-id>/device_profile.json",
+  "COMMENT2": "Replace with your actual device profile from AWS IoT Core",
+  "DeviceTypeId": "YOUR_DEVICE_TYPE_ID",
+  "DeviceTypeName": "YOUR_DEVICE_TYPE_NAME",
+  "ApplicationServerPublicKey": "YOUR_APP_SERVER_PUBLIC_KEY_HERE"
+}

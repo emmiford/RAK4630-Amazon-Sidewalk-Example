@@ -1,0 +1,128 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * RAK4631 EVSE Monitor Device Tree Overlay
+ * - ADC channels for J1772 pilot and current clamp
+ * - GPIO inputs for thermostat heat/cool calls
+ * - Removed I2C/RAK1901 temperature sensor
+ */
+
+/ {
+	chosen {
+		zephyr,console = &cdc_acm_uart0;
+		zephyr,shell-uart = &cdc_acm_uart0;
+	};
+
+	zephyr,user {
+		io-channels = <&adc 0>, <&adc 1>;
+	};
+
+	thermostat_inputs {
+		compatible = "gpio-keys";
+		heat_call: heat_call {
+			gpios = <&gpio0 4 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+			label = "Thermostat Heat Call";
+		};
+		cool_call: cool_call {
+			gpios = <&gpio0 5 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+			label = "Thermostat Cool Call";
+		};
+	};
+};
+
+&adc {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	/* J1772 Pilot voltage input - AIN0 (P0.02) */
+	channel@0 {
+		reg = <0>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,input-positive = <NRF_SAADC_AIN0>;
+		zephyr,resolution = <12>;
+	};
+
+	/* Current clamp input - AIN1 (P0.03) */
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1_6";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,input-positive = <NRF_SAADC_AIN1>;
+		zephyr,resolution = <12>;
+	};
+};
+
+&spi1 {
+    compatible = "nordic,nrf-spi";
+    status = "okay";
+};
+&spi2 {
+	compatible = "nordic,nrf-spi";
+	status = "disabled";
+};
+
+&spi3 {
+	status = "disabled";
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};
+
+sid_semtech: &spi1 {
+	compatible = "nordic,nrf-spi";
+	clock-frequency = <DT_FREQ_M(8)>;
+	/delete-property/ cs-gpios;
+
+	lora: lora@0 {
+	    status = "okay";
+	};
+};
+
+/{
+	nrfx_spi_gpios{
+		compatible = "gpio-keys";
+		nrfx_spi_sck: sck {
+			gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+			label = "spi_sck";
+		};
+		nrfx_spi_miso: miso {
+			gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+			label = "spi_miso";
+		};
+		nrfx_spi_mosi: mosi {
+			gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+			label = "spi_mosi";
+		};
+		nrfx_spi_cs: cs {
+			gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;
+			label = "spi_cs";
+		};
+	};
+
+	semtech_sx1262_gpios{
+		compatible = "gpio-keys";
+		semtech_sx1262_reset_gpios: reset {
+			gpios = <&gpio1 6 (GPIO_ACTIVE_LOW|GPIO_PULL_UP)>;
+			label = "semtech_sx1262 Reset";
+		};
+		semtech_sx1262_busy_gpios: busy {
+			gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+			label = "semtech_sx1262 Busy";
+		};
+		semtech_sx1262_antenna_enable_gpios: antena_enable {
+			gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
+			label = "semtech_sx1262 Antena Enable";
+		};
+		semtech_sx1262_dio1_gpios: dio1 {
+			gpios = <&gpio1 15 (GPIO_ACTIVE_HIGH|GPIO_PULL_DOWN)>;
+			label = "semtech_sx1262 DIO1";
+		};
+	};
+};

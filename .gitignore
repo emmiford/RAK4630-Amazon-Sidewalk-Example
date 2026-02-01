@@ -1,0 +1,16 @@
+# Build outputs
+build/
+*.uf2
+
+# Sidewalk credentials (NEVER commit these)
+wireless_device.json
+device_profile.json
+mfg_page.*
+*_provisioned.*
+
+# IDE
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store

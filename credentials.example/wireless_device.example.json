@@ -1,0 +1,11 @@
+{
+  "COMMENT": "Copy this file to ~/.sidewalk/credentials/<device-id>/wireless_device.json",
+  "COMMENT2": "Replace with your actual device credentials from AWS IoT Core",
+  "smsn": "YOUR_SMSN_HERE",
+  "app_srv_pub_key": "YOUR_APP_SERVER_PUBLIC_KEY_HERE",
+  "device_priv_key": "YOUR_DEVICE_PRIVATE_KEY_HERE",
+  "device_pub_key": "YOUR_DEVICE_PUBLIC_KEY_HERE",
+  "apid": "YOUR_APID_HERE",
+  "ed25519_device_priv_key": "YOUR_ED25519_PRIVATE_KEY_HERE",
+  "ed25519_device_pub_key": "YOUR_ED25519_PUBLIC_KEY_HERE"
+}
