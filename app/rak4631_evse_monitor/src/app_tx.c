@@ -99,6 +99,11 @@ static int app_tx_demo_msg_send(struct sid_parse_state *state, uint8_t *buffer,
 		return -EINVAL;
 	}
 
+	// Request BLE connection before sending (required for BLE uplink)
+	if (sid_desc->link_type & SID_LINK_TYPE_1) {
+		sidewalk_event_send(sidewalk_event_connect, NULL, NULL);
+	}
+
 	// Send sidewalk message
 	sidewalk_msg_t *sid_msg = sid_hal_malloc(sizeof(sidewalk_msg_t));
 	if (!sid_msg) {

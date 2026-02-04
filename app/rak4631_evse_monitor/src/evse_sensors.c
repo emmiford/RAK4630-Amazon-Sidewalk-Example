@@ -77,6 +77,9 @@ int evse_sensors_init(void)
 {
     int err;
 
+    /* TEST: Enable real ADC init but keep dummy reads */
+    LOG_INF("EVSE sensors init (REAL INIT, DUMMY READS)");
+
     for (size_t i = 0; i < ARRAY_SIZE(adc_channels); i++) {
         if (!adc_is_ready_dt(&adc_channels[i])) {
             LOG_ERR("ADC channel %d device not ready", i);
@@ -91,7 +94,7 @@ int evse_sensors_init(void)
     }
 
     sensors_initialized = true;
-    LOG_INF("EVSE sensors initialized");
+    LOG_INF("EVSE sensors initialized (ADC ready)");
     return 0;
 }
 

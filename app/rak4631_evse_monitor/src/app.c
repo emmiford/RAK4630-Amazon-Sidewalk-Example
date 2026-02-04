@@ -31,7 +31,7 @@
 LOG_MODULE_REGISTER(app, CONFIG_SIDEWALK_LOG_LEVEL);
 
 #define PARAM_UNUSED (0U)
-#define NOTIFY_TIMER_DURATION_MS (500)
+#define NOTIFY_TIMER_DURATION_MS (10000)  /* 10 sec delay before first sensor read */
 
 K_THREAD_STACK_DEFINE(app_tx_stack, CONFIG_SID_END_DEVICE_TX_THREAD_STACK_SIZE);
 K_THREAD_STACK_DEFINE(app_rx_stack, CONFIG_SID_END_DEVICE_RX_THREAD_STACK_SIZE);
@@ -42,11 +42,28 @@ static struct k_thread app_rx;
 static void notify_timer_cb(struct k_timer *timer_id);
 K_TIMER_DEFINE(notify_timer, notify_timer_cb, NULL);
 
+/* Work handler for sensor reads */
+static void sensor_work_handler(struct k_work *work)
+{
+	ARG_UNUSED(work);
+
+	/* Read sensors (logs telemetry) */
+	evse_payload_t data = rak_sidewalk_get_payload();
+	ARG_UNUSED(data);
+
+	/* Update thermostat outputs */
+	charge_control_tick();
+
+	/* Send sensor data via Sidewalk */
+	app_tx_event_send(APP_EVENT_NOTIFY_SENSOR);
+}
+K_WORK_DEFINE(sensor_work, sensor_work_handler);
+
 static void notify_timer_cb(struct k_timer *timer_id)
 {
 	ARG_UNUSED(timer_id);
-	app_tx_event_send(APP_EVENT_NOTIFY_SENSOR);
-	charge_control_tick();
+	/* Schedule sensor read on system work queue (not ISR context) */
+	k_work_submit(&sensor_work);
 }
 
 static sidewalk_ctx_t sid_ctx;
@@ -207,6 +224,7 @@ static const struct bt_gatt_authorization_cb gatt_authorization_callbacks = {
 
 void app_start(void)
 {
+	LOG_INF("=== APP START ===");
 
 	if (app_led_init()) {
 		LOG_ERR("Cannot init leds");
@@ -246,11 +264,14 @@ void app_start(void)
 		return;
 	}
 
+	/* Start Sidewalk and app tasks */
 	app_start_tasks();
 	sidewalk_start(&sid_ctx);
 	sidewalk_event_send(sidewalk_event_platform_init, NULL, NULL);
 	sidewalk_event_send(sidewalk_event_autostart, NULL, NULL);
 
+	/* Sensor timer enabled - 10s initial, 60s repeat */
+	LOG_INF("Starting sensor timer (10s delay)");
 	k_timer_start(&notify_timer, K_MSEC(NOTIFY_TIMER_DURATION_MS),
 		      K_MSEC(CONFIG_SID_END_DEVICE_NOTIFY_DATA_PERIOD_MS));
 }

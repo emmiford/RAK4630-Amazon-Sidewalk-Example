@@ -1,20 +1,11 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- *
- * RAK4631 EVSE Monitor Device Tree Overlay
- * - ADC channels for J1772 pilot and current clamp
- * - GPIO inputs for thermostat heat/cool calls
- * - Removed I2C/RAK1901 temperature sensor
  */
 
 / {
 	chosen {
 		zephyr,console = &cdc_acm_uart0;
 		zephyr,shell-uart = &cdc_acm_uart0;
-	};
-
-	zephyr,user {
-		io-channels = <&adc 0>, <&adc 1>;
 	};
 
 	thermostat_inputs {
@@ -29,13 +20,16 @@
 		};
 	};
 
-	/* EVSE charge control output - active high enables charging */
 	evse_outputs {
 		compatible = "gpio-leds";
 		charge_enable: charge_enable {
 			gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;
 			label = "EVSE Charge Enable";
 		};
+	};
+
+	zephyr,user {
+		io-channels = <&adc 0>, <&adc 1>;
 	};
 };
 
@@ -44,7 +38,6 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	/* J1772 Pilot voltage input - AIN0 (P0.02) */
 	channel@0 {
 		reg = <0>;
 		zephyr,gain = "ADC_GAIN_1_6";
@@ -54,7 +47,6 @@
 		zephyr,resolution = <12>;
 	};
 
-	/* Current clamp input - AIN1 (P0.03) */
 	channel@1 {
 		reg = <1>;
 		zephyr,gain = "ADC_GAIN_1_6";

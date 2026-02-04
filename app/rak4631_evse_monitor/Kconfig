@@ -12,11 +12,11 @@ config SIDEWALK_SPI_BUS
     imply PM_DEVICE
 
 config SID_END_DEVICE_TX_THREAD_STACK_SIZE
-    int
+    int "TX thread stack size"
     default 4096
 
 config SID_END_DEVICE_RX_THREAD_STACK_SIZE
-    int
+    int "RX thread stack size"
     default 4096
 
 config SID_END_DEVICE_NOTIFY_DATA_PERIOD_MS
@@ -24,23 +24,19 @@ config SID_END_DEVICE_NOTIFY_DATA_PERIOD_MS
     default 60000
 
 config SID_END_DEVICE_TX_THREAD_PRIORITY
-    int
+    int "TX thread priority"
     default 13
 
 config SID_END_DEVICE_RX_THREAD_PRIORITY
-    int
+    int "RX thread priority"
     default 14
 
 config SID_END_DEVICE_TX_THREAD_QUEUE_SIZE
-    int
+    int "TX thread queue size"
     default 10
 
 config SID_END_DEVICE_RX_THREAD_QUEUE_SIZE
-    int
+    int "RX thread queue size"
     default 4
-
-config RAK1901_MEASUREMENT_INTERVAL
-    int
-    default 60000
 
 source "Kconfig.zephyr"

@@ -60,31 +60,28 @@ evse_payload_t rak_sidewalk_get_payload(void)
     /* Read J1772 state and pilot voltage */
     err = evse_j1772_state_get(&state, &pilot_mv);
     if (err) {
-        LOG_WRN("J1772 read failed: %d", err);
         payload.j1772_state = J1772_STATE_UNKNOWN;
         payload.j1772_mv = 0;
     } else {
         payload.j1772_state = (uint8_t)state;
         payload.j1772_mv = pilot_mv;
-        LOG_INF("J1772: State %s, Pilot %d mV",
-                j1772_state_to_string(state), pilot_mv);
     }
 
     /* Read current from clamp */
     err = evse_current_read(&current_ma);
     if (err) {
-        LOG_WRN("Current read failed: %d", err);
         payload.current_ma = 0;
     } else {
         payload.current_ma = current_ma;
-        LOG_INF("Current: %d mA", current_ma);
     }
 
     /* Read thermostat flags */
     payload.thermostat_flags = thermostat_flags_get();
-    LOG_INF("Thermostat: Heat=%d, Cool=%d",
-            (payload.thermostat_flags & THERMOSTAT_FLAG_HEAT) ? 1 : 0,
-            (payload.thermostat_flags & THERMOSTAT_FLAG_COOL) ? 1 : 0);
+
+    /* Single summary log */
+    LOG_INF("EVSE: J1772=%d (%dmV) I=%dmA therm=0x%02x",
+            payload.j1772_state, payload.j1772_mv,
+            payload.current_ma, payload.thermostat_flags);
 
     return payload;
 }
