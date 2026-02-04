@@ -7,7 +7,6 @@
 #include <sidewalk.h>
 #include <app_tx.h>
 #include <app_rx.h>
-#include <app_buttons.h>
 #include <app_leds.h>
 #include <charge_control.h>
 #include <app_ble_config.h>
@@ -15,11 +14,8 @@
 #include <app_subGHz_config.h>
 #include <sid_hal_reset_ifc.h>
 #include <sid_hal_memory_ifc.h>
-#include <buttons.h>
 #include <zephyr/kernel.h>
-#include <zephyr/smf.h>
 #include <zephyr/logging/log.h>
-#include <sid_demo_parser.h>
 #include <rak_sidewalk.h>
 #include <json_printer/sidTypes2str.h>
 #ifdef CONFIG_SIDEWALK_FILE_TRANSFER_DFU
@@ -30,13 +26,10 @@
 
 LOG_MODULE_REGISTER(app, CONFIG_SIDEWALK_LOG_LEVEL);
 
-#define PARAM_UNUSED (0U)
 #define NOTIFY_TIMER_DURATION_MS (10000)  /* 10 sec delay before first sensor read */
 
-K_THREAD_STACK_DEFINE(app_tx_stack, CONFIG_SID_END_DEVICE_TX_THREAD_STACK_SIZE);
 K_THREAD_STACK_DEFINE(app_rx_stack, CONFIG_SID_END_DEVICE_RX_THREAD_STACK_SIZE);
 
-static struct k_thread app_main;
 static struct k_thread app_rx;
 
 static void notify_timer_cb(struct k_timer *timer_id);
@@ -47,15 +40,14 @@ static void sensor_work_handler(struct k_work *work)
 {
 	ARG_UNUSED(work);
 
-	/* Read sensors (logs telemetry) */
-	evse_payload_t data = rak_sidewalk_get_payload();
-	ARG_UNUSED(data);
-
 	/* Update thermostat outputs */
 	charge_control_tick();
 
-	/* Send sensor data via Sidewalk */
-	app_tx_event_send(APP_EVENT_NOTIFY_SENSOR);
+	/* Send sensor data via Sidewalk (reads sensors internally) */
+	int err = app_tx_send_evse_data();
+	if (err && err != -ENODEV) {
+		LOG_ERR("Failed to send EVSE data: %d", err);
+	}
 }
 K_WORK_DEFINE(sensor_work, sensor_work_handler);
 
@@ -128,30 +120,24 @@ static void on_sidewalk_status_changed(const struct sid_status *status, void *co
 	}
 	sidewalk_event_send(sidewalk_event_new_status, new_status, sid_hal_free);
 
-	int err = 0;
+	/* Update TX module with link status */
+	app_tx_set_link_mask(status->detail.link_status_mask);
+
+	/* Set ready flag based on Sidewalk state */
 	switch (status->state) {
 	case SID_STATE_READY:
 	case SID_STATE_SECURE_CHANNEL_READY:
 		LOG_INF("Status changed: ready");
+		app_tx_set_ready(true);
 		break;
 	case SID_STATE_NOT_READY:
 		LOG_INF("Status changed: not ready");
+		app_tx_set_ready(false);
 		break;
 	case SID_STATE_ERROR:
 		LOG_INF("Status not changed: error");
+		app_tx_set_ready(false);
 		break;
-	}
-
-	app_tx_last_link_mask_set(status->detail.link_status_mask);
-
-	if (SID_STATUS_TIME_SYNCED == status->detail.time_sync_status) {
-		err = app_tx_event_send(APP_EVENT_TIME_SYNC_SUCCESS);
-	} else {
-		err = app_tx_event_send(APP_EVENT_TIME_SYNC_FAIL);
-	}
-
-	if (err) {
-		LOG_ERR("Send event err %d", err);
 	}
 
 	LOG_INF("Device %sregistered, Time Sync %s, Link status: {BLE: %s, FSK: %s, LoRa: %s}",
@@ -180,15 +166,10 @@ static void on_sidewalk_status_changed(const struct sid_status *status, void *co
 
 void app_start_tasks(void)
 {
-	(void)k_thread_create(&app_main, app_tx_stack, K_THREAD_STACK_SIZEOF(app_tx_stack),
-			      app_tx_task, NULL, NULL, NULL,
-			      CONFIG_SID_END_DEVICE_TX_THREAD_PRIORITY, 0, K_NO_WAIT);
-
 	(void)k_thread_create(&app_rx, app_rx_stack, K_THREAD_STACK_SIZEOF(app_rx_stack),
 			      app_rx_task, NULL, NULL, NULL,
 			      CONFIG_SID_END_DEVICE_RX_THREAD_PRIORITY, 0, K_NO_WAIT);
 
-	k_thread_name_set(&app_main, "app_main");
 	k_thread_name_set(&app_rx, "app_rx");
 }
 

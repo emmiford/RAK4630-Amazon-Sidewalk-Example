@@ -5,8 +5,6 @@
  */
 
 #include <app_rx.h>
-#include <app_tx.h>
-#include <app_buttons.h>
 #include <app_leds.h>
 #include <charge_control.h>
 #include <sid_demo_parser.h>
@@ -15,7 +13,6 @@
 
 LOG_MODULE_REGISTER(app_rx, CONFIG_SIDEWALK_LOG_LEVEL);
 
-#define ACTION_RESP_BTN_ALL (0xFF)
 #define ACTION_REQ_LED_ALL (0xFF)
 
 K_MSGQ_DEFINE(rx_msgq, sizeof(struct app_rx_msg), CONFIG_SID_END_DEVICE_RX_THREAD_QUEUE_SIZE, 4);
@@ -32,16 +29,14 @@ static void app_rx_charge_control_process(struct sid_demo_msg *msg)
 	int ret = charge_control_process_cmd(msg->payload, msg->payload_size);
 	if (ret < 0) {
 		LOG_ERR("Charge control processing failed: %d", ret);
+	} else {
+		LOG_INF("Charge control: %s", charge_control_is_allowed() ? "ALLOW" : "PAUSE");
 	}
-
-	/* Send response event */
-	app_tx_event_send(charge_control_is_allowed() ?
-			  APP_EVENT_RESP_CHARGE_ALLOW : APP_EVENT_RESP_CHARGE_PAUSE);
 }
 
 static void app_rx_led_req_process(struct sid_demo_msg *msg)
 {
-	// Deserialize message
+	/* Deserialize message */
 	uint8_t led_id_arr[APP_LEDS_MAX] = { 0 };
 	struct sid_demo_led_action_req led_req = { 0 };
 	led_req.led_id_arr = led_id_arr;
@@ -54,7 +49,7 @@ static void app_rx_led_req_process(struct sid_demo_msg *msg)
 		return;
 	}
 
-	// Process action request
+	/* Process action request */
 	LOG_INF("LED request received");
 	if (led_req.num_leds == ACTION_REQ_LED_ALL) {
 		led_req.led_id_arr = app_led_id_array_get();
@@ -65,12 +60,12 @@ static void app_rx_led_req_process(struct sid_demo_msg *msg)
 		for (uint8_t i = 0; i < led_req.num_leds; i++) {
 			app_led_turn_on((enum leds_id_t)led_req.led_id_arr[i]);
 		}
-		app_tx_event_send(APP_EVENT_RESP_LED_ON);
+		LOG_INF("LED ON");
 	} else if (led_req.action_req == SID_DEMO_ACTION_LED_OFF) {
 		for (uint8_t i = 0; i < led_req.num_leds; i++) {
 			app_led_turn_off((enum leds_id_t)led_req.led_id_arr[i]);
 		}
-		app_tx_event_send(APP_EVENT_RESP_LED_OFF);
+		LOG_INF("LED OFF");
 	} else {
 		LOG_ERR("LED request invalid action %d", led_req.action_req);
 	}
@@ -102,9 +97,8 @@ void app_rx_task(void *dummy1, void *dummy2, void *dummy3)
 				if (ret < 0) {
 					LOG_ERR("Charge control processing failed: %d", ret);
 				} else {
-					app_tx_event_send(charge_control_is_allowed() ?
-							  APP_EVENT_RESP_CHARGE_ALLOW :
-							  APP_EVENT_RESP_CHARGE_PAUSE);
+					LOG_INF("Charge control: %s",
+						charge_control_is_allowed() ? "ALLOW" : "PAUSE");
 				}
 				continue;
 			}
@@ -128,7 +122,7 @@ void app_rx_task(void *dummy1, void *dummy2, void *dummy3)
 				continue;
 			}
 
-			// Process demo app message
+			/* Process demo app message */
 			if (msg_desc.cmd_class != SID_DEMO_APP_CLASS) {
 				LOG_ERR("Rx msg cmd class %d not supported", msg_desc.cmd_class);
 				continue;
@@ -141,8 +135,7 @@ void app_rx_task(void *dummy1, void *dummy2, void *dummy3)
 					if (msg_desc.status_hdr_ind &&
 					    msg_desc.status_code == SID_ERROR_NONE &&
 					    msg.payload_size == 0) {
-						LOG_INF("Capability response received");
-						app_tx_event_send(APP_EVENT_CAPABILITY_SUCCESS);
+						LOG_INF("Capability response received (ignored)");
 					} else {
 						LOG_ERR("Capability failed (code %d)",
 							msg_desc.status_code);
