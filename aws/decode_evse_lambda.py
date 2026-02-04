@@ -1,7 +1,11 @@
 """
 Lambda function to decode EVSE Sidewalk sensor data.
 
-Decodes the sid_demo_parser format and extracts:
+Supports two payload formats:
+1. New raw format (8 bytes): Magic 0xE5, Version, J1772 state, voltage, current, thermostat
+2. Legacy sid_demo format: Wrapped with demo protocol headers
+
+Extracts:
 - J1772 pilot state
 - Pilot voltage (mV)
 - Current draw (mA)
@@ -10,12 +14,22 @@ Decodes the sid_demo_parser format and extracts:
 
 import json
 import base64
+import os
 import boto3
 import time
 from decimal import Decimal
 
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('sidewalk-v1-device_events_v2')
+table_name = os.environ.get('DYNAMODB_TABLE', 'sidewalk-v1-device_events_v2')
+table = dynamodb.Table(table_name)
+
+# EVSE payload magic byte and version
+EVSE_MAGIC = 0xE5
+EVSE_VERSION = 0x01
+EVSE_PAYLOAD_SIZE = 8
+
+# Legacy payload type
+LEGACY_EVSE_TYPE = 0x01
 
 # J1772 state mapping
 J1772_STATES = {
@@ -29,12 +43,58 @@ J1772_STATES = {
 }
 
 
-def decode_sid_demo_payload(raw_payload_b64):
+def decode_raw_evse_payload(raw_bytes):
     """
-    Decode the sid_demo format payload.
+    Decode the new raw 8-byte EVSE payload format.
 
-    The payload structure from our device:
-    - Wrapped in sid_demo format (header bytes)
+    Format:
+      Byte 0: Magic (0xE5)
+      Byte 1: Version (0x01)
+      Byte 2: J1772 state (0-6)
+      Byte 3-4: Pilot voltage mV (little-endian)
+      Byte 5-6: Current mA (little-endian)
+      Byte 7: Thermostat flags
+    """
+    if len(raw_bytes) < EVSE_PAYLOAD_SIZE:
+        return None
+
+    magic = raw_bytes[0]
+    version = raw_bytes[1]
+
+    if magic != EVSE_MAGIC:
+        return None
+
+    j1772_state = raw_bytes[2]
+    pilot_voltage = int.from_bytes(raw_bytes[3:5], 'little')
+    current_ma = int.from_bytes(raw_bytes[5:7], 'little')
+    thermostat_bits = raw_bytes[7]
+
+    # Sanity check values
+    if j1772_state > 6:
+        return None
+    if pilot_voltage > 15000 or current_ma > 100000:
+        return None
+
+    return {
+        'payload_type': 'evse',
+        'format': 'raw_v1',
+        'version': version,
+        'j1772_state_code': j1772_state,
+        'j1772_state': J1772_STATES.get(j1772_state, 'UNKNOWN'),
+        'pilot_voltage_mv': pilot_voltage,
+        'current_ma': current_ma,
+        'thermostat_bits': thermostat_bits,
+        'thermostat_heat': bool(thermostat_bits & 0x01),
+        'thermostat_cool': bool(thermostat_bits & 0x02),
+    }
+
+
+def decode_legacy_sid_demo_payload(raw_bytes):
+    """
+    Decode legacy sid_demo format payload.
+
+    The payload structure:
+    - Wrapped in sid_demo format (variable header bytes)
     - Inner payload is evse_payload_t:
       - payload_type: 1 byte (0x01 = EVSE)
       - j1772_state: 1 byte
@@ -42,57 +102,67 @@ def decode_sid_demo_payload(raw_payload_b64):
       - current_ma: 2 bytes (little-endian, mA)
       - thermostat_bits: 1 byte
     """
-    try:
-        # Decode base64 - the payload is ASCII hex encoded after base64
-        ascii_hex = base64.b64decode(raw_payload_b64).decode('ascii')
+    if len(raw_bytes) < 7:
+        return None
 
-        # Convert ASCII hex to bytes
-        raw_bytes = bytes.fromhex(ascii_hex)
+    # Try to find EVSE payload (type 0x01) at various offsets
+    for offset in range(len(raw_bytes) - 6):
+        payload_type = raw_bytes[offset]
+        if payload_type == LEGACY_EVSE_TYPE:
+            j1772_state = raw_bytes[offset + 1]
+            if j1772_state <= 6:  # Valid J1772 state
+                pilot_voltage = int.from_bytes(raw_bytes[offset + 2:offset + 4], 'little')
+                current_ma = int.from_bytes(raw_bytes[offset + 4:offset + 6], 'little')
+                thermostat_bits = raw_bytes[offset + 6] if offset + 6 < len(raw_bytes) else 0
+
+                # Sanity check values
+                if 0 <= pilot_voltage <= 15000 and 0 <= current_ma <= 100000:
+                    return {
+                        'payload_type': 'evse',
+                        'format': 'sid_demo_legacy',
+                        'j1772_state_code': j1772_state,
+                        'j1772_state': J1772_STATES.get(j1772_state, 'UNKNOWN'),
+                        'pilot_voltage_mv': pilot_voltage,
+                        'current_ma': current_ma,
+                        'thermostat_bits': thermostat_bits,
+                        'thermostat_heat': bool(thermostat_bits & 0x01),
+                        'thermostat_cool': bool(thermostat_bits & 0x02),
+                    }
+
+    return None
+
+
+def decode_payload(raw_payload_b64):
+    """
+    Decode EVSE payload from base64-encoded Sidewalk message.
+
+    Tries new raw format first, falls back to legacy sid_demo format.
+    """
+    try:
+        # Decode base64 - payload may be ASCII hex encoded after base64
+        decoded_b64 = base64.b64decode(raw_payload_b64)
+
+        # Try to interpret as ASCII hex first (legacy encoding)
+        try:
+            ascii_hex = decoded_b64.decode('ascii')
+            raw_bytes = bytes.fromhex(ascii_hex)
+        except (UnicodeDecodeError, ValueError):
+            # Not ASCII hex, use raw bytes directly
+            raw_bytes = decoded_b64
 
         print(f"Raw bytes ({len(raw_bytes)}): {raw_bytes.hex()}")
 
-        # Parse sid_demo format
-        # Format: [demo_header...][payload]
-        # The demo header varies, but our payload starts after it
+        # Try new raw format first (magic byte 0xE5)
+        decoded = decode_raw_evse_payload(raw_bytes)
+        if decoded:
+            print(f"Decoded as raw EVSE format")
+            return decoded
 
-        # Find the EVSE payload (type 0x01)
-        # Based on the observed data: 4081006d012082000102030b010c04
-        # Breaking it down:
-        # 40 81 00 6d 01 20 82 00 01 02 03 0b 01 0c 04
-        #                            ^^ payload_type (could be here)
-
-        # The sid_demo format wraps our data. Let's find the sensor data.
-        # Looking at the structure, the last bytes contain our actual values
-
-        # Try to find a pattern - look for sequences that make sense as sensor data
-        # Expected: type(1) + j1772(1) + voltage(2) + current(2) + therm(1) = 7 bytes
-
-        if len(raw_bytes) >= 7:
-            # Try parsing from different offsets to find valid data
-            # The demo format has variable header length
-
-            # Based on observed data pattern, try offset after demo headers
-            for offset in range(len(raw_bytes) - 6):
-                payload_type = raw_bytes[offset]
-                if payload_type == 0x01:  # EVSE type
-                    j1772_state = raw_bytes[offset + 1]
-                    if j1772_state <= 6:  # Valid J1772 state
-                        pilot_voltage = int.from_bytes(raw_bytes[offset + 2:offset + 4], 'little')
-                        current_ma = int.from_bytes(raw_bytes[offset + 4:offset + 6], 'little')
-                        thermostat_bits = raw_bytes[offset + 6] if offset + 6 < len(raw_bytes) else 0
-
-                        # Sanity check values
-                        if 0 <= pilot_voltage <= 15000 and 0 <= current_ma <= 100000:
-                            return {
-                                'payload_type': 'evse',
-                                'j1772_state_code': j1772_state,
-                                'j1772_state': J1772_STATES.get(j1772_state, 'UNKNOWN'),
-                                'pilot_voltage_mv': pilot_voltage,
-                                'current_ma': current_ma,
-                                'thermostat_bits': thermostat_bits,
-                                'thermostat_1': bool(thermostat_bits & 0x01),
-                                'thermostat_2': bool(thermostat_bits & 0x02),
-                            }
+        # Fall back to legacy sid_demo format
+        decoded = decode_legacy_sid_demo_payload(raw_bytes)
+        if decoded:
+            print(f"Decoded as legacy sid_demo format")
+            return decoded
 
         # If we can't parse, return raw for debugging
         return {
@@ -129,7 +199,7 @@ def lambda_handler(event, context):
         sidewalk_id = sidewalk_metadata.get('SidewalkId', '')
 
         # Decode the sensor payload
-        decoded = decode_sid_demo_payload(payload_data)
+        decoded = decode_payload(payload_data)
 
         # Create DynamoDB item
         timestamp_ms = int(time.time() * 1000)
@@ -139,7 +209,7 @@ def lambda_handler(event, context):
             'timestamp': timestamp_ms,
             'event_type': 'evse_telemetry',
             'device_type': 'evse',
-            'schema_version': '2.0',
+            'schema_version': '2.1',
             'link_type': link_type,
             'rssi': rssi,
             'seq': seq,
@@ -152,13 +222,14 @@ def lambda_handler(event, context):
         if decoded.get('payload_type') == 'evse':
             item['data'] = {
                 'evse': {
+                    'format': decoded.get('format', 'unknown'),
                     'pilot_state': decoded['j1772_state'],
                     'pilot_state_code': decoded['j1772_state_code'],
                     'pilot_voltage_mv': decoded['pilot_voltage_mv'],
                     'current_draw_ma': decoded['current_ma'],
                     'thermostat_bits': decoded['thermostat_bits'],
-                    'thermostat_1_active': decoded['thermostat_1'],
-                    'thermostat_2_active': decoded['thermostat_2'],
+                    'thermostat_heat_active': decoded['thermostat_heat'],
+                    'thermostat_cool_active': decoded['thermostat_cool'],
                 }
             }
         else:
