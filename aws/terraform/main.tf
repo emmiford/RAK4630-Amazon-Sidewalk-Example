@@ -102,67 +102,19 @@ resource "aws_cloudwatch_log_group" "evse_decoder_logs" {
   retention_in_days = 14
 }
 
-# Permission for IoT Wireless to invoke Lambda
-resource "aws_lambda_permission" "iot_wireless" {
-  statement_id  = "AllowIoTWirelessInvoke"
+# Permission for IoT to invoke Lambda
+resource "aws_lambda_permission" "iot_invoke" {
+  statement_id  = "AllowIoTInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.evse_decoder.function_name
-  principal     = "iotwireless.amazonaws.com"
-  source_arn    = "arn:aws:iotwireless:${var.aws_region}:*:Destination/*"
+  principal     = "iot.amazonaws.com"
 }
 
-# IoT Wireless Destination (connects Sidewalk to Lambda)
-resource "aws_iotwireless_destination" "evse_destination" {
-  name            = var.iot_destination_name
-  role_arn        = aws_iam_role.iot_destination_role.arn
-  expression_type = "RuleName"
-  expression      = aws_iot_topic_rule.evse_rule.name
-
-  tags = {
-    Project     = "evse-monitor"
-    Environment = var.environment
-  }
-}
-
-# IAM role for IoT Wireless Destination
-resource "aws_iam_role" "iot_destination_role" {
-  name = "evse-iot-destination-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "iotwireless.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy" "iot_destination_policy" {
-  name = "evse-iot-destination-policy"
-  role = aws_iam_role.iot_destination_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "iot:Publish"
-        Resource = "arn:aws:iot:${var.aws_region}:*:topic/*"
-      }
-    ]
-  })
-}
-
-# IoT Rule to route messages to Lambda
+# IoT Rule to route Sidewalk messages to Lambda
 resource "aws_iot_topic_rule" "evse_rule" {
   name        = var.iot_rule_name
   enabled     = true
-  sql         = "SELECT * FROM 'sidewalk/evse/#'"
+  sql         = "SELECT * FROM '$aws/rules/${var.iot_rule_name}'"
   sql_version = "2016-03-23"
 
   lambda {

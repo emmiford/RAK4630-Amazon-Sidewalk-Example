@@ -18,12 +18,12 @@ output "dynamodb_table_arn" {
   value       = aws_dynamodb_table.evse_events.arn
 }
 
-output "iot_destination_name" {
-  description = "Name of the IoT Wireless destination"
-  value       = aws_iotwireless_destination.evse_destination.name
-}
-
 output "iot_rule_name" {
   description = "Name of the IoT topic rule"
   value       = aws_iot_topic_rule.evse_rule.name
+}
+
+output "iot_rule_arn" {
+  description = "ARN of the IoT topic rule"
+  value       = aws_iot_topic_rule.evse_rule.arn
 }
