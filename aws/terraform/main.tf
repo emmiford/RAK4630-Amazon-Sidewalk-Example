@@ -114,7 +114,7 @@ resource "aws_lambda_permission" "iot_invoke" {
 resource "aws_iot_topic_rule" "evse_rule" {
   name        = var.iot_rule_name
   enabled     = true
-  sql         = "SELECT * FROM '$aws/rules/${var.iot_rule_name}'"
+  sql         = "SELECT * FROM 'sidewalk/#'"
   sql_version = "2016-03-23"
 
   lambda {
