@@ -8,6 +8,7 @@
 #define EVSE_SENSORS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /**
  * @brief J1772 charging state enumeration
@@ -69,5 +70,23 @@ int evse_current_read(uint16_t *current_ma);
  * @return Constant string describing the state
  */
 const char *j1772_state_to_string(j1772_state_t state);
+
+/**
+ * @brief Simulate a J1772 state for testing
+ *
+ * Overrides sensor readings with simulated state for specified duration.
+ * When duration expires, returns to real sensor readings.
+ *
+ * @param j1772_state State to simulate (J1772_STATE_A, B, C, etc.)
+ * @param duration_ms Duration in milliseconds (0 to cancel simulation)
+ */
+void evse_sensors_simulate_state(uint8_t j1772_state, uint32_t duration_ms);
+
+/**
+ * @brief Check if simulation mode is active
+ *
+ * @return true if simulation is active, false for real sensor readings
+ */
+bool evse_sensors_is_simulating(void);
 
 #endif /* EVSE_SENSORS_H */

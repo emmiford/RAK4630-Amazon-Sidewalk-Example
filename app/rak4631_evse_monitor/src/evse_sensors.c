@@ -73,6 +73,21 @@ static const struct adc_dt_spec adc_channels[] = {
 
 static bool sensors_initialized = false;
 
+/* Simulation mode state */
+static bool simulation_active = false;
+static j1772_state_t simulated_state = J1772_STATE_A;
+
+/* Timer for simulation expiry */
+static void simulation_timer_cb(struct k_timer *timer_id);
+K_TIMER_DEFINE(simulation_timer, simulation_timer_cb, NULL);
+
+static void simulation_timer_cb(struct k_timer *timer_id)
+{
+    ARG_UNUSED(timer_id);
+    simulation_active = false;
+    LOG_INF("Simulation expired, returning to real sensors");
+}
+
 int evse_sensors_init(void)
 {
     int err;
@@ -160,6 +175,25 @@ int evse_j1772_state_get(j1772_state_t *state, uint16_t *voltage_mv)
         return -EINVAL;
     }
 
+    /* Check if simulation mode is active */
+    if (simulation_active) {
+        *state = simulated_state;
+        /* Return simulated voltage based on state */
+        static const uint16_t state_voltages[] = {
+            2980,  /* State A: +12V */
+            2234,  /* State B: +9V */
+            1489,  /* State C: +6V */
+            745,   /* State D: +3V */
+            0,     /* State E: 0V */
+            0,     /* State F: -12V (clamped) */
+        };
+        if (voltage_mv && simulated_state < ARRAY_SIZE(state_voltages)) {
+            *voltage_mv = state_voltages[simulated_state];
+        }
+        LOG_DBG("J1772 SIMULATED: State %c", 'A' + simulated_state);
+        return 0;
+    }
+
     err = evse_pilot_voltage_read(&mv);
     if (err) {
         *state = J1772_STATE_UNKNOWN;
@@ -228,4 +262,32 @@ const char *j1772_state_to_string(j1772_state_t state)
     default:
         return "Unknown";
     }
+}
+
+void evse_sensors_simulate_state(uint8_t j1772_state, uint32_t duration_ms)
+{
+    if (duration_ms == 0) {
+        /* Cancel simulation */
+        k_timer_stop(&simulation_timer);
+        simulation_active = false;
+        LOG_INF("Simulation cancelled");
+        return;
+    }
+
+    if (j1772_state > J1772_STATE_F) {
+        LOG_ERR("Invalid J1772 state: %d", j1772_state);
+        return;
+    }
+
+    simulated_state = (j1772_state_t)j1772_state;
+    simulation_active = true;
+    k_timer_start(&simulation_timer, K_MSEC(duration_ms), K_NO_WAIT);
+
+    LOG_INF("Simulating J1772 state %c for %u ms",
+            'A' + j1772_state, duration_ms);
+}
+
+bool evse_sensors_is_simulating(void)
+{
+    return simulation_active;
 }

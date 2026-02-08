@@ -310,6 +310,69 @@ void sidewalk_event_link_switch(sidewalk_ctx_t *sid, void *ctx)
 #endif /* CONFIG_SID_END_DEVICE_AUTO_CONN_REQ */
 }
 
+void sidewalk_event_set_link(sidewalk_ctx_t *sid, void *ctx)
+{
+	if (sid == NULL || sid->handle == NULL) {
+		LOG_INF("Can not change link if sidewalk was not started yet");
+		return;
+	}
+	uint32_t new_link_mask = (uint32_t)(uintptr_t)ctx;
+
+	sid->config.link_mask = new_link_mask;
+
+	LOG_INF("Sidewalk link set to %s%s%s (0x%x)",
+		(new_link_mask & SID_LINK_TYPE_1) ? "BLE " : "",
+		(new_link_mask & SID_LINK_TYPE_2) ? "FSK " : "",
+		(new_link_mask & SID_LINK_TYPE_3) ? "LoRa " : "",
+		new_link_mask);
+
+	if (sid->handle != NULL) {
+		(void)sid_process(sid->handle);
+		sid_error_t e = sid_deinit(sid->handle);
+		if (e) {
+			LOG_ERR("sid deinit err %d (%s)", (int)e, SID_ERROR_T_STR(e));
+		}
+	}
+
+	sid_error_t e = sid_init(&sid->config, &sid->handle);
+	if (e) {
+		LOG_ERR("sid init err %d (%s)", (int)e, SID_ERROR_T_STR(e));
+	}
+
+	e = sid_start(sid->handle, sid->config.link_mask);
+	if (e) {
+		LOG_ERR("sid start err %d (%s)", (int)e, SID_ERROR_T_STR(e));
+	}
+
+#if CONFIG_SID_END_DEVICE_AUTO_CONN_REQ
+	if (sid->config.link_mask & SID_LINK_TYPE_1) {
+		enum sid_link_connection_policy set_policy =
+			SID_LINK_CONNECTION_POLICY_AUTO_CONNECT;
+
+		e = sid_option(sid->handle, SID_OPTION_SET_LINK_CONNECTION_POLICY, &set_policy,
+			       sizeof(set_policy));
+		if (e) {
+			LOG_ERR("sid option multi link manager err %d (%s)", (int)e,
+				SID_ERROR_T_STR(e));
+		}
+
+		struct sid_link_auto_connect_params ac_params = {
+			.link_type = SID_LINK_TYPE_1,
+			.enable = true,
+			.priority = 0,
+			.connection_attempt_timeout_seconds = 30
+		};
+
+		e = sid_option(sid->handle, SID_OPTION_SET_LINK_POLICY_AUTO_CONNECT_PARAMS,
+			       &ac_params, sizeof(ac_params));
+		if (e) {
+			LOG_ERR("sid option multi link policy err %d (%s)", (int)e,
+				SID_ERROR_T_STR(e));
+		}
+	}
+#endif /* CONFIG_SID_END_DEVICE_AUTO_CONN_REQ */
+}
+
 void sidewalk_event_exit(sidewalk_ctx_t *sid, void *ctx)
 {
 	if (sid == NULL || sid->handle == NULL) {

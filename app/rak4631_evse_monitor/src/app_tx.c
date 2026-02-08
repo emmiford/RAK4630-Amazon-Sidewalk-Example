@@ -24,7 +24,7 @@ LOG_MODULE_REGISTER(app_tx, CONFIG_SIDEWALK_LOG_LEVEL);
 
 /* Sidewalk ready state */
 static bool sidewalk_ready = false;
-static uint32_t last_link_mask = 0;
+static uint32_t last_link_mask = SID_LINK_TYPE_3;  /* Default to LoRa */
 
 /**
  * @brief Free sidewalk message context
@@ -99,6 +99,16 @@ void app_tx_set_link_mask(uint32_t link_mask)
 	if (link_mask) {
 		last_link_mask = link_mask;
 	}
+}
+
+bool app_tx_is_ready(void)
+{
+	return sidewalk_ready;
+}
+
+uint32_t app_tx_get_link_mask(void)
+{
+	return last_link_mask;
 }
 
 int app_tx_send_evse_data(void)

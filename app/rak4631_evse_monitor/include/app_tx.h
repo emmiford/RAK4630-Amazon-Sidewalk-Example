@@ -43,4 +43,18 @@ int app_tx_send_evse_data(void);
  */
 void app_tx_set_link_mask(uint32_t link_mask);
 
+/**
+ * @brief Check if Sidewalk is ready to transmit
+ *
+ * @return true if Sidewalk is ready, false otherwise
+ */
+bool app_tx_is_ready(void);
+
+/**
+ * @brief Get the current link mask
+ *
+ * @return Current link mask used for transmissions
+ */
+uint32_t app_tx_get_link_mask(void);
+
 #endif /* APP_TX_H */

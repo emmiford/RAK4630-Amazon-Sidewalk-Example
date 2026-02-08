@@ -68,4 +68,5 @@ void sidewalk_event_link_switch(sidewalk_ctx_t *sid, void *ctx);
 void sidewalk_event_exit(sidewalk_ctx_t *sid, void *ctx);
 void sidewalk_event_reboot(sidewalk_ctx_t *sid, void *ctx);
 void sidewalk_event_platform_init(sidewalk_ctx_t *sid, void *ctx);
+void sidewalk_event_set_link(sidewalk_ctx_t *sid, void *ctx);
 #endif /* SIDEWALK_APP_H */
