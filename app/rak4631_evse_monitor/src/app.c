@@ -232,7 +232,7 @@ void app_start(void)
 	};
 
 	sid_ctx.config = (struct sid_config){
-		.link_mask = SID_LINK_TYPE_3,  /* LoRa only */
+		.link_mask = SID_LINK_TYPE_1 | SID_LINK_TYPE_3,  /* BLE + LoRa (BLE required for registration) */
 		.dev_ch = dev_ch,
 		.callbacks = &event_callbacks,
 		.link_config = app_get_ble_config(),

@@ -48,6 +48,30 @@ void sidewalk_start(sidewalk_ctx_t *context);
 
 int sidewalk_event_send(event_handler_t event, void *ctx, ctx_free free);
 
+/**
+ * @brief Sidewalk initialization state tracking
+ */
+typedef enum {
+	SID_INIT_NOT_STARTED = 0,
+	SID_INIT_PLATFORM_INIT_ERR,
+	SID_INIT_MFG_EMPTY,
+	SID_INIT_RADIO_INIT_ERR,
+	SID_INIT_SID_INIT_ERR,
+	SID_INIT_SID_START_ERR,
+	SID_INIT_STARTED_OK,
+} sid_init_state_t;
+
+typedef struct {
+	sid_init_state_t state;
+	int err_code;
+} sid_init_status_t;
+
+/** Get the current init status (what happened during boot) */
+sid_init_status_t sidewalk_get_init_status(void);
+
+/** Get string name for init state */
+const char *sidewalk_init_state_str(sid_init_state_t state);
+
 #ifdef CONFIG_SIDEWALK_LINK_MASK_BLE
 #define DEFAULT_LM (uint32_t)(SID_LINK_TYPE_1)
 #elif CONFIG_SIDEWALK_LINK_MASK_FSK

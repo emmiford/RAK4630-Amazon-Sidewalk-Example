@@ -31,6 +31,31 @@
 
 LOG_MODULE_REGISTER(sidewalk_events, CONFIG_SIDEWALK_LOG_LEVEL);
 
+/* Init state tracking */
+static sid_init_status_t init_status = {
+	.state = SID_INIT_NOT_STARTED,
+	.err_code = 0,
+};
+
+sid_init_status_t sidewalk_get_init_status(void)
+{
+	return init_status;
+}
+
+const char *sidewalk_init_state_str(sid_init_state_t state)
+{
+	switch (state) {
+	case SID_INIT_NOT_STARTED:       return "NOT_STARTED";
+	case SID_INIT_PLATFORM_INIT_ERR: return "PLATFORM_INIT_ERR";
+	case SID_INIT_MFG_EMPTY:         return "MFG_EMPTY";
+	case SID_INIT_RADIO_INIT_ERR:    return "RADIO_INIT_ERR";
+	case SID_INIT_SID_INIT_ERR:      return "SID_INIT_ERR";
+	case SID_INIT_SID_START_ERR:     return "SID_START_ERR";
+	case SID_INIT_STARTED_OK:        return "STARTED_OK";
+	default:                         return "UNKNOWN";
+	}
+}
+
 #ifdef CONFIG_SIDEWALK_SUBGHZ_SUPPORT
 static sid_pal_radio_rx_packet_t radio_rx_packet;
 
@@ -72,6 +97,8 @@ void sidewalk_event_platform_init(sidewalk_ctx_t *sid, void *ctx)
 	sid_error_t e = sid_platform_init(&platform_parameters);
 	if (SID_ERROR_NONE != e) {
 		LOG_ERR("Sidewalk Platform Init err:  %d (%s)", (int)e, SID_ERROR_T_STR(e));
+		init_status.state = SID_INIT_PLATFORM_INIT_ERR;
+		init_status.err_code = (int)e;
 		return;
 	}
 	if (app_mfg_cfg_is_empty()) {
@@ -79,6 +106,7 @@ void sidewalk_event_platform_init(sidewalk_ctx_t *sid, void *ctx)
 		LOG_ERR("Check if the file has been generated and flashed properly");
 		LOG_ERR("START ADDRESS: 0x%08x", APP_MFG_CFG_FLASH_START);
 		LOG_ERR("SIZE: 0x%08x", APP_MFG_CFG_FLASH_SIZE);
+		init_status.state = SID_INIT_MFG_EMPTY;
 		return;
 	}
 
@@ -87,6 +115,8 @@ void sidewalk_event_platform_init(sidewalk_ctx_t *sid, void *ctx)
 	err = sid_pal_radio_init(radio_event_notifier, radio_irq_handler, &radio_rx_packet);
 	if (err) {
 		LOG_ERR("radio init err %d", err);
+		init_status.state = SID_INIT_RADIO_INIT_ERR;
+		init_status.err_code = err;
 	}
 	err = sid_pal_radio_sleep(0);
 	if (err) {
@@ -106,6 +136,9 @@ void sidewalk_event_autostart(sidewalk_ctx_t *sid, void *ctx)
 		LOG_ERR("Check if the file has been generated and flashed properly");
 		LOG_ERR("START ADDRESS: 0x%08x", APP_MFG_CFG_FLASH_START);
 		LOG_ERR("SIZE: 0x%08x", APP_MFG_CFG_FLASH_SIZE);
+		if (init_status.state == SID_INIT_NOT_STARTED) {
+			init_status.state = SID_INIT_MFG_EMPTY;
+		}
 		return;
 	}
 #ifdef CONFIG_SID_END_DEVICE_PERSISTENT_LINK_MASK
@@ -127,12 +160,20 @@ void sidewalk_event_autostart(sidewalk_ctx_t *sid, void *ctx)
 	sid_error_t e = sid_init(&sid->config, &sid->handle);
 	if (e) {
 		LOG_ERR("sid init err %d (%s)", (int)e, SID_ERROR_T_STR(e));
+		init_status.state = SID_INIT_SID_INIT_ERR;
+		init_status.err_code = (int)e;
 		return;
 	}
 
 	e = sid_start(sid->handle, sid->config.link_mask);
 	if (e) {
 		LOG_ERR("sid start err %d (%s)", (int)e, SID_ERROR_T_STR(e));
+		init_status.state = SID_INIT_SID_START_ERR;
+		init_status.err_code = (int)e;
+	} else {
+		init_status.state = SID_INIT_STARTED_OK;
+		init_status.err_code = 0;
+		LOG_INF("Sidewalk init complete: STARTED_OK");
 	}
 
 #if CONFIG_SID_END_DEVICE_AUTO_CONN_REQ
