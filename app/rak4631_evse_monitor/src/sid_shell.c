@@ -8,6 +8,8 @@
 #include <zephyr/logging/log.h>
 #include <app_tx.h>
 #include <sidewalk.h>
+#include <sid_pal_mfg_store_ifc.h>
+#include <sid_pal_crypto_ifc.h>
 
 LOG_MODULE_REGISTER(sid_shell, CONFIG_SIDEWALK_LOG_LEVEL);
 
@@ -40,20 +42,23 @@ static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
 		shell_warn(sh, "  -> Init never ran. app_start() may have failed early.");
 		break;
 	case SID_INIT_PLATFORM_INIT_ERR:
-		shell_error(sh, "  -> sid_platform_init() failed. Check radio/SPI config.");
+		shell_error(sh, "  -> sid_platform_init() failed (err=%d). Check radio/SPI config.",
+			    init.err_code);
 		break;
 	case SID_INIT_MFG_EMPTY:
 		shell_error(sh, "  -> MFG store is empty! Flash mfg.hex with device credentials.");
-		shell_error(sh, "     Use: nrfjprog --program mfg.hex --sectorerase");
 		break;
 	case SID_INIT_RADIO_INIT_ERR:
-		shell_error(sh, "  -> Radio init failed. Check SX1262 SPI/GPIO wiring.");
+		shell_error(sh, "  -> Radio init failed (err=%d). Check SX1262 SPI/GPIO wiring.",
+			    init.err_code);
 		break;
 	case SID_INIT_SID_INIT_ERR:
-		shell_error(sh, "  -> sid_init() failed. Config or memory issue.");
+		shell_error(sh, "  -> sid_init() failed (err=%d). Config or memory issue.",
+			    init.err_code);
 		break;
 	case SID_INIT_SID_START_ERR:
-		shell_error(sh, "  -> sid_start() failed. Link mask or state issue.");
+		shell_error(sh, "  -> sid_start() failed (err=%d). Link mask or state issue.",
+			    init.err_code);
 		break;
 	case SID_INIT_STARTED_OK:
 		if (!ready) {
@@ -63,6 +68,82 @@ static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
 			shell_print(sh, "  -> Sidewalk running and connected.");
 		}
 		break;
+	}
+
+	return 0;
+}
+
+static int cmd_sid_mfg(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	uint32_t ver = sid_pal_mfg_store_get_version();
+	shell_print(sh, "MFG Store:");
+	shell_print(sh, "  Version: %u", ver);
+	if (ver == 0 || ver == 0xFFFFFFFF) {
+		shell_error(sh, "  -> MFG partition is EMPTY or ERASED!");
+		return -1;
+	}
+
+	/* Device ID */
+	uint8_t dev_id[5] = {0};
+	bool ok = sid_pal_mfg_store_dev_id_get(dev_id);
+	shell_print(sh, "  Device ID: %s %02x:%02x:%02x:%02x:%02x",
+		    ok ? "" : "(FAIL)",
+		    dev_id[0], dev_id[1], dev_id[2], dev_id[3], dev_id[4]);
+
+	/* Check key sizes — nonzero means key exists */
+	uint8_t key_buf[64];
+	static const uint8_t zeros[32] = {0};
+
+	/* ED25519 private key */
+	memset(key_buf, 0, sizeof(key_buf));
+	sid_pal_mfg_store_read(SID_PAL_MFG_STORE_DEVICE_PRIV_ED25519,
+			       key_buf, SID_PAL_MFG_STORE_DEVICE_PRIV_ED25519_SIZE);
+	bool ed_priv_ok = (memcmp(key_buf, zeros, 32) != 0);
+	shell_print(sh, "  ED25519 priv key: %s (first 4: %02x%02x%02x%02x)",
+		    ed_priv_ok ? "PRESENT" : "MISSING/ZERO",
+		    key_buf[0], key_buf[1], key_buf[2], key_buf[3]);
+
+	/* ED25519 public key */
+	memset(key_buf, 0, sizeof(key_buf));
+	sid_pal_mfg_store_read(SID_PAL_MFG_STORE_DEVICE_PUB_ED25519,
+			       key_buf, SID_PAL_MFG_STORE_DEVICE_PUB_ED25519_SIZE);
+	bool ed_pub_ok = (memcmp(key_buf, zeros, 32) != 0);
+	shell_print(sh, "  ED25519 pub key:  %s (first 4: %02x%02x%02x%02x)",
+		    ed_pub_ok ? "PRESENT" : "MISSING/ZERO",
+		    key_buf[0], key_buf[1], key_buf[2], key_buf[3]);
+
+	/* P256R1 private key */
+	memset(key_buf, 0, sizeof(key_buf));
+	sid_pal_mfg_store_read(SID_PAL_MFG_STORE_DEVICE_PRIV_P256R1,
+			       key_buf, SID_PAL_MFG_STORE_DEVICE_PRIV_P256R1_SIZE);
+	bool p256_priv_ok = (memcmp(key_buf, zeros, 32) != 0);
+	shell_print(sh, "  P256R1 priv key:  %s (first 4: %02x%02x%02x%02x)",
+		    p256_priv_ok ? "PRESENT" : "MISSING/ZERO",
+		    key_buf[0], key_buf[1], key_buf[2], key_buf[3]);
+
+	/* P256R1 public key */
+	memset(key_buf, 0, sizeof(key_buf));
+	sid_pal_mfg_store_read(SID_PAL_MFG_STORE_DEVICE_PUB_P256R1,
+			       key_buf, SID_PAL_MFG_STORE_DEVICE_PUB_P256R1_SIZE);
+	bool p256_pub_ok = (memcmp(key_buf, zeros, 32) != 0);
+	shell_print(sh, "  P256R1 pub key:   %s (first 4: %02x%02x%02x%02x)",
+		    p256_pub_ok ? "PRESENT" : "MISSING/ZERO",
+		    key_buf[0], key_buf[1], key_buf[2], key_buf[3]);
+
+	/* Clear sensitive key data from stack */
+	memset(key_buf, 0, sizeof(key_buf));
+
+	if (!ed_priv_ok || !ed_pub_ok) {
+		shell_error(sh, "  -> ED25519 keys MISSING! Re-provision device.");
+	}
+	if (!p256_priv_ok || !p256_pub_ok) {
+		shell_error(sh, "  -> P256R1 keys MISSING! Re-provision device.");
+	}
+	if (ed_priv_ok && ed_pub_ok && p256_priv_ok && p256_pub_ok) {
+		shell_print(sh, "  -> All MFG keys present.");
 	}
 
 	return 0;
@@ -140,12 +221,32 @@ static int cmd_sid_ble(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
+static int cmd_sid_reset(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	shell_warn(sh, "Sending factory reset — clears stored session keys and registration state.");
+	shell_warn(sh, "Device will need to re-register with cloud after reboot.");
+
+	int err = sidewalk_event_send(sidewalk_event_factory_reset, NULL, NULL);
+	if (err) {
+		shell_error(sh, "Failed to queue factory_reset: %d", err);
+		return err;
+	}
+
+	shell_print(sh, "Factory reset queued. Device will reboot.");
+	return 0;
+}
+
 SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(status, NULL, "Show Sidewalk init state and status", cmd_sid_status),
+	SHELL_CMD(mfg, NULL, "Check MFG store keys and device ID", cmd_sid_mfg),
 	SHELL_CMD(reinit, NULL, "Re-run Sidewalk init (with visible logs)", cmd_sid_reinit),
 	SHELL_CMD(send, NULL, "Trigger manual send", cmd_sid_send),
 	SHELL_CMD(lora, NULL, "Switch to LoRa mode", cmd_sid_lora),
 	SHELL_CMD(ble, NULL, "Switch to BLE mode", cmd_sid_ble),
+	SHELL_CMD(reset, NULL, "Factory reset (clear session keys, re-register)", cmd_sid_reset),
 	SHELL_SUBCMD_SET_END
 );
 
