@@ -127,6 +127,130 @@ resource "aws_iot_topic_rule" "evse_rule" {
   }
 }
 
+# --- Charge Scheduler Lambda ---
+
+# Package scheduler Lambda
+data "archive_file" "scheduler_zip" {
+  type        = "zip"
+  source_file = "${path.module}/../charge_scheduler_lambda.py"
+  output_path = "${path.module}/../charge_scheduler_lambda.zip"
+}
+
+# IAM role for scheduler Lambda
+resource "aws_iam_role" "charge_scheduler_role" {
+  name = "charge-scheduler-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy: CloudWatch + DynamoDB + IoT Wireless downlink
+resource "aws_iam_role_policy" "charge_scheduler_policy" {
+  name = "charge-scheduler-lambda-policy"
+  role = aws_iam_role.charge_scheduler_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query"
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iotwireless:SendDataToWirelessDevice",
+          "iotwireless:ListWirelessDevices"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Scheduler Lambda function
+resource "aws_lambda_function" "charge_scheduler" {
+  filename         = data.archive_file.scheduler_zip.output_path
+  function_name    = "charge-scheduler"
+  role             = aws_iam_role.charge_scheduler_role.arn
+  handler          = "charge_scheduler_lambda.lambda_handler"
+  source_code_hash = data.archive_file.scheduler_zip.output_base64sha256
+  runtime          = "python3.11"
+  timeout          = 30
+  memory_size      = 128
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE    = var.dynamodb_table_name
+      WATTTIME_USERNAME = var.watttime_username
+      WATTTIME_PASSWORD = var.watttime_password
+      MOER_THRESHOLD    = tostring(var.moer_threshold)
+    }
+  }
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch Log Group for scheduler
+resource "aws_cloudwatch_log_group" "charge_scheduler_logs" {
+  name              = "/aws/lambda/charge-scheduler"
+  retention_in_days = 14
+}
+
+# EventBridge rule — periodic schedule
+resource "aws_cloudwatch_event_rule" "charge_schedule" {
+  name                = "charge-scheduler-rule"
+  schedule_expression = "rate(${var.scheduler_rate_minutes} ${var.scheduler_rate_minutes == 1 ? "minute" : "minutes"})"
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# EventBridge target → Lambda
+resource "aws_cloudwatch_event_target" "charge_scheduler_target" {
+  rule      = aws_cloudwatch_event_rule.charge_schedule.name
+  target_id = "charge-scheduler-lambda"
+  arn       = aws_lambda_function.charge_scheduler.arn
+}
+
+# Permission for EventBridge to invoke the scheduler Lambda
+resource "aws_lambda_permission" "eventbridge_invoke" {
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.charge_scheduler.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.charge_schedule.arn
+}
+
 # DynamoDB table for storing EVSE events
 resource "aws_dynamodb_table" "evse_events" {
   name         = var.dynamodb_table_name

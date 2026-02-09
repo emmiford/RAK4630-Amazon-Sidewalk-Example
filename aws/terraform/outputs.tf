@@ -27,3 +27,13 @@ output "iot_rule_arn" {
   description = "ARN of the IoT topic rule"
   value       = aws_iot_topic_rule.evse_rule.arn
 }
+
+output "charge_scheduler_lambda_arn" {
+  description = "ARN of the charge scheduler Lambda function"
+  value       = aws_lambda_function.charge_scheduler.arn
+}
+
+output "charge_scheduler_rule_arn" {
+  description = "ARN of the charge scheduler EventBridge rule"
+  value       = aws_cloudwatch_event_rule.charge_schedule.arn
+}

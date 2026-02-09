@@ -33,3 +33,29 @@ variable "iot_rule_name" {
   type        = string
   default     = "evse_sidewalk_rule"
 }
+
+variable "scheduler_rate_minutes" {
+  description = "How often the charge scheduler runs (minutes). Use 5 for debug, 60 for production."
+  type        = number
+  default     = 5
+}
+
+variable "watttime_username" {
+  description = "WattTime API username"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "watttime_password" {
+  description = "WattTime API password"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "moer_threshold" {
+  description = "MOER percent threshold above which charging is paused (0-100)"
+  type        = number
+  default     = 70
+}
