@@ -15,6 +15,7 @@
 #include <sid_hal_reset_ifc.h>
 #include <sid_hal_memory_ifc.h>
 #include <platform_api.h>
+#include <ota_update.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
@@ -115,6 +116,9 @@ static void on_sidewalk_msg_received(const struct sid_msg_desc *msg_desc,
 	if (msg_desc->type == SID_MSG_TYPE_RESPONSE &&
 	    msg_desc->msg_desc_attr.rx_attr.is_msg_ack) {
 		LOG_DBG("Received Ack for msg id %d", msg_desc->id);
+	} else if (msg->size >= 1 && ((const uint8_t *)msg->data)[0] == OTA_CMD_TYPE) {
+		/* OTA messages handled by platform, not forwarded to app */
+		ota_process_msg((const uint8_t *)msg->data, msg->size);
 	} else if (app_image_valid() && app_cb->on_msg_received) {
 		app_cb->on_msg_received((const uint8_t *)msg->data, msg->size);
 	}
@@ -431,6 +435,42 @@ static int cmd_sid_reset(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
+static int cmd_sid_ota_status(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+	enum ota_phase phase = ota_get_phase();
+	shell_print(sh, "OTA Status: %s", ota_phase_str(phase));
+	return 0;
+}
+
+static int cmd_sid_ota_abort(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+	if (ota_get_phase() == OTA_PHASE_IDLE) {
+		shell_print(sh, "OTA: no session active");
+	} else {
+		ota_abort();
+		shell_print(sh, "OTA: session aborted");
+	}
+	return 0;
+}
+
+static int cmd_sid_ota_send_status(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+	ota_send_status();
+	shell_print(sh, "OTA: status uplink queued");
+	return 0;
+}
+
+/* OTA subcommands */
+SHELL_STATIC_SUBCMD_SET_CREATE(ota_cmds,
+	SHELL_CMD(status, NULL, "Show OTA status", cmd_sid_ota_status),
+	SHELL_CMD(abort, NULL, "Abort OTA session", cmd_sid_ota_abort),
+	SHELL_CMD(report, NULL, "Send OTA status uplink", cmd_sid_ota_send_status),
+	SHELL_SUBCMD_SET_END
+);
+
 /* Shell command registration — platform commands */
 SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(status, NULL, "Show Sidewalk status", cmd_sid_status),
@@ -440,6 +480,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(lora, NULL, "Switch to LoRa", cmd_sid_lora),
 	SHELL_CMD(ble, NULL, "Switch to BLE", cmd_sid_ble),
 	SHELL_CMD(reset, NULL, "Factory reset", cmd_sid_reset),
+	SHELL_CMD(ota, &ota_cmds, "OTA update commands", NULL),
 	SHELL_SUBCMD_SET_END
 );
 SHELL_CMD_REGISTER(sid, &sid_cmds, "Sidewalk commands", NULL);
@@ -458,6 +499,13 @@ void app_start(void)
 
 	if (app_led_init()) {
 		LOG_ERR("Cannot init leds");
+	}
+
+	/* Initialize OTA module and check for interrupted apply */
+	ota_init(platform_api_table.send_msg);
+	if (ota_boot_recovery_check()) {
+		/* Recovery in progress — will reboot when done */
+		return;
 	}
 
 	/* Discover app image */

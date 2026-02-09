@@ -37,3 +37,13 @@ output "charge_scheduler_rule_arn" {
   description = "ARN of the charge scheduler EventBridge rule"
   value       = aws_cloudwatch_event_rule.charge_schedule.arn
 }
+
+output "ota_sender_lambda_arn" {
+  description = "ARN of the OTA sender Lambda function"
+  value       = aws_lambda_function.ota_sender.arn
+}
+
+output "ota_bucket_name" {
+  description = "Name of the OTA firmware S3 bucket"
+  value       = aws_s3_bucket.ota_firmware.id
+}

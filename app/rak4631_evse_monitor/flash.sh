@@ -13,7 +13,7 @@ set -e
 
 TARGET="nrf52840"
 MFG_HEX="../../mfg.hex"
-PLATFORM_HEX="../../build/rak4631_evse_monitor/zephyr/zephyr.hex"
+PLATFORM_HEX="../../build/merged.hex"
 APP_HEX="../../build_app/app.hex"
 
 flash_mfg() {

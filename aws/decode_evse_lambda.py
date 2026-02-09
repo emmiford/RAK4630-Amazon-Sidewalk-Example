@@ -20,7 +20,9 @@ import time
 from decimal import Decimal
 
 dynamodb = boto3.resource('dynamodb')
+lambda_client = boto3.client('lambda')
 table_name = os.environ.get('DYNAMODB_TABLE', 'sidewalk-v1-device_events_v2')
+ota_lambda_name = os.environ.get('OTA_LAMBDA_NAME', 'ota-sender')
 table = dynamodb.Table(table_name)
 
 # EVSE payload magic byte and version
@@ -30,6 +32,12 @@ EVSE_PAYLOAD_SIZE = 8
 
 # Legacy payload type
 LEGACY_EVSE_TYPE = 0x01
+
+# OTA protocol constants
+OTA_CMD_TYPE = 0x20
+OTA_SUB_ACK = 0x80
+OTA_SUB_COMPLETE = 0x81
+OTA_SUB_STATUS = 0x82
 
 # J1772 state mapping
 J1772_STATES = {
@@ -132,6 +140,54 @@ def decode_legacy_sid_demo_payload(raw_bytes):
     return None
 
 
+def decode_ota_uplink(raw_bytes):
+    """
+    Decode OTA uplink messages (cmd type 0x20).
+
+    ACK (0x80):      status(1) next_chunk(2) chunks_received(2) = 7B total
+    COMPLETE (0x81): result(1) crc32_calc(4) = 7B total
+    STATUS (0x82):   phase(1) chunks_rcvd(2) total_chunks(2) app_ver(4) = 11B total
+    """
+    if len(raw_bytes) < 2 or raw_bytes[0] != OTA_CMD_TYPE:
+        return None
+
+    subtype = raw_bytes[1]
+
+    if subtype == OTA_SUB_ACK and len(raw_bytes) >= 7:
+        return {
+            'payload_type': 'ota',
+            'ota_type': 'ack',
+            'status': raw_bytes[2],
+            'next_chunk': int.from_bytes(raw_bytes[3:5], 'little'),
+            'chunks_received': int.from_bytes(raw_bytes[5:7], 'little'),
+        }
+
+    if subtype == OTA_SUB_COMPLETE and len(raw_bytes) >= 7:
+        return {
+            'payload_type': 'ota',
+            'ota_type': 'complete',
+            'result': raw_bytes[2],
+            'crc32_calc': f"0x{int.from_bytes(raw_bytes[3:7], 'little'):08x}",
+        }
+
+    if subtype == OTA_SUB_STATUS and len(raw_bytes) >= 11:
+        return {
+            'payload_type': 'ota',
+            'ota_type': 'status',
+            'phase': raw_bytes[2],
+            'chunks_received': int.from_bytes(raw_bytes[3:5], 'little'),
+            'total_chunks': int.from_bytes(raw_bytes[5:7], 'little'),
+            'app_version': int.from_bytes(raw_bytes[7:11], 'little'),
+        }
+
+    return {
+        'payload_type': 'ota',
+        'ota_type': 'unknown',
+        'subtype': subtype,
+        'raw_hex': raw_bytes.hex(),
+    }
+
+
 def decode_payload(raw_payload_b64):
     """
     Decode EVSE payload from base64-encoded Sidewalk message.
@@ -151,6 +207,13 @@ def decode_payload(raw_payload_b64):
             raw_bytes = decoded_b64
 
         print(f"Raw bytes ({len(raw_bytes)}): {raw_bytes.hex()}")
+
+        # Check for OTA uplink (cmd type 0x20) first
+        if len(raw_bytes) >= 2 and raw_bytes[0] == OTA_CMD_TYPE:
+            decoded = decode_ota_uplink(raw_bytes)
+            if decoded:
+                print(f"Decoded as OTA uplink: {decoded.get('ota_type')}")
+                return decoded
 
         # Try new raw format first (magic byte 0xE5)
         decoded = decode_raw_evse_payload(raw_bytes)
@@ -219,7 +282,26 @@ def lambda_handler(event, context):
         }
 
         # Add decoded sensor data
-        if decoded.get('payload_type') == 'evse':
+        if decoded.get('payload_type') == 'ota':
+            item['event_type'] = 'ota_uplink'
+            item['data'] = {'ota': decoded}
+
+            # Forward OTA responses to the ota_sender Lambda (async)
+            ota_type = decoded.get('ota_type', '')
+            if ota_type in ('ack', 'complete', 'status'):
+                ota_event = {'type': ota_type, **{k: v for k, v in decoded.items()
+                             if k not in ('payload_type', 'ota_type')}}
+                try:
+                    lambda_client.invoke(
+                        FunctionName=ota_lambda_name,
+                        InvocationType='Event',  # async
+                        Payload=json.dumps({'ota_event': ota_event}),
+                    )
+                    print(f"Forwarded OTA {ota_type} to {ota_lambda_name}")
+                except Exception as e:
+                    print(f"Failed to invoke OTA Lambda: {e}")
+
+        elif decoded.get('payload_type') == 'evse':
             item['data'] = {
                 'evse': {
                     'format': decoded.get('format', 'unknown'),

@@ -1,13 +1,13 @@
 # Split-image partition layout
 #
 # 'app' is NOT defined here — the partition manager places it
-# dynamically in the single remaining gap (0x0 to 0x80000 = 512KB).
+# dynamically in the single remaining gap (0x0 to 0x90000 = 576KB).
 # This is where the Zephyr platform image lives.
 
 evse_app:
-  address: 0x80000
+  address: 0x90000
   region: flash_primary
-  size: 0x75000
+  size: 0x65000
 
 settings_storage:
   address: 0xF5000

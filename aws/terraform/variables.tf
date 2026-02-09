@@ -59,3 +59,9 @@ variable "moer_threshold" {
   type        = number
   default     = 70
 }
+
+variable "ota_bucket_name" {
+  description = "S3 bucket name for OTA firmware binaries"
+  type        = string
+  default     = "evse-ota-firmware-dev"
+}

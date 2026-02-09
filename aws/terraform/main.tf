@@ -68,6 +68,13 @@ resource "aws_iam_role_policy" "evse_decoder_policy" {
           "dynamodb:Query"
         ]
         Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:InvokeFunction"
+        ]
+        Resource = "arn:aws:lambda:${var.aws_region}:*:function:ota-sender"
       }
     ]
   })
@@ -86,7 +93,8 @@ resource "aws_lambda_function" "evse_decoder" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE = var.dynamodb_table_name
+      DYNAMODB_TABLE  = var.dynamodb_table_name
+      OTA_LAMBDA_NAME = "ota-sender"
     }
   }
 
@@ -277,4 +285,176 @@ resource "aws_dynamodb_table" "evse_events" {
     Project     = "evse-monitor"
     Environment = var.environment
   }
+}
+
+# --- OTA Sender Lambda ---
+
+# S3 bucket for firmware binaries
+resource "aws_s3_bucket" "ota_firmware" {
+  bucket = var.ota_bucket_name
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# Package OTA sender Lambda
+data "archive_file" "ota_sender_zip" {
+  type        = "zip"
+  source_file = "${path.module}/../ota_sender_lambda.py"
+  output_path = "${path.module}/../ota_sender_lambda.zip"
+}
+
+# IAM role for OTA sender Lambda
+resource "aws_iam_role" "ota_sender_role" {
+  name = "ota-sender-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy: CloudWatch + S3 + DynamoDB + IoT Wireless
+resource "aws_iam_role_policy" "ota_sender_policy" {
+  name = "ota-sender-lambda-policy"
+  role = aws_iam_role.ota_sender_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "${aws_s3_bucket.ota_firmware.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query"
+        ]
+        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iotwireless:SendDataToWirelessDevice",
+          "iotwireless:ListWirelessDevices"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# OTA sender Lambda function
+resource "aws_lambda_function" "ota_sender" {
+  filename         = data.archive_file.ota_sender_zip.output_path
+  function_name    = "ota-sender"
+  role             = aws_iam_role.ota_sender_role.arn
+  handler          = "ota_sender_lambda.lambda_handler"
+  source_code_hash = data.archive_file.ota_sender_zip.output_base64sha256
+  runtime          = "python3.11"
+  timeout          = 60
+  memory_size      = 128
+
+  environment {
+    variables = {
+      DYNAMODB_TABLE = var.dynamodb_table_name
+      OTA_BUCKET     = var.ota_bucket_name
+    }
+  }
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch Log Group for OTA sender
+resource "aws_cloudwatch_log_group" "ota_sender_logs" {
+  name              = "/aws/lambda/ota-sender"
+  retention_in_days = 14
+}
+
+# Permission for S3 to invoke OTA sender Lambda
+resource "aws_lambda_permission" "s3_invoke_ota" {
+  statement_id  = "AllowS3Invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.ota_sender.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.ota_firmware.arn
+}
+
+# Permission for decode Lambda to invoke OTA sender Lambda
+resource "aws_lambda_permission" "decode_invoke_ota" {
+  statement_id  = "AllowDecodeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.ota_sender.function_name
+  principal     = "lambda.amazonaws.com"
+  source_arn    = aws_lambda_function.evse_decoder.arn
+}
+
+# S3 bucket notification → OTA sender Lambda
+resource "aws_s3_bucket_notification" "ota_upload" {
+  bucket = aws_s3_bucket.ota_firmware.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.ota_sender.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "firmware/"
+    filter_suffix       = ".bin"
+  }
+
+  depends_on = [aws_lambda_permission.s3_invoke_ota]
+}
+
+# EventBridge rule — OTA retry timer (1 minute)
+resource "aws_cloudwatch_event_rule" "ota_retry" {
+  name                = "ota-retry-timer"
+  schedule_expression = "rate(1 minute)"
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# EventBridge target → OTA sender Lambda
+resource "aws_cloudwatch_event_target" "ota_retry_target" {
+  rule      = aws_cloudwatch_event_rule.ota_retry.name
+  target_id = "ota-sender-retry"
+  arn       = aws_lambda_function.ota_sender.arn
+}
+
+# Permission for EventBridge to invoke OTA sender
+resource "aws_lambda_permission" "eventbridge_invoke_ota" {
+  statement_id  = "AllowEventBridgeInvokeOTA"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.ota_sender.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.ota_retry.arn
 }

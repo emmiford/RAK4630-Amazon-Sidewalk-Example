@@ -1,16 +1,16 @@
 /*
  * App Image Linker Script
  *
- * Places the app callback table at 0x80000 (start of app partition)
+ * Places the app callback table at 0x90000 (start of app partition)
  * followed by code and data sections.
  *
  * RAM: uses last 8KB of nRF52840 SRAM (0x2003E000 - 0x20040000)
- * Flash: 0x80000 - 0xF4FFF (468KB partition, app uses ~20-30KB)
+ * Flash: 0x90000 - 0xF4FFF (404KB partition, app uses ~20-30KB)
  */
 
 MEMORY
 {
-    FLASH (rx)  : ORIGIN = 0x80000, LENGTH = 0x75000   /* 468KB app partition */
+    FLASH (rx)  : ORIGIN = 0x90000, LENGTH = 0x65000   /* 404KB app partition */
     RAM   (rwx) : ORIGIN = 0x2003E000, LENGTH = 0x2000 /* 8KB reserved for app */
 }
 

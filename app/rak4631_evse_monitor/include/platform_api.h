@@ -25,8 +25,8 @@ extern "C" {
 /*  Flash addresses                                                    */
 /* ------------------------------------------------------------------ */
 
-#define PLATFORM_API_ADDR       0x7FF00   /* last 256 bytes of platform partition */
-#define APP_CALLBACKS_ADDR      0x80000   /* start of app partition */
+#define PLATFORM_API_ADDR       0x8FF00   /* last 256 bytes of 576KB platform partition */
+#define APP_CALLBACKS_ADDR      0x90000   /* start of app partition */
 
 /* ------------------------------------------------------------------ */
 /*  Platform API table (provided by platform at PLATFORM_API_ADDR)    */

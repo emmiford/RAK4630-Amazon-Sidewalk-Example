@@ -9,7 +9,7 @@
 #   cmake ../rak-sid/app/rak4631_evse_monitor/app_evse
 #   make
 #
-# Output: app.hex (flash at 0x80000)
+# Output: app.hex (flash at 0x90000)
 #
 
 cmake_minimum_required(VERSION 3.20.0)
