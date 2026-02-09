@@ -1,62 +1,99 @@
 /*
- * Copyright (c) 2024 Nordic Semiconductor ASA
+ * Platform-side App Loader
  *
- * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+ * Boots Sidewalk, discovers the app callback table at 0x80000,
+ * and dispatches events through it.
  */
 
 #include <sidewalk.h>
 #include <app_tx.h>
 #include <app_rx.h>
 #include <app_leds.h>
-#include <charge_control.h>
 #include <app_ble_config.h>
 #include <sidewalk_dfu/nordic_dfu.h>
 #include <app_subGHz_config.h>
 #include <sid_hal_reset_ifc.h>
 #include <sid_hal_memory_ifc.h>
+#include <platform_api.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <rak_sidewalk.h>
+#include <zephyr/shell/shell.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 #include <json_printer/sidTypes2str.h>
 #ifdef CONFIG_SIDEWALK_FILE_TRANSFER_DFU
 #include <sbdt/dfu_file_transfer.h>
 #endif
-
 #include <bt_app_callbacks.h>
 
 LOG_MODULE_REGISTER(app, CONFIG_SIDEWALK_LOG_LEVEL);
 
-#define NOTIFY_TIMER_DURATION_MS (10000)  /* 10 sec delay before first sensor read */
+/* ------------------------------------------------------------------ */
+/*  External: platform API table (defined in platform_api_impl.c)     */
+/* ------------------------------------------------------------------ */
 
-K_THREAD_STACK_DEFINE(app_rx_stack, CONFIG_SID_END_DEVICE_RX_THREAD_STACK_SIZE);
+extern const struct platform_api platform_api_table;
 
-static struct k_thread app_rx;
+/* ------------------------------------------------------------------ */
+/*  App callback table discovery                                       */
+/* ------------------------------------------------------------------ */
+
+static const struct app_callbacks *app_cb;
+
+static bool app_image_valid(void)
+{
+	return (app_cb != NULL);
+}
+
+static void discover_app_image(void)
+{
+	const struct app_callbacks *cb =
+		(const struct app_callbacks *)APP_CALLBACKS_ADDR;
+
+	if (cb->magic != APP_CALLBACK_MAGIC) {
+		LOG_WRN("No valid app image at 0x%08x (magic=0x%08x, expected=0x%08x)",
+			APP_CALLBACKS_ADDR, cb->magic, APP_CALLBACK_MAGIC);
+		app_cb = NULL;
+		return;
+	}
+
+	if (cb->version != APP_CALLBACK_VERSION) {
+		LOG_WRN("App API version mismatch: %u vs %u",
+			cb->version, APP_CALLBACK_VERSION);
+	}
+
+	app_cb = cb;
+	LOG_INF("App image found at 0x%08x (version %u)", APP_CALLBACKS_ADDR, cb->version);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Timer — periodic sensor/TX tick                                    */
+/* ------------------------------------------------------------------ */
+
+#define NOTIFY_TIMER_DURATION_MS (10000)
 
 static void notify_timer_cb(struct k_timer *timer_id);
 K_TIMER_DEFINE(notify_timer, notify_timer_cb, NULL);
 
-/* Work handler for sensor reads */
-static void sensor_work_handler(struct k_work *work)
+static void timer_work_handler(struct k_work *work)
 {
 	ARG_UNUSED(work);
-
-	/* Update thermostat outputs */
-	charge_control_tick();
-
-	/* Send sensor data via Sidewalk (reads sensors internally) */
-	int err = app_tx_send_evse_data();
-	if (err && err != -ENODEV) {
-		LOG_ERR("Failed to send EVSE data: %d", err);
+	if (app_image_valid() && app_cb->on_timer) {
+		app_cb->on_timer();
 	}
 }
-K_WORK_DEFINE(sensor_work, sensor_work_handler);
+K_WORK_DEFINE(timer_work, timer_work_handler);
 
 static void notify_timer_cb(struct k_timer *timer_id)
 {
 	ARG_UNUSED(timer_id);
-	/* Schedule sensor read on system work queue (not ISR context) */
-	k_work_submit(&sensor_work);
+	k_work_submit(&timer_work);
 }
+
+/* ------------------------------------------------------------------ */
+/*  Sidewalk callbacks                                                 */
+/* ------------------------------------------------------------------ */
 
 static sidewalk_ctx_t sid_ctx;
 
@@ -65,45 +102,44 @@ static void on_sidewalk_event(bool in_isr, void *context)
 	int err = sidewalk_event_send(sidewalk_event_process, NULL, NULL);
 	if (err) {
 		LOG_ERR("Send event err %d", err);
-	};
+	}
 }
 
-static void on_sidewalk_msg_received(const struct sid_msg_desc *msg_desc, const struct sid_msg *msg,
-				     void *context)
+static void on_sidewalk_msg_received(const struct sid_msg_desc *msg_desc,
+				     const struct sid_msg *msg, void *context)
 {
-	LOG_DBG("Received message(type: %d, link_mode: %d, id: %u size %u)", (int)msg_desc->type,
-		(int)msg_desc->link_mode, msg_desc->id, msg->size);
+	LOG_DBG("Received message(type: %d, link_mode: %d, id: %u size %u)",
+		(int)msg_desc->type, (int)msg_desc->link_mode, msg_desc->id, msg->size);
 	LOG_HEXDUMP_INF((uint8_t *)msg->data, msg->size, "Received message: ");
 
-	if (msg_desc->type == SID_MSG_TYPE_RESPONSE && msg_desc->msg_desc_attr.rx_attr.is_msg_ack) {
+	if (msg_desc->type == SID_MSG_TYPE_RESPONSE &&
+	    msg_desc->msg_desc_attr.rx_attr.is_msg_ack) {
 		LOG_DBG("Received Ack for msg id %d", msg_desc->id);
-	} else {
-		struct app_rx_msg rx_msg = { 0 };
-		rx_msg.pld_size = MIN(msg->size, APP_RX_PAYLOAD_MAX_SIZE);
-		memcpy(rx_msg.rx_payload, msg->data, rx_msg.pld_size);
-		int err = app_rx_msg_received(&rx_msg);
-		if (err) {
-			LOG_ERR("Rx msg err %d", err);
-		}
+	} else if (app_image_valid() && app_cb->on_msg_received) {
+		app_cb->on_msg_received((const uint8_t *)msg->data, msg->size);
 	}
 }
 
 static void on_sidewalk_msg_sent(const struct sid_msg_desc *msg_desc, void *context)
 {
 	LOG_DBG("sent message(type: %d, id: %u)", (int)msg_desc->type, msg_desc->id);
+	if (app_image_valid() && app_cb->on_msg_sent) {
+		app_cb->on_msg_sent(msg_desc->id);
+	}
 }
 
 static void on_sidewalk_send_error(sid_error_t error, const struct sid_msg_desc *msg_desc,
 				   void *context)
 {
 	LOG_ERR("Send message err %d (%s)", (int)error, SID_ERROR_T_STR(error));
-	LOG_DBG("Failed to send message(type: %d, id: %u)", (int)msg_desc->type, msg_desc->id);
+	if (app_image_valid() && app_cb->on_send_error) {
+		app_cb->on_send_error(msg_desc->id, (int)error);
+	}
 }
 
 static void on_sidewalk_factory_reset(void *context)
 {
 	ARG_UNUSED(context);
-
 	LOG_INF("Factory reset notification received from sid api");
 	if (sid_hal_reset(SID_HAL_RESET_NORMAL)) {
 		LOG_WRN("Cannot reboot");
@@ -120,24 +156,25 @@ static void on_sidewalk_status_changed(const struct sid_status *status, void *co
 	}
 	sidewalk_event_send(sidewalk_event_new_status, new_status, sid_hal_free);
 
-	/* Update TX module with link status */
+	/* Update platform TX module */
 	app_tx_set_link_mask(status->detail.link_status_mask);
 
-	/* Set ready flag based on Sidewalk state */
+	/* Determine ready state */
+	bool ready = false;
 	switch (status->state) {
 	case SID_STATE_READY:
 	case SID_STATE_SECURE_CHANNEL_READY:
-		LOG_INF("Status changed: ready");
-		app_tx_set_ready(true);
+		ready = true;
 		break;
-	case SID_STATE_NOT_READY:
-		LOG_INF("Status changed: not ready");
-		app_tx_set_ready(false);
+	default:
 		break;
-	case SID_STATE_ERROR:
-		LOG_INF("Status not changed: error");
-		app_tx_set_ready(false);
-		break;
+	}
+
+	app_tx_set_ready(ready);
+
+	/* Notify app */
+	if (app_image_valid() && app_cb->on_ready) {
+		app_cb->on_ready(ready);
 	}
 
 	LOG_INF("Device %sregistered, Time Sync %s, Link status: {BLE: %s, FSK: %s, LoRa: %s}",
@@ -150,28 +187,101 @@ static void on_sidewalk_status_changed(const struct sid_status *status, void *co
 	for (int i = 0; i < SID_LINK_TYPE_MAX_IDX; i++) {
 		enum sid_link_mode mode =
 			(enum sid_link_mode)status->detail.supported_link_modes[i];
-
 		if (mode) {
 			LOG_INF("Link mode on %s = {Cloud: %s, Mobile: %s}",
 				(SID_LINK_TYPE_1_IDX == i) ? "BLE" :
 				(SID_LINK_TYPE_2_IDX == i) ? "FSK" :
-				(SID_LINK_TYPE_3_IDX == i) ? "LoRa" :
-							     "unknow",
+				(SID_LINK_TYPE_3_IDX == i) ? "LoRa" : "unknow",
 				(mode & SID_LINK_MODE_CLOUD) ? "True" : "False",
 				(mode & SID_LINK_MODE_MOBILE) ? "True" : "False");
 		}
 	}
 }
 
+/* ------------------------------------------------------------------ */
+/*  Shell dispatch to app                                              */
+/* ------------------------------------------------------------------ */
 
-void app_start_tasks(void)
+/* Wrappers to pass Zephyr shell_print/shell_error as function pointers.
+ * The Zephyr shell API takes a `const struct shell *` first arg, so we
+ * capture it in a file-scope variable during command dispatch. */
+
+static const struct shell *current_shell;
+
+static void shell_print_wrapper(const char *fmt, ...)
 {
-	(void)k_thread_create(&app_rx, app_rx_stack, K_THREAD_STACK_SIZEOF(app_rx_stack),
-			      app_rx_task, NULL, NULL, NULL,
-			      CONFIG_SID_END_DEVICE_RX_THREAD_PRIORITY, 0, K_NO_WAIT);
-
-	k_thread_name_set(&app_rx, "app_rx");
+	char buf[128];
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	if (current_shell) {
+		shell_print(current_shell, "%s", buf);
+	}
 }
+
+static void shell_error_wrapper(const char *fmt, ...)
+{
+	char buf[128];
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	if (current_shell) {
+		shell_error(current_shell, "%s", buf);
+	}
+}
+
+static int cmd_app_dispatch(const struct shell *sh, const char *cmd,
+			    size_t argc, char **argv)
+{
+	if (!app_image_valid() || !app_cb->on_shell_cmd) {
+		shell_error(sh, "No app image loaded");
+		return -1;
+	}
+
+	/* Build args string from remaining argv */
+	char args_buf[128] = {0};
+	size_t pos = 0;
+	for (size_t i = 1; i < argc; i++) {
+		if (i > 1 && pos < sizeof(args_buf) - 1) {
+			args_buf[pos++] = ' ';
+		}
+		size_t len = strlen(argv[i]);
+		if (pos + len >= sizeof(args_buf)) {
+			break;
+		}
+		memcpy(args_buf + pos, argv[i], len);
+		pos += len;
+	}
+	args_buf[pos] = '\0';
+
+	current_shell = sh;
+	int ret = app_cb->on_shell_cmd(cmd, pos > 0 ? args_buf : NULL,
+				       shell_print_wrapper, shell_error_wrapper);
+	current_shell = NULL;
+	return ret;
+}
+
+static int cmd_evse(const struct shell *sh, size_t argc, char **argv)
+{
+	return cmd_app_dispatch(sh, "evse", argc, argv);
+}
+
+static int cmd_hvac(const struct shell *sh, size_t argc, char **argv)
+{
+	return cmd_app_dispatch(sh, "hvac", argc, argv);
+}
+
+/* "sid send" is handled by app, other sid commands stay in platform */
+static int cmd_sid_send_app(const struct shell *sh, size_t argc, char **argv)
+{
+	return cmd_app_dispatch(sh, "sid", 2, (char *[]){"sid", "send"});
+}
+
+/* ------------------------------------------------------------------ */
+/*  BLE GATT authorization                                             */
+/* ------------------------------------------------------------------ */
 
 static bool gatt_authorize(struct bt_conn *conn, const struct bt_gatt_attr *attr)
 {
@@ -194,7 +304,7 @@ static bool gatt_authorize(struct bt_conn *conn, const struct bt_gatt_attr *attr
 			return false;
 		}
 	}
-#endif //defined(CONFIG_SIDEWALK_DFU)
+#endif
 	return true;
 }
 
@@ -203,18 +313,170 @@ static const struct bt_gatt_authorization_cb gatt_authorization_callbacks = {
 	.write_authorize = gatt_authorize,
 };
 
+/* ------------------------------------------------------------------ */
+/*  Platform-side shell commands (sid status, mfg, etc.)               */
+/* ------------------------------------------------------------------ */
+
+static const char *link_type_str(uint32_t link_mask)
+{
+	if (link_mask & SID_LINK_TYPE_1) return "BLE";
+	if (link_mask & SID_LINK_TYPE_2) return "FSK";
+	if (link_mask & SID_LINK_TYPE_3) return "LoRa";
+	return "None";
+}
+
+static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+
+	bool ready = app_tx_is_ready();
+	uint32_t link_mask = app_tx_get_link_mask();
+	sid_init_status_t init = sidewalk_get_init_status();
+
+	shell_print(sh, "Sidewalk Status:");
+	shell_print(sh, "  Init state: %s (err=%d)",
+		    sidewalk_init_state_str(init.state), init.err_code);
+	shell_print(sh, "  Ready: %s", ready ? "YES" : "NO");
+	shell_print(sh, "  Link type: %s (0x%x)", link_type_str(link_mask), link_mask);
+	shell_print(sh, "  App image: %s", app_image_valid() ? "LOADED" : "NOT FOUND");
+
+	switch (init.state) {
+	case SID_INIT_NOT_STARTED:
+		shell_warn(sh, "  -> Init never ran.");
+		break;
+	case SID_INIT_PLATFORM_INIT_ERR:
+		shell_error(sh, "  -> sid_platform_init() failed (err=%d).", init.err_code);
+		break;
+	case SID_INIT_MFG_EMPTY:
+		shell_error(sh, "  -> MFG store is empty! Flash mfg.hex.");
+		break;
+	case SID_INIT_RADIO_INIT_ERR:
+		shell_error(sh, "  -> Radio init failed (err=%d).", init.err_code);
+		break;
+	case SID_INIT_SID_INIT_ERR:
+		shell_error(sh, "  -> sid_init() failed (err=%d).", init.err_code);
+		break;
+	case SID_INIT_SID_START_ERR:
+		shell_error(sh, "  -> sid_start() failed (err=%d).", init.err_code);
+		break;
+	case SID_INIT_STARTED_OK:
+		if (!ready) {
+			shell_warn(sh, "  -> Started but not READY. Waiting for gateway.");
+		} else {
+			shell_print(sh, "  -> Running and connected.");
+		}
+		break;
+	}
+	return 0;
+}
+
+static int cmd_sid_mfg(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+
+	uint32_t ver = platform_api_table.mfg_get_version();
+	shell_print(sh, "MFG Store:");
+	shell_print(sh, "  Version: %u", ver);
+	if (ver == 0 || ver == 0xFFFFFFFF) {
+		shell_error(sh, "  -> MFG partition is EMPTY or ERASED!");
+		return -1;
+	}
+
+	uint8_t dev_id[5] = {0};
+	bool ok = platform_api_table.mfg_get_dev_id(dev_id);
+	shell_print(sh, "  Device ID: %s %02x:%02x:%02x:%02x:%02x",
+		    ok ? "" : "(FAIL)",
+		    dev_id[0], dev_id[1], dev_id[2], dev_id[3], dev_id[4]);
+
+	return 0;
+}
+
+static int cmd_sid_reinit(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+
+	shell_print(sh, "Re-running Sidewalk init sequence...");
+	sidewalk_event_send(sidewalk_event_platform_init, NULL, NULL);
+	sidewalk_event_send(sidewalk_event_autostart, NULL, NULL);
+	shell_print(sh, "Init events queued. Run 'sid status' to check.");
+	return 0;
+}
+
+static int cmd_sid_lora(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+	uint32_t mask = SID_LINK_TYPE_3;
+	app_tx_set_link_mask(mask);
+	sidewalk_event_send(sidewalk_event_set_link, (void *)(uintptr_t)mask, NULL);
+	shell_print(sh, "Switching to LoRa...");
+	return 0;
+}
+
+static int cmd_sid_ble(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+	uint32_t mask = SID_LINK_TYPE_1;
+	app_tx_set_link_mask(mask);
+	sidewalk_event_send(sidewalk_event_set_link, (void *)(uintptr_t)mask, NULL);
+	shell_print(sh, "Switching to BLE...");
+	return 0;
+}
+
+static int cmd_sid_reset(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+	shell_warn(sh, "Factory reset — clears session keys and registration.");
+	sidewalk_event_send(sidewalk_event_factory_reset, NULL, NULL);
+	shell_print(sh, "Factory reset queued. Device will reboot.");
+	return 0;
+}
+
+/* Shell command registration — platform commands */
+SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
+	SHELL_CMD(status, NULL, "Show Sidewalk status", cmd_sid_status),
+	SHELL_CMD(mfg, NULL, "Check MFG store", cmd_sid_mfg),
+	SHELL_CMD(reinit, NULL, "Re-run Sidewalk init", cmd_sid_reinit),
+	SHELL_CMD(send, NULL, "Trigger manual send (app)", cmd_sid_send_app),
+	SHELL_CMD(lora, NULL, "Switch to LoRa", cmd_sid_lora),
+	SHELL_CMD(ble, NULL, "Switch to BLE", cmd_sid_ble),
+	SHELL_CMD(reset, NULL, "Factory reset", cmd_sid_reset),
+	SHELL_SUBCMD_SET_END
+);
+SHELL_CMD_REGISTER(sid, &sid_cmds, "Sidewalk commands", NULL);
+
+/* App-dispatched shell commands */
+SHELL_CMD_REGISTER(evse, NULL, "EVSE commands (app)", cmd_evse);
+SHELL_CMD_REGISTER(hvac, NULL, "HVAC commands (app)", cmd_hvac);
+
+/* ------------------------------------------------------------------ */
+/*  App start                                                          */
+/* ------------------------------------------------------------------ */
+
 void app_start(void)
 {
-	LOG_INF("=== APP START ===");
+	LOG_INF("=== PLATFORM START ===");
 
 	if (app_led_init()) {
 		LOG_ERR("Cannot init leds");
 	}
 
-	if (charge_control_init()) {
-		LOG_ERR("Cannot init charge control");
+	/* Discover app image */
+	discover_app_image();
+
+	/* Initialize app if present */
+	if (app_image_valid() && app_cb->init) {
+		int err = app_cb->init(&platform_api_table);
+		if (err) {
+			LOG_ERR("App init failed: %d", err);
+			app_cb = NULL;
+		} else {
+			LOG_INF("App loaded and initialized");
+		}
+	} else {
+		LOG_WRN("Running in platform-only mode (no app image)");
 	}
 
+	/* Configure Sidewalk */
 	static struct sid_event_callbacks event_callbacks = {
 		.context = &sid_ctx,
 		.on_event = on_sidewalk_event,
@@ -232,7 +494,7 @@ void app_start(void)
 	};
 
 	sid_ctx.config = (struct sid_config){
-		.link_mask = SID_LINK_TYPE_1 | SID_LINK_TYPE_3,  /* BLE + LoRa (BLE required for registration) */
+		.link_mask = SID_LINK_TYPE_1 | SID_LINK_TYPE_3,
 		.dev_ch = dev_ch,
 		.callbacks = &event_callbacks,
 		.link_config = app_get_ble_config(),
@@ -245,14 +507,13 @@ void app_start(void)
 		return;
 	}
 
-	/* Start Sidewalk and app tasks */
-	app_start_tasks();
+	/* Start Sidewalk */
 	sidewalk_start(&sid_ctx);
 	sidewalk_event_send(sidewalk_event_platform_init, NULL, NULL);
 	sidewalk_event_send(sidewalk_event_autostart, NULL, NULL);
 
-	/* Sensor timer enabled - 10s initial, 60s repeat */
-	LOG_INF("Starting sensor timer (10s delay)");
+	/* Start periodic timer (10s initial, 60s repeat) */
+	LOG_INF("Starting sensor timer (10s delay, 60s period)");
 	k_timer_start(&notify_timer, K_MSEC(NOTIFY_TIMER_DURATION_MS),
 		      K_MSEC(CONFIG_SID_END_DEVICE_NOTIFY_DATA_PERIOD_MS));
 }

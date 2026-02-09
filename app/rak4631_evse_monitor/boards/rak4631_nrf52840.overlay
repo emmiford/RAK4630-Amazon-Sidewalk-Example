@@ -8,6 +8,13 @@
 		zephyr,shell-uart = &cdc_acm_uart0;
 	};
 
+	/* Reserve last 8KB of SRAM for app image (0x2003E000-0x20040000) */
+	app_ram: memory@2003E000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x2003E000 0x2000>;
+		zephyr,memory-region = "APP_RAM";
+	};
+
 	thermostat_inputs {
 		compatible = "gpio-keys";
 		heat_call: heat_call {

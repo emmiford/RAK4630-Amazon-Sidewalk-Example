@@ -1,6 +1,4 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
- *
  * Thermostat Digital Input Interface
  */
 
@@ -10,36 +8,23 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Thermostat flag bit positions */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct platform_api;  /* forward declaration */
+
 #define THERMOSTAT_FLAG_HEAT    (1 << 0)
 #define THERMOSTAT_FLAG_COOL    (1 << 1)
 
-/**
- * @brief Initialize the thermostat GPIO inputs
- *
- * @return 0 on success, negative errno on failure
- */
+void thermostat_inputs_set_api(const struct platform_api *platform);
 int thermostat_inputs_init(void);
-
-/**
- * @brief Read the heat call input state
- *
- * @return true if heat call is active, false otherwise
- */
 bool thermostat_heat_call_get(void);
-
-/**
- * @brief Read the cool call input state
- *
- * @return true if cool call is active, false otherwise
- */
 bool thermostat_cool_call_get(void);
-
-/**
- * @brief Get all thermostat states as a flag byte
- *
- * @return Bit flags: bit 0 = heat call, bit 1 = cool call
- */
 uint8_t thermostat_flags_get(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* THERMOSTAT_INPUTS_H */
