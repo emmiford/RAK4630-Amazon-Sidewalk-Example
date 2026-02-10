@@ -360,7 +360,8 @@ resource "aws_iam_role_policy" "ota_sender_policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:PutObject"
         ]
         Resource = "${aws_s3_bucket.ota_firmware.arn}/*"
       },

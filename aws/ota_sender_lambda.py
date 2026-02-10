@@ -222,10 +222,15 @@ def handle_s3_trigger(record):
     # Check for baseline firmware to enable delta mode
     delta_chunks_list = None
     baseline_key = "firmware/baseline.bin"
+    baseline_crc = None
+    baseline_size = None
     try:
         baseline = load_firmware(bucket, baseline_key)
+        baseline_crc = crc32(baseline)
+        baseline_size = len(baseline)
         delta_chunks_list = compute_delta_chunks(baseline, firmware, CHUNK_DATA_SIZE)
         print(f"Delta mode: {len(delta_chunks_list)}/{full_chunks} chunks changed: {delta_chunks_list}")
+        print(f"Baseline: {baseline_size}B, CRC32=0x{baseline_crc:08x}")
     except Exception as e:
         print(f"No baseline ({e}), using full OTA")
 
@@ -256,6 +261,9 @@ def handle_s3_trigger(record):
         "retries": 0,
         "started_at": int(time.time()),
     }
+    if baseline_crc is not None:
+        session_data["baseline_crc32"] = baseline_crc
+        session_data["baseline_size"] = baseline_size
     if delta_chunks_list is not None:
         session_data["delta_chunks"] = json.dumps(delta_chunks_list)
         session_data["delta_cursor"] = 0
