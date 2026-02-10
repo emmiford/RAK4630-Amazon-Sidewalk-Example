@@ -333,7 +333,7 @@ def handle_retry_check(event):
     updated_at = int(session.get("updated_at", 0))
     elapsed = int(time.time()) - updated_at
 
-    if elapsed < 300:
+    if elapsed < 30:
         print(f"Session active ({elapsed}s ago), no retry needed")
         return {"statusCode": 200, "body": "session active"}
 
