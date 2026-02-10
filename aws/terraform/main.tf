@@ -74,7 +74,7 @@ resource "aws_iam_role_policy" "evse_decoder_policy" {
         Action = [
           "lambda:InvokeFunction"
         ]
-        Resource = "arn:aws:lambda:${var.aws_region}:*:function:ota-sender"
+        Resource = "arn:aws:lambda:${var.aws_region}:*:function:${aws_lambda_function.ota_sender.function_name}"
       }
     ]
   })
@@ -94,7 +94,7 @@ resource "aws_lambda_function" "evse_decoder" {
   environment {
     variables = {
       DYNAMODB_TABLE  = var.dynamodb_table_name
-      OTA_LAMBDA_NAME = "ota-sender"
+      OTA_LAMBDA_NAME = aws_lambda_function.ota_sender.function_name
     }
   }
 
@@ -137,11 +137,19 @@ resource "aws_iot_topic_rule" "evse_rule" {
 
 # --- Charge Scheduler Lambda ---
 
-# Package scheduler Lambda
+# Package scheduler Lambda (includes shared utils)
 data "archive_file" "scheduler_zip" {
   type        = "zip"
-  source_file = "${path.module}/../charge_scheduler_lambda.py"
   output_path = "${path.module}/../charge_scheduler_lambda.zip"
+
+  source {
+    content  = file("${path.module}/../charge_scheduler_lambda.py")
+    filename = "charge_scheduler_lambda.py"
+  }
+  source {
+    content  = file("${path.module}/../sidewalk_utils.py")
+    filename = "sidewalk_utils.py"
+  }
 }
 
 # IAM role for scheduler Lambda
@@ -299,11 +307,19 @@ resource "aws_s3_bucket" "ota_firmware" {
   }
 }
 
-# Package OTA sender Lambda
+# Package OTA sender Lambda (includes shared utils)
 data "archive_file" "ota_sender_zip" {
   type        = "zip"
-  source_file = "${path.module}/../ota_sender_lambda.py"
   output_path = "${path.module}/../ota_sender_lambda.zip"
+
+  source {
+    content  = file("${path.module}/../ota_sender_lambda.py")
+    filename = "ota_sender_lambda.py"
+  }
+  source {
+    content  = file("${path.module}/../sidewalk_utils.py")
+    filename = "sidewalk_utils.py"
+  }
 }
 
 # IAM role for OTA sender Lambda

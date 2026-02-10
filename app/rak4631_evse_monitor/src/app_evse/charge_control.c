@@ -35,12 +35,14 @@ int charge_control_init(void)
 int charge_control_process_cmd(const uint8_t *data, size_t len)
 {
 	if (data == NULL || len < sizeof(charge_control_cmd_t)) {
+		if (api) api->log_wrn("charge_control: bad args data=%p len=%u", data, (unsigned)len);
 		return -1;
 	}
 
 	const charge_control_cmd_t *cmd = (const charge_control_cmd_t *)data;
 
 	if (cmd->cmd_type != CHARGE_CONTROL_CMD_TYPE) {
+		if (api) api->log_wrn("charge_control: unexpected cmd_type 0x%02x", cmd->cmd_type);
 		return -1;
 	}
 

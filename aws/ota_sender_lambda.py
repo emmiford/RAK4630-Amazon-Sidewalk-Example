@@ -18,9 +18,10 @@ from decimal import Decimal
 
 import boto3
 
+from sidewalk_utils import get_device_id, send_sidewalk_msg
+
 # --- Clients ---
 dynamodb = boto3.resource("dynamodb")
-iot_wireless = boto3.client("iotwireless")
 s3 = boto3.client("s3")
 lambda_client = boto3.client("lambda")
 
@@ -51,7 +52,6 @@ OTA_STATUS_NO_SESSION = 3
 OTA_STATUS_SIZE_ERR = 4
 
 # Module-level cache
-_device_id = None
 _firmware_cache = {}  # key -> bytes
 
 
@@ -73,51 +73,6 @@ def crc16_ccitt(data, init=0xFFFF):
                 crc = crc << 1
             crc &= 0xFFFF
     return crc
-
-
-def get_device_id():
-    """Auto-discover the Sidewalk device ID."""
-    global _device_id
-    if _device_id is not None:
-        return _device_id
-
-    resp = iot_wireless.list_wireless_devices(
-        WirelessDeviceType="Sidewalk", MaxResults=10
-    )
-    devices = resp.get("WirelessDeviceList", [])
-    if not devices:
-        raise RuntimeError("No Sidewalk devices found")
-    if len(devices) == 1:
-        _device_id = devices[0]["Id"]
-        print(f"Device: {_device_id}")
-        return _device_id
-
-    for d in devices:
-        if "eric" in d.get("Name", "").lower():
-            _device_id = d["Id"]
-            print(f"Device 'eric': {_device_id}")
-            return _device_id
-
-    _device_id = devices[0]["Id"]
-    print(f"Using first device: {_device_id}")
-    return _device_id
-
-
-def send_sidewalk_msg(payload_bytes):
-    """Send a downlink message to the Sidewalk device."""
-    b64_payload = base64.b64encode(payload_bytes).decode()
-    print(f"TX: {payload_bytes.hex()} ({len(payload_bytes)}B)")
-
-    iot_wireless.send_data_to_wireless_device(
-        Id=get_device_id(),
-        TransmitMode=1,  # unconfirmed — avoids protocol-level retransmit
-        PayloadData=b64_payload,
-        WirelessMetadata={
-            "Sidewalk": {
-                "MessageType": "CUSTOM_COMMAND_ID_NOTIFY",
-            }
-        },
-    )
 
 
 def load_firmware(bucket, key):

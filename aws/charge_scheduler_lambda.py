@@ -22,9 +22,10 @@ from zoneinfo import ZoneInfo
 
 import boto3
 
+from sidewalk_utils import get_device_id, send_sidewalk_msg
+
 # --- Clients (created once per container) ---
 dynamodb = boto3.resource("dynamodb")
-iot_wireless = boto3.client("iotwireless")
 
 # --- Environment ---
 TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
@@ -37,42 +38,11 @@ WATTTIME_REGION = "PSCO"  # Public Service Company of Colorado
 
 # Module-level caches (survive warm invocations)
 _watttime_token = None
-_device_id = None
 
 # Charge control command byte
 CHARGE_CONTROL_CMD = 0x10
 
 table = dynamodb.Table(TABLE_NAME)
-
-
-def get_device_id():
-    """Auto-discover the Sidewalk device ID. Cached after first call."""
-    global _device_id
-    if _device_id is not None:
-        return _device_id
-
-    resp = iot_wireless.list_wireless_devices(
-        WirelessDeviceType="Sidewalk", MaxResults=10
-    )
-    devices = resp.get("WirelessDeviceList", [])
-    if not devices:
-        raise RuntimeError("No Sidewalk devices found")
-    if len(devices) == 1:
-        _device_id = devices[0]["Id"]
-        print(f"Auto-discovered device: {_device_id} ({devices[0].get('Name', 'unnamed')})")
-        return _device_id
-
-    # Multiple devices — pick the one named "eric" (case-insensitive)
-    for d in devices:
-        if "eric" in d.get("Name", "").lower():
-            _device_id = d["Id"]
-            print(f"Auto-discovered device 'eric': {_device_id}")
-            return _device_id
-
-    # Fallback to first device
-    _device_id = devices[0]["Id"]
-    print(f"Warning: multiple devices found, using first: {_device_id} ({devices[0].get('Name', 'unnamed')})")
-    return _device_id
 
 
 # --- WattTime API ---
@@ -216,20 +186,8 @@ def send_charge_command(allowed):
     Payload: [0x10, allowed, 0x00, 0x00]
     """
     payload_bytes = bytes([CHARGE_CONTROL_CMD, 0x01 if allowed else 0x00, 0x00, 0x00])
-    b64_payload = base64.b64encode(payload_bytes).decode()
-
-    print(f"Sending downlink: allowed={allowed}, payload={payload_bytes.hex()}, b64={b64_payload}")
-
-    iot_wireless.send_data_to_wireless_device(
-        Id=get_device_id(),
-        TransmitMode=0,  # 0 = no ack
-        PayloadData=b64_payload,
-        WirelessMetadata={
-            "Sidewalk": {
-                "MessageType": "CUSTOM_COMMAND_ID_NOTIFY",
-            }
-        },
-    )
+    print(f"Sending downlink: allowed={allowed}, payload={payload_bytes.hex()}")
+    send_sidewalk_msg(payload_bytes, transmit_mode=0)
 
 
 # --- Handler ---
