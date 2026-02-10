@@ -16,10 +16,12 @@
 #include <sid_hal_memory_ifc.h>
 #include <platform_api.h>
 #include <ota_update.h>
+#include "sensor_monitor.h"
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <json_printer/sidTypes2str.h>
@@ -471,6 +473,23 @@ SHELL_STATIC_SUBCMD_SET_CREATE(ota_cmds,
 	SHELL_SUBCMD_SET_END
 );
 
+static int cmd_sid_test_change(const struct shell *sh, size_t argc, char **argv)
+{
+	if (argc < 2) {
+		shell_error(sh, "Usage: sid test_change <source_bitmask>");
+		shell_print(sh, "  1=J1772, 2=current, 4=thermostat");
+		return -1;
+	}
+	if (!app_image_valid() || !app_cb->on_sensor_change) {
+		shell_error(sh, "App does not support on_sensor_change");
+		return -1;
+	}
+	uint8_t source = (uint8_t)strtoul(argv[1], NULL, 0);
+	shell_print(sh, "Triggering on_sensor_change(0x%02x)", source);
+	app_cb->on_sensor_change(source);
+	return 0;
+}
+
 /* Shell command registration — platform commands */
 SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(status, NULL, "Show Sidewalk status", cmd_sid_status),
@@ -481,6 +500,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(ble, NULL, "Switch to BLE", cmd_sid_ble),
 	SHELL_CMD(reset, NULL, "Factory reset", cmd_sid_reset),
 	SHELL_CMD(ota, &ota_cmds, "OTA update commands", NULL),
+	SHELL_CMD(test_change, NULL, "Test on_sensor_change callback", cmd_sid_test_change),
 	SHELL_SUBCMD_SET_END
 );
 SHELL_CMD_REGISTER(sid, &sid_cmds, "Sidewalk commands", NULL);
@@ -519,6 +539,7 @@ void app_start(void)
 			app_cb = NULL;
 		} else {
 			LOG_INF("App loaded and initialized");
+			sensor_monitor_init(app_cb);
 		}
 	} else {
 		LOG_WRN("Running in platform-only mode (no app image)");

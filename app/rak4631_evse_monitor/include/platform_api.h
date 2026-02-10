@@ -83,7 +83,12 @@ struct platform_api {
 /* ------------------------------------------------------------------ */
 
 #define APP_CALLBACK_MAGIC      0x45565345  /* "EVSE" */
-#define APP_CALLBACK_VERSION    1
+#define APP_CALLBACK_VERSION    2
+
+/* Sensor change sources (bitmask for on_sensor_change) */
+#define SENSOR_SRC_J1772       0x01
+#define SENSOR_SRC_CURRENT     0x02
+#define SENSOR_SRC_THERMOSTAT  0x04
 
 struct app_callbacks {
     uint32_t magic;
@@ -105,6 +110,9 @@ struct app_callbacks {
     int   (*on_shell_cmd)(const char *cmd, const char *args,
                           void (*print)(const char *fmt, ...),
                           void (*error)(const char *fmt, ...));
+
+    /* v2: event-driven sensor notification */
+    void  (*on_sensor_change)(uint8_t source);
 };
 
 #ifdef __cplusplus
