@@ -38,6 +38,8 @@ OTA_CMD_TYPE = 0x20
 OTA_SUB_ACK = 0x80
 OTA_SUB_COMPLETE = 0x81
 OTA_SUB_STATUS = 0x82
+OTA_SUB_GAP_REPORT = 0x83
+OTA_SUB_WINDOW_ACK = 0x84
 
 # J1772 state mapping
 J1772_STATES = {
@@ -180,6 +182,25 @@ def decode_ota_uplink(raw_bytes):
             'app_version': int.from_bytes(raw_bytes[7:11], 'little'),
         }
 
+    if subtype == OTA_SUB_GAP_REPORT and len(raw_bytes) >= 4:
+        window_idx = raw_bytes[2]
+        count = raw_bytes[3]
+        gap_indices = list(raw_bytes[4:4 + count])
+        return {
+            'payload_type': 'ota',
+            'ota_type': 'gap_report',
+            'window_idx': window_idx,
+            'gap_count': count,
+            'gap_indices': gap_indices,
+        }
+
+    if subtype == OTA_SUB_WINDOW_ACK and len(raw_bytes) >= 3:
+        return {
+            'payload_type': 'ota',
+            'ota_type': 'window_ack',
+            'window_idx': raw_bytes[2],
+        }
+
     return {
         'payload_type': 'ota',
         'ota_type': 'unknown',
@@ -288,7 +309,7 @@ def lambda_handler(event, context):
 
             # Forward OTA responses to the ota_sender Lambda (async)
             ota_type = decoded.get('ota_type', '')
-            if ota_type in ('ack', 'complete', 'status'):
+            if ota_type in ('ack', 'complete', 'status', 'gap_report', 'window_ack'):
                 ota_event = {'type': ota_type, **{k: v for k, v in decoded.items()
                              if k not in ('payload_type', 'ota_type')}}
                 try:
