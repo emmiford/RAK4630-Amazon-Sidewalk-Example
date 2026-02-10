@@ -92,20 +92,23 @@ static int ota_flash_write(uint32_t addr, const uint8_t *data, size_t len)
 		return err;
 	}
 
-	/* nRF52840 NVMC requires 4-byte aligned writes.
-	 * Pad short writes with 0xFF (erased flash value). */
-	size_t aligned_len = (len + 3u) & ~3u;
-	if (aligned_len == len) {
+	/* nRF52840 NVMC requires 4-byte aligned address AND length.
+	 * Pad with 0xFF (erased flash value) on both sides. */
+	uint32_t aligned_addr = addr & ~3u;
+	uint32_t pre_pad = addr - aligned_addr;
+	size_t aligned_len = (pre_pad + len + 3u) & ~3u;
+
+	if (pre_pad == 0 && aligned_len == len) {
 		return flash_write(flash_dev, addr, data, len);
 	}
 
-	uint8_t buf[20]; /* max chunk is 15B → padded to 16B */
+	uint8_t buf[24]; /* max: 3 pre-pad + 15 data + 2 post-pad */
 	if (aligned_len > sizeof(buf)) {
 		return -ENOMEM;
 	}
-	memcpy(buf, data, len);
-	memset(buf + len, 0xFF, aligned_len - len);
-	return flash_write(flash_dev, addr, buf, aligned_len);
+	memset(buf, 0xFF, aligned_len);
+	memcpy(buf + pre_pad, data, len);
+	return flash_write(flash_dev, aligned_addr, buf, aligned_len);
 }
 
 static int ota_flash_read(uint32_t addr, uint8_t *buf, size_t len)
