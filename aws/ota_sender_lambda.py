@@ -311,23 +311,34 @@ def handle_device_ack(ack_data):
         send_chunk(firmware, int(next_chunk), int(session["chunk_size"]))
         return {"statusCode": 200, "body": f"retrying chunk {next_chunk}"}
 
-    # Success — send next chunk
+    # Success — send next chunk (ignore stale/duplicate ACKs)
     total_chunks = int(session["total_chunks"])
     chunk_idx = int(next_chunk)
+    highest_acked = int(session.get("highest_acked", 0))
+
+    if chunks_received < highest_acked:
+        print(f"Stale ACK: device reports {chunks_received} received but we saw {highest_acked}, ignoring")
+        return {"statusCode": 200, "body": f"stale ack {chunks_received}"}
+
+    if chunks_received == highest_acked and chunk_idx <= int(session.get("next_chunk", 0)):
+        print(f"Duplicate ACK: chunk {chunk_idx} already sent (received={chunks_received}), ignoring")
+        return {"statusCode": 200, "body": f"dup ack {chunk_idx}"}
 
     if chunk_idx >= total_chunks:
         print("All chunks acknowledged, waiting for COMPLETE")
         write_session({**{k: v for k, v in session.items()
                          if k not in ("device_id", "timestamp", "updated_at")},
                        "status": "validating",
-                       "next_chunk": chunk_idx})
+                       "next_chunk": chunk_idx,
+                       "highest_acked": chunks_received})
         return {"statusCode": 200, "body": "all chunks sent, awaiting COMPLETE"}
 
     write_session({**{k: v for k, v in session.items()
                      if k not in ("device_id", "timestamp", "updated_at")},
                    "next_chunk": chunk_idx,
                    "retries": 0,
-                   "status": "sending"})
+                   "status": "sending",
+                   "highest_acked": chunks_received})
 
     firmware = load_firmware(session["s3_bucket"], session["s3_key"])
     send_chunk(firmware, chunk_idx, int(session["chunk_size"]))

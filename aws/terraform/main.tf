@@ -435,6 +435,7 @@ resource "aws_s3_bucket_notification" "ota_upload" {
 # EventBridge rule — OTA retry timer (1 minute)
 resource "aws_cloudwatch_event_rule" "ota_retry" {
   name                = "ota-retry-timer"
+  state               = "ENABLED"
   schedule_expression = "rate(1 minute)"
 
   tags = {
@@ -457,4 +458,52 @@ resource "aws_lambda_permission" "eventbridge_invoke_ota" {
   function_name = aws_lambda_function.ota_sender.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.ota_retry.arn
+}
+
+# --- OTA Stale Session Alarm ---
+# Fires if ota-sender Lambda has errors for 10+ minutes,
+# indicating the retry timer may be disabled or broken.
+
+resource "aws_cloudwatch_metric_alarm" "ota_sender_errors" {
+  alarm_name          = "ota-sender-errors"
+  alarm_description   = "OTA sender Lambda errors detected — retry timer may be disabled or session stalled"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Errors"
+  statistic           = "Sum"
+  period              = 600
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.ota_sender.function_name
+  }
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "ota_retry_not_firing" {
+  alarm_name          = "ota-retry-not-firing"
+  alarm_description   = "OTA retry timer has not invoked ota-sender in 10 min — rule may be disabled"
+  namespace           = "AWS/Lambda"
+  metric_name         = "Invocations"
+  statistic           = "Sum"
+  period              = 600
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.ota_sender.function_name
+  }
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
 }
