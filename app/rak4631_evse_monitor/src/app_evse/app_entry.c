@@ -117,6 +117,14 @@ static void app_on_timer(void)
 	app_tx_send_evse_data();
 }
 
+static void app_on_sensor_change(uint8_t source)
+{
+	if (api) {
+		api->log_inf("Sensor change: 0x%02x", source);
+	}
+	app_tx_send_evse_data();
+}
+
 static int app_on_shell_cmd(const char *cmd, const char *args,
 			    void (*print)(const char *fmt, ...),
 			    void (*error)(const char *fmt, ...))
@@ -128,14 +136,17 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 		} else if (strcmp(args, "a") == 0) {
 			evse_sensors_simulate_state(J1772_STATE_A, SIMULATION_DURATION_MS);
 			print("Simulating J1772 State A (no vehicle) for 10 seconds");
+			app_tx_send_evse_data();
 			return 0;
 		} else if (strcmp(args, "b") == 0) {
 			evse_sensors_simulate_state(J1772_STATE_B, SIMULATION_DURATION_MS);
 			print("Simulating J1772 State B (vehicle connected) for 10 seconds");
+			app_tx_send_evse_data();
 			return 0;
 		} else if (strcmp(args, "c") == 0) {
 			evse_sensors_simulate_state(J1772_STATE_C, SIMULATION_DURATION_MS);
 			print("Simulating J1772 State C (charging) for 10 seconds");
+			app_tx_send_evse_data();
 			return 0;
 		} else if (strcmp(args, "allow") == 0) {
 			charge_control_set(true, 0);
@@ -189,4 +200,5 @@ const struct app_callbacks app_cb = {
 	.on_send_error   = app_on_send_error,
 	.on_timer        = app_on_timer,
 	.on_shell_cmd    = app_on_shell_cmd,
+	.on_sensor_change = app_on_sensor_change,
 };

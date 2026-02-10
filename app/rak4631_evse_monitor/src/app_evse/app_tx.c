@@ -12,9 +12,13 @@
 #define EVSE_VERSION 0x01
 #define EVSE_PAYLOAD_SIZE 8
 
+/* Minimum interval between uplinks to avoid flooding on rapid state changes */
+#define MIN_SEND_INTERVAL_MS  5000
+
 static const struct platform_api *api;
 static bool sidewalk_ready;
 static uint32_t last_link_mask;
+static uint32_t last_send_ms;
 
 void app_tx_set_api(const struct platform_api *platform)
 {
@@ -57,6 +61,13 @@ int app_tx_send_evse_data(void)
 		return -1;
 	}
 
+	/* Rate limit: don't send more often than every 5s */
+	uint32_t now = api->uptime_ms();
+	if (last_send_ms && (now - last_send_ms) < MIN_SEND_INTERVAL_MS) {
+		api->log_inf("TX rate-limited, skipping");
+		return 0;
+	}
+
 	/* Read current sensor data */
 	evse_payload_t data = rak_sidewalk_get_payload();
 
@@ -76,5 +87,6 @@ int app_tx_send_evse_data(void)
 		     data.j1772_state, data.j1772_mv, data.current_ma,
 		     data.thermostat_flags);
 
+	last_send_ms = now;
 	return api->send_msg(payload, sizeof(payload));
 }

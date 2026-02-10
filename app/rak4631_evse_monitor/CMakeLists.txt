@@ -20,6 +20,7 @@ target_sources(app PRIVATE
     src/app_leds.c
     src/platform_api_impl.c
     src/ota_update.c
+    src/sensor_monitor.c
     ext/sid_demo_parser.c
 )
 
