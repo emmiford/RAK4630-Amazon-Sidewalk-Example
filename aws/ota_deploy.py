@@ -117,6 +117,10 @@ def patch_version(version):
         content,
     )
     if new_content == content:
+        cur = get_source_version()
+        if cur == version:
+            print(f"EVSE_VERSION already 0x{version:02x}, no change needed")
+            return True
         print(f"WARNING: EVSE_VERSION not found in {APP_TX_PATH}")
         return False
     with open(APP_TX_PATH, "w") as f:
@@ -383,6 +387,7 @@ def cmd_deploy(args):
 
     # Step 7: Monitor progress
     print("\nMonitoring OTA progress (Ctrl-C to stop)...\n")
+    session_seen = False
     try:
         while True:
             time.sleep(5)
@@ -390,11 +395,15 @@ def cmd_deploy(args):
             print(f"\033[2J\033[H", end="")  # clear screen
             print("OTA Deploy Monitor (Ctrl-C to stop)\n")
             if session:
+                session_seen = True
                 status = session.get("status", "unknown")
                 print_status(session)
                 if status in ("complete",):
                     print("\nOTA complete!")
                     break
+            elif session_seen:
+                print("Session cleared (aborted or completed).")
+                break
             else:
                 print("Waiting for session to start...")
     except KeyboardInterrupt:
