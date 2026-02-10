@@ -40,9 +40,14 @@ static struct {
 	uint8_t  window_size;          /* 0 = legacy per-chunk ACK mode */
 	uint16_t window_start;         /* first chunk idx of current window */
 	uint8_t  window_received[33];  /* bitfield: up to 260 chunks per window */
+	/* Delta mode: total_chunks < full image chunks */
+	bool     delta_mode;
+	uint16_t full_image_chunks;    /* chunks in the full image */
+	uint8_t  delta_received[128];  /* bitfield: up to 1024 chunks (~15KB) */
 } ota_state;
 
 static int (*ota_send_msg)(const uint8_t *data, size_t len);
+static void (*ota_pre_apply_hook)(void);
 
 /* Flash device — nRF52840 internal flash */
 static const struct device *flash_dev;
@@ -313,10 +318,20 @@ static uint32_t compute_flash_crc32(uint32_t addr, size_t size)
 /*  Apply: copy staging → primary                                       */
 /* ------------------------------------------------------------------ */
 
+/* Static buffer for page-at-a-time copy — avoids 4KB stack allocation
+ * which overflows the shell thread stack during delta_test. */
+static uint8_t ota_page_buf[OTA_FLASH_PAGE_SIZE];
+
 static int ota_apply(void)
 {
 	LOG_INF("OTA: applying update (size=%u, crc=0x%08x)",
 		ota_state.total_size, ota_state.expected_crc32);
+
+	/* Stop all app callbacks before erasing primary partition */
+	if (ota_pre_apply_hook) {
+		LOG_INF("OTA: stopping app callbacks before apply");
+		ota_pre_apply_hook();
+	}
 
 	uint32_t total_pages = (ota_state.total_size + OTA_FLASH_PAGE_SIZE - 1) /
 			       OTA_FLASH_PAGE_SIZE;
@@ -330,7 +345,7 @@ static int ota_apply(void)
 	}
 
 	/* Copy page by page: erase primary page, read staging, write primary */
-	uint8_t page_buf[OTA_FLASH_PAGE_SIZE];
+	uint8_t *page_buf = ota_page_buf;
 
 	for (uint32_t page = 0; page < total_pages; page++) {
 		uint32_t src = OTA_STAGING_ADDR + (page * OTA_FLASH_PAGE_SIZE);
@@ -399,7 +414,7 @@ static int ota_resume_apply(const struct ota_metadata *meta)
 	LOG_WRN("OTA: resuming interrupted apply (page %u/%u)",
 		meta->pages_copied, meta->total_pages);
 
-	uint8_t page_buf[OTA_FLASH_PAGE_SIZE];
+	uint8_t *page_buf = ota_page_buf;
 
 	for (uint32_t page = meta->pages_copied; page < meta->total_pages; page++) {
 		uint32_t src = OTA_STAGING_ADDR + (page * OTA_FLASH_PAGE_SIZE);
@@ -480,12 +495,25 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 		window_size = data[18];
 	}
 
-	LOG_INF("OTA START: size=%u chunks=%u chunk_size=%u crc=0x%08x ver=%u win=%u",
-		total_size, total_chunks, chunk_size, crc32, version, window_size);
+	/* Detect delta mode: fewer chunks than the full image requires */
+	uint16_t full_image_chunks = (total_size + chunk_size - 1) / chunk_size;
+	bool is_delta = (total_chunks < full_image_chunks);
+
+	LOG_INF("OTA START: size=%u chunks=%u/%u chunk_size=%u crc=0x%08x ver=%u win=%u%s",
+		total_size, total_chunks, full_image_chunks, chunk_size, crc32,
+		version, window_size, is_delta ? " DELTA" : "");
 
 	/* Validate size fits staging area */
 	if (total_size > OTA_STAGING_SIZE || total_size == 0) {
 		LOG_ERR("OTA START: invalid size %u (max %u)", total_size, OTA_STAGING_SIZE);
+		send_ack(OTA_STATUS_SIZE_ERR, 0, 0);
+		return;
+	}
+
+	/* Delta mode: validate bitfield capacity */
+	if (is_delta && full_image_chunks > sizeof(ota_state.delta_received) * 8) {
+		LOG_ERR("OTA START: image too large for delta (%u chunks, max %u)",
+			full_image_chunks, sizeof(ota_state.delta_received) * 8);
 		send_ack(OTA_STATUS_SIZE_ERR, 0, 0);
 		return;
 	}
@@ -511,15 +539,28 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 	ota_state.bytes_written = 0;
 	ota_state.window_size = window_size;
 	ota_state.window_start = 0;
+	ota_state.delta_mode = is_delta;
+	ota_state.full_image_chunks = full_image_chunks;
 	window_bitfield_clear();
+	if (is_delta) {
+		memset(ota_state.delta_received, 0, sizeof(ota_state.delta_received));
+	}
 
-	LOG_INF("OTA: staging erased, ready for chunks%s",
-		window_size ? " (blast mode)" : "");
+	LOG_INF("OTA: staging erased, ready for chunks%s%s",
+		window_size ? " (blast mode)" : "",
+		is_delta ? " (delta mode)" : "");
 	send_ack(OTA_STATUS_OK, 0, 0);
 }
 
+static void delta_validate_and_apply(void);
+
 static void ota_validate_and_apply(void)
 {
+	if (ota_state.delta_mode) {
+		delta_validate_and_apply();
+		return;
+	}
+
 	LOG_INF("OTA: all chunks received, validating...");
 	ota_state.phase = OTA_PHASE_VALIDATING;
 
@@ -545,6 +586,171 @@ static void ota_validate_and_apply(void)
 		ota_state.phase = OTA_PHASE_ERROR;
 	}
 	/* ota_apply reboots on success, so we only get here on failure */
+}
+
+/* ------------------------------------------------------------------ */
+/*  Delta OTA: merge staging + primary, validate CRC, apply             */
+/* ------------------------------------------------------------------ */
+
+static inline bool delta_chunk_received(uint16_t idx)
+{
+	return (ota_state.delta_received[idx / 8] >> (idx % 8)) & 1u;
+}
+
+static void delta_validate_and_apply(void)
+{
+	LOG_INF("OTA: delta complete (%u/%u chunks), validating merged image...",
+		ota_state.chunks_received, ota_state.full_image_chunks);
+	ota_state.phase = OTA_PHASE_VALIDATING;
+
+	/* CRC32 over merged image: staging (received) + primary (baseline) */
+	uint32_t crc = 0;
+	uint8_t buf[16];
+
+	for (uint16_t i = 0; i < ota_state.full_image_chunks; i++) {
+		uint32_t offset = (uint32_t)i * ota_state.chunk_size;
+		uint16_t read_size = ota_state.chunk_size;
+		uint32_t remaining = ota_state.total_size - offset;
+
+		if (remaining < read_size) {
+			read_size = (uint16_t)remaining;
+		}
+
+		uint32_t addr = delta_chunk_received(i)
+			? (OTA_STAGING_ADDR + offset)
+			: (OTA_APP_PRIMARY_ADDR + offset);
+
+		int err = ota_flash_read(addr, buf, read_size);
+		if (err) {
+			LOG_ERR("OTA: delta CRC read failed at 0x%08x: %d",
+				addr, err);
+			send_complete(OTA_STATUS_FLASH_ERR, 0);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+		crc = crc32_ieee_update(crc, buf, read_size);
+	}
+
+	if (crc != ota_state.expected_crc32) {
+		LOG_ERR("OTA: delta CRC32 mismatch (calc=0x%08x, expected=0x%08x)",
+			crc, ota_state.expected_crc32);
+		send_complete(OTA_STATUS_CRC_ERR, crc);
+		ota_state.phase = OTA_PHASE_ERROR;
+		return;
+	}
+
+	LOG_INF("OTA: delta CRC32 OK (0x%08x), applying", crc);
+	send_complete(OTA_STATUS_OK, crc);
+
+	/* Stop all app callbacks before erasing primary partition */
+	if (ota_pre_apply_hook) {
+		LOG_INF("OTA: stopping app callbacks before delta apply");
+		ota_pre_apply_hook();
+	}
+
+	/* Apply: page by page, assemble from staging + primary → primary */
+	ota_state.phase = OTA_PHASE_APPLYING;
+
+	uint32_t total_pages = (ota_state.total_size + OTA_FLASH_PAGE_SIZE - 1) /
+			       OTA_FLASH_PAGE_SIZE;
+	uint8_t *page_buf = ota_page_buf;
+
+	int err = write_metadata(OTA_META_STATE_APPLYING, ota_state.total_size,
+				 ota_state.expected_crc32, ota_state.app_version,
+				 0, total_pages);
+	if (err) {
+		ota_state.phase = OTA_PHASE_ERROR;
+		return;
+	}
+
+	for (uint32_t page = 0; page < total_pages; page++) {
+		uint32_t page_offset = page * OTA_FLASH_PAGE_SIZE;
+		uint32_t copy_size = OTA_FLASH_PAGE_SIZE;
+
+		if (page_offset + copy_size > ota_state.total_size) {
+			copy_size = ota_state.total_size - page_offset;
+		}
+
+		/* Read baseline from primary first */
+		err = ota_flash_read(OTA_APP_PRIMARY_ADDR + page_offset,
+				     page_buf, copy_size);
+		if (err) {
+			LOG_ERR("OTA: delta baseline read failed page %u: %d",
+				page, err);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+
+		/* Overlay received chunks from staging */
+		uint16_t first_chunk = page_offset / ota_state.chunk_size;
+		uint16_t last_chunk = (page_offset + copy_size - 1) /
+				      ota_state.chunk_size;
+		if (last_chunk >= ota_state.full_image_chunks) {
+			last_chunk = ota_state.full_image_chunks - 1;
+		}
+
+		for (uint16_t ci = first_chunk; ci <= last_chunk; ci++) {
+			if (!delta_chunk_received(ci)) {
+				continue;
+			}
+			/* Chunk start/end within this page */
+			uint32_t chunk_abs = (uint32_t)ci * ota_state.chunk_size;
+			uint32_t start = (chunk_abs > page_offset)
+				? (chunk_abs - page_offset) : 0;
+			uint32_t src_offset = (chunk_abs > page_offset)
+				? 0 : (page_offset - chunk_abs);
+			uint32_t end = ((uint32_t)(ci + 1) * ota_state.chunk_size)
+				       - page_offset;
+			if (end > copy_size) {
+				end = copy_size;
+			}
+			uint16_t len = (uint16_t)(end - start);
+
+			err = ota_flash_read(OTA_STAGING_ADDR + chunk_abs + src_offset,
+					     &page_buf[start], len);
+			if (err) {
+				LOG_ERR("OTA: delta staging read ci=%u: %d",
+					ci, err);
+				ota_state.phase = OTA_PHASE_ERROR;
+				return;
+			}
+		}
+
+		/* Erase primary page and write assembled data */
+		err = ota_flash_erase_pages(OTA_APP_PRIMARY_ADDR + page_offset,
+					    OTA_FLASH_PAGE_SIZE);
+		if (err) {
+			LOG_ERR("OTA: delta primary erase page %u: %d", page, err);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+
+		err = ota_flash_write(OTA_APP_PRIMARY_ADDR + page_offset,
+				      page_buf, copy_size);
+		if (err) {
+			LOG_ERR("OTA: delta primary write page %u: %d", page, err);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+
+		write_metadata(OTA_META_STATE_APPLYING, ota_state.total_size,
+			       ota_state.expected_crc32, ota_state.app_version,
+			       page + 1, total_pages);
+	}
+
+	/* Verify magic at primary */
+	uint32_t magic;
+	ota_flash_read(OTA_APP_PRIMARY_ADDR, (uint8_t *)&magic, sizeof(magic));
+	if (magic != APP_CALLBACK_MAGIC) {
+		LOG_ERR("OTA: delta magic check failed (got 0x%08x)", magic);
+		ota_state.phase = OTA_PHASE_ERROR;
+		return;
+	}
+
+	LOG_INF("OTA: delta apply complete, rebooting");
+	clear_metadata();
+	LOG_PANIC();
+	sys_reboot(SYS_REBOOT_WARM);
 }
 
 static void handle_ota_chunk(const uint8_t *data, size_t len)
@@ -617,7 +823,57 @@ static void handle_ota_chunk(const uint8_t *data, size_t len)
 		return;
 	}
 
-	/* --- Legacy mode (per-chunk ACK) --- */
+	/* --- Delta mode (sparse chunks with absolute positioning) --- */
+	if (ota_state.delta_mode) {
+		if (chunk_idx >= ota_state.full_image_chunks) {
+			LOG_ERR("OTA DELTA: idx %u beyond image (%u)",
+				chunk_idx, ota_state.full_image_chunks);
+			send_ack(OTA_STATUS_SIZE_ERR,
+				 ota_state.chunks_received,
+				 ota_state.chunks_received);
+			return;
+		}
+
+		if (delta_chunk_received(chunk_idx)) {
+			LOG_WRN("OTA DELTA %u: dup, ACK ok", chunk_idx);
+			send_ack(OTA_STATUS_OK,
+				 ota_state.chunks_received,
+				 ota_state.chunks_received);
+			return;
+		}
+
+		uint32_t write_addr = OTA_STAGING_ADDR +
+				      (uint32_t)chunk_idx * ota_state.chunk_size;
+		int err = ota_flash_write(write_addr, chunk_data, data_len);
+		if (err) {
+			LOG_ERR("OTA DELTA %u: flash write err %d",
+				chunk_idx, err);
+			send_ack(OTA_STATUS_FLASH_ERR,
+				 ota_state.chunks_received,
+				 ota_state.chunks_received);
+			return;
+		}
+
+		ota_state.delta_received[chunk_idx / 8] |=
+			(1u << (chunk_idx % 8));
+		ota_state.chunks_received++;
+		ota_state.bytes_written += data_len;
+
+		LOG_INF("OTA DELTA %u/%u (abs idx %u)",
+			ota_state.chunks_received, ota_state.total_chunks,
+			chunk_idx);
+
+		if (ota_state.chunks_received >= ota_state.total_chunks) {
+			ota_validate_and_apply();
+		} else {
+			send_ack(OTA_STATUS_OK,
+				 ota_state.chunks_received,
+				 ota_state.chunks_received);
+		}
+		return;
+	}
+
+	/* --- Legacy mode (per-chunk ACK, sequential) --- */
 
 	/* Handle duplicate chunks (retry from cloud) */
 	if (chunk_idx < ota_state.chunks_received) {
@@ -739,6 +995,11 @@ void ota_init(int (*send_fn)(const uint8_t *data, size_t len))
 	LOG_INF("OTA: module initialized");
 }
 
+void ota_set_pre_apply_hook(void (*fn)(void))
+{
+	ota_pre_apply_hook = fn;
+}
+
 bool ota_boot_recovery_check(void)
 {
 	if (ota_flash_init() != 0) {
@@ -829,6 +1090,51 @@ const char *ota_phase_str(enum ota_phase phase)
 	case OTA_PHASE_COMPLETE:   return "COMPLETE";
 	case OTA_PHASE_ERROR:      return "ERROR";
 	default:                   return "UNKNOWN";
+	}
+}
+
+void ota_test_delta(uint32_t new_size, uint32_t new_crc32, uint32_t new_version)
+{
+	/* Test helper: trigger delta validate+apply using chunks already
+	 * written to staging via pyOCD.  Caller provides the new image
+	 * metadata; the delta_received bitfield must be pre-populated
+	 * (call ota_test_delta_mark_chunk for each written chunk). */
+	if (ota_state.phase != OTA_PHASE_RECEIVING || !ota_state.delta_mode) {
+		LOG_ERR("ota_test_delta: not in delta receive mode");
+		return;
+	}
+	ota_state.total_size = new_size;
+	ota_state.expected_crc32 = new_crc32;
+	ota_state.app_version = new_version;
+	ota_state.full_image_chunks = (new_size + ota_state.chunk_size - 1) /
+				      ota_state.chunk_size;
+	delta_validate_and_apply();
+}
+
+void ota_test_delta_setup(uint16_t chunk_size, uint16_t total_delta_chunks,
+			  uint32_t new_size, uint32_t new_crc32)
+{
+	/* Prepare state for a flash-based delta test.
+	 * After calling this, use pyOCD to write changed chunks to staging,
+	 * then call ota_test_delta_mark_chunk() for each, then ota_test_delta(). */
+	memset(&ota_state, 0, sizeof(ota_state));
+	ota_state.phase = OTA_PHASE_RECEIVING;
+	ota_state.delta_mode = true;
+	ota_state.chunk_size = chunk_size;
+	ota_state.total_chunks = total_delta_chunks;
+	ota_state.total_size = new_size;
+	ota_state.expected_crc32 = new_crc32;
+	ota_state.full_image_chunks = (new_size + chunk_size - 1) / chunk_size;
+	LOG_INF("Delta test setup: %u delta chunks, %u full, size=%u crc=0x%08x",
+		total_delta_chunks, ota_state.full_image_chunks, new_size, new_crc32);
+}
+
+void ota_test_delta_mark_chunk(uint16_t abs_chunk_idx)
+{
+	if (abs_chunk_idx < sizeof(ota_state.delta_received) * 8) {
+		ota_state.delta_received[abs_chunk_idx / 8] |=
+			(1u << (abs_chunk_idx % 8));
+		ota_state.chunks_received++;
 	}
 }
 

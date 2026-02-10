@@ -105,6 +105,12 @@ struct ota_metadata {
 void ota_init(int (*send_fn)(const uint8_t *data, size_t len));
 
 /**
+ * Register a pre-apply hook. Called before erasing the app primary partition
+ * during OTA apply. Use this to stop timers and callbacks into app code.
+ */
+void ota_set_pre_apply_hook(void (*fn)(void));
+
+/**
  * Check for interrupted OTA apply and resume if needed.
  * Call before discover_app_image() at boot.
  * Returns true if a recovery was performed (device will reboot).
@@ -137,6 +143,21 @@ const char *ota_phase_str(enum ota_phase phase);
  * Send an OTA_STATUS uplink with current state.
  */
 void ota_send_status(void);
+
+/**
+ * Delta OTA test helpers — for flash-based testing without LoRa.
+ *
+ * Usage:
+ *   1. Flash "old" app.bin to primary (0x90000)
+ *   2. Run: sid ota delta_setup <chunk_size> <delta_count> <new_size> <new_crc>
+ *   3. Use pyOCD to write changed chunks to staging (0xD0000 + idx*chunk_size)
+ *   4. Run: sid ota delta_mark <abs_idx> for each written chunk
+ *   5. Run: sid ota delta_apply <new_size> <new_crc> <new_version>
+ */
+void ota_test_delta_setup(uint16_t chunk_size, uint16_t total_delta_chunks,
+			  uint32_t new_size, uint32_t new_crc32);
+void ota_test_delta_mark_chunk(uint16_t abs_chunk_idx);
+void ota_test_delta(uint32_t new_size, uint32_t new_crc32, uint32_t new_version);
 
 #ifdef __cplusplus
 }

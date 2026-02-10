@@ -188,6 +188,26 @@ def build_ota_abort():
 
 # --- Handlers ---
 
+def compute_delta_chunks(baseline, firmware, chunk_size):
+    """Compare two firmware binaries chunk-by-chunk, return list of changed absolute chunk indices."""
+    fw_chunks = (len(firmware) + chunk_size - 1) // chunk_size
+    changed = []
+
+    for i in range(fw_chunks):
+        offset = i * chunk_size
+        new_chunk = firmware[offset:offset + chunk_size]
+        old_chunk = baseline[offset:offset + chunk_size] if offset < len(baseline) else b""
+
+        # Pad shorter chunk for comparison
+        if len(old_chunk) < len(new_chunk):
+            old_chunk = old_chunk + b"\xff" * (len(new_chunk) - len(old_chunk))
+
+        if new_chunk != old_chunk:
+            changed.append(i)
+
+    return changed
+
+
 def handle_s3_trigger(record):
     """New firmware uploaded to S3 — start OTA session."""
     bucket = record["s3"]["bucket"]["name"]
@@ -198,7 +218,7 @@ def handle_s3_trigger(record):
     fw_size = len(firmware)
     fw_crc = crc32(firmware)
 
-    total_chunks = (fw_size + CHUNK_DATA_SIZE - 1) // CHUNK_DATA_SIZE
+    full_chunks = (fw_size + CHUNK_DATA_SIZE - 1) // CHUNK_DATA_SIZE
 
     # Extract version from key if present (e.g., firmware/app-v2.bin → 2)
     version = 0
@@ -209,10 +229,28 @@ def handle_s3_trigger(record):
         except ValueError:
             pass
 
-    window_size = WINDOW_SIZE if WINDOW_SIZE > 0 else 0
-    mode = "blast" if window_size else "legacy"
+    # Check for baseline firmware to enable delta mode
+    delta_chunks_list = None
+    baseline_key = "firmware/baseline.bin"
+    try:
+        baseline = load_firmware(bucket, baseline_key)
+        delta_chunks_list = compute_delta_chunks(baseline, firmware, CHUNK_DATA_SIZE)
+        print(f"Delta mode: {len(delta_chunks_list)}/{full_chunks} chunks changed: {delta_chunks_list}")
+    except Exception as e:
+        print(f"No baseline ({e}), using full OTA")
 
-    print(f"OTA START: size={fw_size} chunks={total_chunks} "
+    # Delta mode: send fewer chunks, no windowing needed
+    if delta_chunks_list is not None and len(delta_chunks_list) < full_chunks:
+        total_chunks = len(delta_chunks_list)
+        window_size = 0  # Use legacy ACK mode for delta (few chunks)
+        mode = "delta"
+    else:
+        total_chunks = full_chunks
+        delta_chunks_list = None
+        window_size = WINDOW_SIZE if WINDOW_SIZE > 0 else 0
+        mode = "blast" if window_size else "legacy"
+
+    print(f"OTA START: size={fw_size} chunks={total_chunks}/{full_chunks} "
           f"chunk_size={CHUNK_DATA_SIZE} crc=0x{fw_crc:08x} ver={version} "
           f"mode={mode} window={window_size}")
 
@@ -231,6 +269,9 @@ def handle_s3_trigger(record):
         "started_at": int(time.time()),
         "window_size": window_size,
     }
+    if delta_chunks_list is not None:
+        session_data["delta_chunks"] = json.dumps(delta_chunks_list)
+        session_data["delta_cursor"] = 0
     if window_size:
         session_data.update({
             "window_start": 0,
@@ -244,15 +285,18 @@ def handle_s3_trigger(record):
         "fw_size": fw_size,
         "fw_crc32": f"0x{fw_crc:08x}",
         "total_chunks": total_chunks,
+        "full_chunks": full_chunks,
         "version": version,
         "window_size": window_size,
+        "mode": mode,
+        "delta_chunks": delta_chunks_list,
     })
 
     # Send OTA_START
     msg = build_ota_start(fw_size, total_chunks, CHUNK_DATA_SIZE, fw_crc, version, window_size)
     send_sidewalk_msg(msg)
 
-    return {"statusCode": 200, "body": f"OTA started ({mode}): {key} ({fw_size}B, {total_chunks} chunks)"}
+    return {"statusCode": 200, "body": f"OTA started ({mode}): {key} ({fw_size}B, {total_chunks}/{full_chunks} chunks)"}
 
 
 def handle_device_ack(ack_data):
@@ -305,12 +349,42 @@ def handle_device_ack(ack_data):
 
     # Success — send next chunk (ignore stale/duplicate ACKs)
     total_chunks = int(session["total_chunks"])
-    chunk_idx = int(next_chunk)
     highest_acked = int(session.get("highest_acked", 0))
 
     if chunks_received < highest_acked:
         print(f"Stale ACK: device reports {chunks_received} received but we saw {highest_acked}, ignoring")
         return {"statusCode": 200, "body": f"stale ack {chunks_received}"}
+
+    # Delta mode: map sequential ACK counter to absolute chunk index
+    delta_chunks_json = session.get("delta_chunks")
+    if delta_chunks_json:
+        delta_list = json.loads(delta_chunks_json)
+        delta_cursor = int(chunks_received)  # device counts received deltas sequentially
+
+        if delta_cursor >= len(delta_list):
+            print("All delta chunks acknowledged, waiting for COMPLETE")
+            write_session({**_session_fields(session),
+                           "status": "validating",
+                           "delta_cursor": delta_cursor,
+                           "highest_acked": chunks_received})
+            return {"statusCode": 200, "body": "all delta chunks sent, awaiting COMPLETE"}
+
+        abs_chunk_idx = delta_list[delta_cursor]
+        print(f"Delta: sending chunk {delta_cursor}/{len(delta_list)} (abs idx {abs_chunk_idx})")
+
+        write_session({**_session_fields(session),
+                       "delta_cursor": delta_cursor,
+                       "retries": 0,
+                       "status": "sending",
+                       "highest_acked": chunks_received})
+
+        firmware = load_firmware(session["s3_bucket"], session["s3_key"])
+        send_chunk(firmware, abs_chunk_idx, int(session["chunk_size"]))
+
+        return {"statusCode": 200, "body": f"delta chunk {delta_cursor}/{len(delta_list)} (abs {abs_chunk_idx})"}
+
+    # Full mode: next_chunk is the sequential index
+    chunk_idx = int(next_chunk)
 
     if chunks_received == highest_acked and chunk_idx <= int(session.get("next_chunk", 0)):
         print(f"Duplicate ACK: chunk {chunk_idx} already sent (received={chunks_received}), ignoring")
@@ -345,11 +419,27 @@ def handle_device_complete(complete_data):
 
     print(f"Device COMPLETE: result={result} crc={crc_calc}")
 
+    session = get_session()
+
     log_ota_event("ota_complete", {
         "result": result,
         "crc32_calc": crc_calc,
         "success": result == OTA_STATUS_OK,
     })
+
+    if result == OTA_STATUS_OK and session:
+        # Save successful firmware as baseline for future delta OTAs
+        try:
+            src_bucket = session.get("s3_bucket", OTA_BUCKET)
+            src_key = session["s3_key"]
+            s3.copy_object(
+                Bucket=src_bucket,
+                CopySource={"Bucket": src_bucket, "Key": src_key},
+                Key="firmware/baseline.bin",
+            )
+            print(f"Saved baseline: s3://{src_bucket}/firmware/baseline.bin")
+        except Exception as e:
+            print(f"Failed to save baseline: {e}")
 
     clear_session()
 
@@ -556,7 +646,20 @@ def handle_retry_check(event):
     else:
         # Re-send the chunk the device is waiting for
         firmware = load_firmware(session["s3_bucket"], session["s3_key"])
-        send_chunk(firmware, next_chunk, int(session["chunk_size"]))
+
+        # Delta mode: look up absolute index from delta list
+        delta_chunks_json = session.get("delta_chunks")
+        if delta_chunks_json:
+            delta_list = json.loads(delta_chunks_json)
+            delta_cursor = int(session.get("delta_cursor", next_chunk))
+            if delta_cursor < len(delta_list):
+                abs_idx = delta_list[delta_cursor]
+                print(f"Delta retry: cursor={delta_cursor} abs_idx={abs_idx}")
+                send_chunk(firmware, abs_idx, int(session["chunk_size"]))
+            else:
+                print(f"Delta retry: cursor {delta_cursor} past end, ignoring")
+        else:
+            send_chunk(firmware, next_chunk, int(session["chunk_size"]))
 
     return {"statusCode": 200, "body": f"retried (attempt {retries})"}
 

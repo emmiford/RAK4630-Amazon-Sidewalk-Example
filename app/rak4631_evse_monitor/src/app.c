@@ -465,11 +465,46 @@ static int cmd_sid_ota_send_status(const struct shell *sh, size_t argc, char **a
 	return 0;
 }
 
+static int cmd_sid_ota_delta_test(const struct shell *sh, size_t argc, char **argv)
+{
+	/* sid ota delta_test <chunk_size> <delta_count> <new_size> <new_crc32>
+	 *                    <chunk_idx1> [chunk_idx2] ...
+	 *
+	 * Assumes changed chunks already written to staging via pyOCD.
+	 * Triggers delta validate + apply + reboot. */
+	if (argc < 5) {
+		shell_error(sh, "Usage: sid ota delta_test <chunk_sz> <n_delta> "
+			    "<new_size> <new_crc> [idx1 idx2 ...]");
+		return -EINVAL;
+	}
+
+	uint16_t chunk_size = (uint16_t)strtoul(argv[1], NULL, 0);
+	uint16_t delta_count = (uint16_t)strtoul(argv[2], NULL, 0);
+	uint32_t new_size = strtoul(argv[3], NULL, 0);
+	uint32_t new_crc = strtoul(argv[4], NULL, 0);
+
+	ota_test_delta_setup(chunk_size, delta_count, new_size, new_crc);
+
+	/* Mark chunks from remaining args */
+	for (int i = 5; i < argc; i++) {
+		uint16_t idx = (uint16_t)strtoul(argv[i], NULL, 0);
+		ota_test_delta_mark_chunk(idx);
+		shell_print(sh, "  marked chunk %u", idx);
+	}
+
+	shell_print(sh, "Delta: %u chunks marked, validating+applying...", delta_count);
+	ota_test_delta(new_size, new_crc, 99);
+	/* If we get here, apply failed (success reboots) */
+	shell_error(sh, "Delta apply failed!");
+	return -EIO;
+}
+
 /* OTA subcommands */
 SHELL_STATIC_SUBCMD_SET_CREATE(ota_cmds,
 	SHELL_CMD(status, NULL, "Show OTA status", cmd_sid_ota_status),
 	SHELL_CMD(abort, NULL, "Abort OTA session", cmd_sid_ota_abort),
 	SHELL_CMD(report, NULL, "Send OTA status uplink", cmd_sid_ota_send_status),
+	SHELL_CMD(delta_test, NULL, "Test delta OTA from flash", cmd_sid_ota_delta_test),
 	SHELL_SUBCMD_SET_END
 );
 
@@ -513,6 +548,14 @@ SHELL_CMD_REGISTER(hvac, NULL, "HVAC commands (app)", cmd_hvac);
 /*  App start                                                          */
 /* ------------------------------------------------------------------ */
 
+static void prepare_for_ota_apply(void)
+{
+	LOG_WRN("OTA: stopping app callbacks for apply");
+	k_timer_stop(&notify_timer);
+	sensor_monitor_stop();
+	app_cb = NULL;
+}
+
 void app_start(void)
 {
 	LOG_INF("=== PLATFORM START ===");
@@ -523,6 +566,7 @@ void app_start(void)
 
 	/* Initialize OTA module and check for interrupted apply */
 	ota_init(platform_api_table.send_msg);
+	ota_set_pre_apply_hook(prepare_for_ota_apply);
 	if (ota_boot_recovery_check()) {
 		/* Recovery in progress — will reboot when done */
 		return;
