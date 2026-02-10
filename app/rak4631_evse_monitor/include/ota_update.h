@@ -30,14 +30,11 @@ extern "C" {
 #define OTA_SUB_START           0x01
 #define OTA_SUB_CHUNK           0x02
 #define OTA_SUB_ABORT           0x03
-#define OTA_SUB_WINDOW_DONE     0x04
 
 /* Uplink subtypes (device → cloud) */
 #define OTA_SUB_ACK             0x80
 #define OTA_SUB_COMPLETE        0x81
 #define OTA_SUB_STATUS          0x82
-#define OTA_SUB_GAP_REPORT      0x83
-#define OTA_SUB_WINDOW_ACK      0x84
 
 /* Status codes */
 #define OTA_STATUS_OK           0

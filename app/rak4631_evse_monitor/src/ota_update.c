@@ -36,10 +36,6 @@ static struct {
 	uint32_t app_version;
 	uint16_t chunks_received;
 	uint32_t bytes_written;
-	/* Windowed blast mode (window_size > 0 enables it) */
-	uint8_t  window_size;          /* 0 = legacy per-chunk ACK mode */
-	uint16_t window_start;         /* first chunk idx of current window */
-	uint8_t  window_received[33];  /* bitfield: up to 260 chunks per window */
 	/* Delta mode: total_chunks < full image chunks */
 	bool     delta_mode;
 	uint16_t full_image_chunks;    /* chunks in the full image */
@@ -157,85 +153,6 @@ static void send_complete(uint8_t result, uint32_t crc32_calc)
 	buf[4] = (uint8_t)((crc32_calc >> 8) & 0xFF);
 	buf[5] = (uint8_t)((crc32_calc >> 16) & 0xFF);
 	buf[6] = (uint8_t)((crc32_calc >> 24) & 0xFF);
-
-	ota_send_msg(buf, sizeof(buf));
-}
-
-/* ------------------------------------------------------------------ */
-/*  Window bitfield helpers                                             */
-/* ------------------------------------------------------------------ */
-
-static void window_bitfield_clear(void)
-{
-	memset(ota_state.window_received, 0, sizeof(ota_state.window_received));
-}
-
-static void window_bitfield_set(uint16_t offset)
-{
-	ota_state.window_received[offset / 8] |= (1u << (offset % 8));
-}
-
-static bool window_bitfield_get(uint16_t offset)
-{
-	return (ota_state.window_received[offset / 8] >> (offset % 8)) & 1u;
-}
-
-static void send_gap_report(uint8_t window_idx)
-{
-	if (!ota_send_msg) {
-		return;
-	}
-
-	uint16_t win_chunks = ota_state.window_size;
-	uint16_t remaining = ota_state.total_chunks - ota_state.window_start;
-	if (remaining < win_chunks) {
-		win_chunks = remaining;
-	}
-
-	/* Collect missing chunk offsets within the window */
-	uint8_t gaps[255];
-	uint8_t gap_count = 0;
-	for (uint16_t i = 0; i < win_chunks && gap_count < sizeof(gaps); i++) {
-		if (!window_bitfield_get(i)) {
-			gaps[gap_count++] = (uint8_t)i;
-		}
-	}
-
-	if (gap_count == 0) {
-		return; /* No gaps — caller should send WINDOW_ACK instead */
-	}
-
-	/* Send GAP_REPORT messages, up to 15 gap indices each (19B limit) */
-	uint8_t sent = 0;
-	while (sent < gap_count) {
-		uint8_t batch = gap_count - sent;
-		if (batch > 15) {
-			batch = 15;
-		}
-
-		uint8_t buf[19]; /* cmd(1) + sub(1) + window_idx(1) + count(1) + gaps(15) */
-		buf[0] = OTA_CMD_TYPE;
-		buf[1] = OTA_SUB_GAP_REPORT;
-		buf[2] = window_idx;
-		buf[3] = batch;
-		memcpy(&buf[4], &gaps[sent], batch);
-
-		ota_send_msg(buf, 4 + batch);
-		LOG_INF("OTA: GAP_REPORT win=%u gaps=%u (batch of %u)", window_idx, gap_count, batch);
-		sent += batch;
-	}
-}
-
-static void send_window_ack(uint8_t window_idx)
-{
-	if (!ota_send_msg) {
-		return;
-	}
-
-	uint8_t buf[3];
-	buf[0] = OTA_CMD_TYPE;
-	buf[1] = OTA_SUB_WINDOW_ACK;
-	buf[2] = window_idx;
 
 	ota_send_msg(buf, sizeof(buf));
 }
@@ -489,19 +406,13 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 	uint32_t crc32        = p[8] | (p[9] << 8) | (p[10] << 16) | (p[11] << 24);
 	uint32_t version      = p[12] | (p[13] << 8) | (p[14] << 16) | (p[15] << 24);
 
-	/* Parse optional window_size (byte 18) for blast mode */
-	uint8_t window_size = 0;
-	if (len >= 19) {
-		window_size = data[18];
-	}
-
 	/* Detect delta mode: fewer chunks than the full image requires */
 	uint16_t full_image_chunks = (total_size + chunk_size - 1) / chunk_size;
 	bool is_delta = (total_chunks < full_image_chunks);
 
-	LOG_INF("OTA START: size=%u chunks=%u/%u chunk_size=%u crc=0x%08x ver=%u win=%u%s",
+	LOG_INF("OTA START: size=%u chunks=%u/%u chunk_size=%u crc=0x%08x ver=%u%s",
 		total_size, total_chunks, full_image_chunks, chunk_size, crc32,
-		version, window_size, is_delta ? " DELTA" : "");
+		version, is_delta ? " DELTA" : "");
 
 	/* Validate size fits staging area */
 	if (total_size > OTA_STAGING_SIZE || total_size == 0) {
@@ -537,17 +448,13 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 	ota_state.app_version = version;
 	ota_state.chunks_received = 0;
 	ota_state.bytes_written = 0;
-	ota_state.window_size = window_size;
-	ota_state.window_start = 0;
 	ota_state.delta_mode = is_delta;
 	ota_state.full_image_chunks = full_image_chunks;
-	window_bitfield_clear();
 	if (is_delta) {
 		memset(ota_state.delta_received, 0, sizeof(ota_state.delta_received));
 	}
 
-	LOG_INF("OTA: staging erased, ready for chunks%s%s",
-		window_size ? " (blast mode)" : "",
+	LOG_INF("OTA: staging erased, ready for chunks%s",
 		is_delta ? " (delta mode)" : "");
 	send_ack(OTA_STATUS_OK, 0, 0);
 }
@@ -776,53 +683,6 @@ static void handle_ota_chunk(const uint8_t *data, size_t len)
 	uint16_t data_len   = len - 4;  /* total msg minus 4B header */
 	const uint8_t *chunk_data = p + 2;
 
-	/* --- Blast mode (windowed) --- */
-	if (ota_state.window_size > 0) {
-		/* Reject chunks outside current window */
-		if (chunk_idx < ota_state.window_start ||
-		    chunk_idx >= ota_state.window_start + ota_state.window_size) {
-			/* Could be from a previous window retry — ignore silently */
-			if (chunk_idx < ota_state.window_start) {
-				LOG_DBG("OTA CHUNK %u: before window %u, ignoring",
-					chunk_idx, ota_state.window_start);
-				return;
-			}
-			LOG_WRN("OTA CHUNK %u: beyond current window [%u..%u), ignoring",
-				chunk_idx, ota_state.window_start,
-				ota_state.window_start + ota_state.window_size);
-			return;
-		}
-
-		uint16_t offset_in_window = chunk_idx - ota_state.window_start;
-
-		/* Duplicate check within window */
-		if (window_bitfield_get(offset_in_window)) {
-			LOG_DBG("OTA CHUNK %u: duplicate in window, ignoring", chunk_idx);
-			return;
-		}
-
-		/* Write to staging at absolute position */
-		uint32_t write_addr = OTA_STAGING_ADDR +
-				      (uint32_t)chunk_idx * ota_state.chunk_size;
-		int err = ota_flash_write(write_addr, chunk_data, data_len);
-		if (err) {
-			LOG_ERR("OTA CHUNK %u: flash write failed at 0x%08x: %d",
-				chunk_idx, write_addr, err);
-			return; /* No ACK in blast mode; gap fill will retry */
-		}
-
-		window_bitfield_set(offset_in_window);
-		ota_state.chunks_received++;
-		ota_state.bytes_written += data_len;
-
-		LOG_INF("OTA CHUNK %u/%u (win %u+%u)",
-			chunk_idx + 1, ota_state.total_chunks,
-			ota_state.window_start, offset_in_window);
-
-		/* No per-chunk ACK in blast mode */
-		return;
-	}
-
 	/* --- Delta mode (sparse chunks with absolute positioning) --- */
 	if (ota_state.delta_mode) {
 		if (chunk_idx >= ota_state.full_image_chunks) {
@@ -910,65 +770,43 @@ static void handle_ota_chunk(const uint8_t *data, size_t len)
 
 	/* Check if this was the last chunk */
 	if (ota_state.chunks_received >= ota_state.total_chunks) {
-		ota_validate_and_apply();
+		LOG_INF("OTA: all chunks received, validating...");
+		ota_state.phase = OTA_PHASE_VALIDATING;
+
+		/* Verify total bytes match */
+		if (ota_state.bytes_written != ota_state.total_size) {
+			LOG_ERR("OTA: size mismatch (written %u, expected %u)",
+				ota_state.bytes_written, ota_state.total_size);
+			send_complete(OTA_STATUS_SIZE_ERR, 0);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+
+		/* Compute CRC32 over staged image */
+		uint32_t calc_crc32 = compute_flash_crc32(OTA_STAGING_ADDR,
+							  ota_state.total_size);
+		if (calc_crc32 != ota_state.expected_crc32) {
+			LOG_ERR("OTA: CRC32 mismatch (calc=0x%08x, expected=0x%08x)",
+				calc_crc32, ota_state.expected_crc32);
+			send_complete(OTA_STATUS_CRC_ERR, calc_crc32);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+
+		LOG_INF("OTA: CRC32 OK (0x%08x), applying update", calc_crc32);
+		send_complete(OTA_STATUS_OK, calc_crc32);
+
+		/* Apply the update */
+		ota_state.phase = OTA_PHASE_APPLYING;
+		int ret = ota_apply();
+		if (ret) {
+			LOG_ERR("OTA: apply failed: %d", ret);
+			ota_state.phase = OTA_PHASE_ERROR;
+		}
+		/* ota_apply reboots on success, so we only get here on failure */
 	} else {
 		/* ACK with next expected chunk */
 		send_ack(OTA_STATUS_OK, ota_state.chunks_received, ota_state.chunks_received);
-	}
-}
-
-static void handle_window_done(const uint8_t *data, size_t len)
-{
-	/* Format: cmd(1) + sub(1) + window_idx(1) = 3B */
-	if (len < 3) {
-		LOG_ERR("OTA WINDOW_DONE: too short (%u)", len);
-		return;
-	}
-
-	if (ota_state.phase != OTA_PHASE_RECEIVING || ota_state.window_size == 0) {
-		LOG_ERR("OTA WINDOW_DONE: not in blast receive mode");
-		return;
-	}
-
-	uint8_t window_idx = data[2];
-
-	/* How many chunks are in this window? */
-	uint16_t win_chunks = ota_state.window_size;
-	uint16_t remaining = ota_state.total_chunks - ota_state.window_start;
-	if (remaining < win_chunks) {
-		win_chunks = remaining;
-	}
-
-	/* Count received chunks in this window */
-	uint16_t received_in_window = 0;
-	for (uint16_t i = 0; i < win_chunks; i++) {
-		if (window_bitfield_get(i)) {
-			received_in_window++;
-		}
-	}
-
-	LOG_INF("OTA WINDOW_DONE: win=%u received=%u/%u (total %u/%u)",
-		window_idx, received_in_window, win_chunks,
-		ota_state.chunks_received, ota_state.total_chunks);
-
-	if (received_in_window < win_chunks) {
-		/* Gaps found — report them */
-		send_gap_report(window_idx);
-		return;
-	}
-
-	/* Window complete — send ACK and advance */
-	send_window_ack(window_idx);
-
-	ota_state.window_start += ota_state.window_size;
-	window_bitfield_clear();
-
-	/* Check if all chunks received */
-	if (ota_state.chunks_received >= ota_state.total_chunks) {
-		ota_validate_and_apply();
-	} else {
-		LOG_INF("OTA: window %u complete, next window starts at chunk %u",
-			window_idx, ota_state.window_start);
 	}
 }
 
@@ -1055,9 +893,6 @@ void ota_process_msg(const uint8_t *data, size_t len)
 		break;
 	case OTA_SUB_ABORT:
 		handle_ota_abort();
-		break;
-	case OTA_SUB_WINDOW_DONE:
-		handle_window_done(data, len);
 		break;
 	default:
 		LOG_ERR("OTA: unknown subtype 0x%02x", subtype);
