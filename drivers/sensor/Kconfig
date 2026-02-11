@@ -2,5 +2,4 @@
 
 if SENSOR
 rsource "aht20/Kconfig"
-rsource "rak1901/Kconfig"
 endif # SENSOR
