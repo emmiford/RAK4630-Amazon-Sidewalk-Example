@@ -24,8 +24,15 @@
 
 LOG_MODULE_REGISTER(platform_api, CONFIG_SIDEWALK_LOG_LEVEL);
 
+/* GPIO pin indices — board-level mapping of abstract indices to physical pins.
+ * Apps use these same indices via gpio_get()/gpio_set() without knowing the
+ * physical pin assignment. */
+#define GPIO_PIN_0   0   /* output: charge enable relay */
+#define GPIO_PIN_1   1   /* input: heat call */
+#define GPIO_PIN_2   2   /* input: cool call */
+
 /* ------------------------------------------------------------------ */
-/*  ADC hardware (same devicetree nodes as evse_sensors.c)            */
+/*  ADC hardware                                                       */
 /* ------------------------------------------------------------------ */
 
 #if DT_NODE_EXISTS(DT_PATH(zephyr_user)) && \
@@ -247,17 +254,17 @@ static int platform_gpio_get(int pin_index)
 	}
 
 	switch (pin_index) {
-	case PIN_CHARGE_EN:
+	case GPIO_PIN_0:
 		if (!gpio_is_ready_dt(&charge_en_gpio)) {
 			return -ENODEV;
 		}
 		return gpio_pin_get_dt(&charge_en_gpio);
-	case PIN_HEAT:
+	case GPIO_PIN_1:
 		if (!gpio_is_ready_dt(&heat_call_gpio)) {
 			return -ENODEV;
 		}
 		return gpio_pin_get_dt(&heat_call_gpio);
-	case PIN_COOL:
+	case GPIO_PIN_2:
 		if (!gpio_is_ready_dt(&cool_call_gpio)) {
 			return -ENODEV;
 		}
@@ -275,7 +282,7 @@ static int platform_gpio_set(int pin_index, int val)
 	}
 
 	switch (pin_index) {
-	case PIN_CHARGE_EN:
+	case GPIO_PIN_0:
 		if (!gpio_is_ready_dt(&charge_en_gpio)) {
 			return -ENODEV;
 		}
@@ -291,6 +298,9 @@ static uint32_t platform_uptime_ms(void)
 {
 	return (uint32_t)k_uptime_get();
 }
+
+/* Timer interval — implemented in app.c which owns the timer */
+extern int app_set_timer_interval(uint32_t interval_ms);
 
 static void platform_reboot(void)
 {
@@ -415,6 +425,9 @@ const struct platform_api platform_api_table = {
 	/* System */
 	.uptime_ms       = platform_uptime_ms,
 	.reboot          = platform_reboot,
+
+	/* Timer */
+	.set_timer_interval = app_set_timer_interval,
 
 	/* Logging */
 	.log_inf         = platform_log_inf,

@@ -16,7 +16,6 @@
 #include <sid_hal_memory_ifc.h>
 #include <platform_api.h>
 #include <ota_update.h>
-#include "sensor_monitor.h"
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
@@ -74,7 +73,10 @@ static void discover_app_image(void)
 /*  Timer — periodic sensor/TX tick                                    */
 /* ------------------------------------------------------------------ */
 
-#define NOTIFY_TIMER_DURATION_MS (10000)
+#define NOTIFY_TIMER_INITIAL_MS (10000)
+#define NOTIFY_TIMER_DEFAULT_MS (60000)
+
+static uint32_t timer_interval_ms;  /* 0 = use default */
 
 static void notify_timer_cb(struct k_timer *timer_id);
 K_TIMER_DEFINE(notify_timer, notify_timer_cb, NULL);
@@ -92,6 +94,16 @@ static void notify_timer_cb(struct k_timer *timer_id)
 {
 	ARG_UNUSED(timer_id);
 	k_work_submit(&timer_work);
+}
+
+int app_set_timer_interval(uint32_t interval_ms)
+{
+	if (interval_ms < 100 || interval_ms > 300000) {
+		return -1;
+	}
+	timer_interval_ms = interval_ms;
+	LOG_INF("Timer interval set to %u ms", interval_ms);
+	return 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -267,16 +279,6 @@ static int cmd_app_dispatch(const struct shell *sh, const char *cmd,
 				       shell_print_wrapper, shell_error_wrapper);
 	current_shell = NULL;
 	return ret;
-}
-
-static int cmd_evse(const struct shell *sh, size_t argc, char **argv)
-{
-	return cmd_app_dispatch(sh, "evse", argc, argv);
-}
-
-static int cmd_hvac(const struct shell *sh, size_t argc, char **argv)
-{
-	return cmd_app_dispatch(sh, "hvac", argc, argv);
 }
 
 /* "sid send" is handled by app, other sid commands stay in platform */
@@ -508,21 +510,14 @@ SHELL_STATIC_SUBCMD_SET_CREATE(ota_cmds,
 	SHELL_SUBCMD_SET_END
 );
 
-static int cmd_sid_test_change(const struct shell *sh, size_t argc, char **argv)
+/* Generic app shell command — dispatches to app's on_shell_cmd */
+static int cmd_app(const struct shell *sh, size_t argc, char **argv)
 {
 	if (argc < 2) {
-		shell_error(sh, "Usage: sid test_change <source_bitmask>");
-		shell_print(sh, "  1=J1772, 2=current, 4=thermostat");
+		shell_error(sh, "Usage: app <command> [args...]");
 		return -1;
 	}
-	if (!app_image_valid() || !app_cb->on_sensor_change) {
-		shell_error(sh, "App does not support on_sensor_change");
-		return -1;
-	}
-	uint8_t source = (uint8_t)strtoul(argv[1], NULL, 0);
-	shell_print(sh, "Triggering on_sensor_change(0x%02x)", source);
-	app_cb->on_sensor_change(source);
-	return 0;
+	return cmd_app_dispatch(sh, argv[1], argc - 1, argv + 1);
 }
 
 /* Shell command registration — platform commands */
@@ -535,14 +530,12 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(ble, NULL, "Switch to BLE", cmd_sid_ble),
 	SHELL_CMD(reset, NULL, "Factory reset", cmd_sid_reset),
 	SHELL_CMD(ota, &ota_cmds, "OTA update commands", NULL),
-	SHELL_CMD(test_change, NULL, "Test on_sensor_change callback", cmd_sid_test_change),
 	SHELL_SUBCMD_SET_END
 );
 SHELL_CMD_REGISTER(sid, &sid_cmds, "Sidewalk commands", NULL);
 
-/* App-dispatched shell commands */
-SHELL_CMD_REGISTER(evse, NULL, "EVSE commands (app)", cmd_evse);
-SHELL_CMD_REGISTER(hvac, NULL, "HVAC commands (app)", cmd_hvac);
+/* App-dispatched shell command (generic — app handles subcommands) */
+SHELL_CMD_REGISTER(app, NULL, "App commands", cmd_app);
 
 /* ------------------------------------------------------------------ */
 /*  App start                                                          */
@@ -552,7 +545,6 @@ static void prepare_for_ota_apply(void)
 {
 	LOG_WRN("OTA: stopping app callbacks for apply");
 	k_timer_stop(&notify_timer);
-	sensor_monitor_stop();
 	app_cb = NULL;
 }
 
@@ -583,7 +575,6 @@ void app_start(void)
 			app_cb = NULL;
 		} else {
 			LOG_INF("App loaded and initialized");
-			sensor_monitor_init(app_cb);
 		}
 	} else {
 		LOG_WRN("Running in platform-only mode (no app image)");
@@ -625,8 +616,8 @@ void app_start(void)
 	sidewalk_event_send(sidewalk_event_platform_init, NULL, NULL);
 	sidewalk_event_send(sidewalk_event_autostart, NULL, NULL);
 
-	/* Start periodic timer (10s initial, 60s repeat) */
-	LOG_INF("Starting sensor timer (10s delay, 60s period)");
-	k_timer_start(&notify_timer, K_MSEC(NOTIFY_TIMER_DURATION_MS),
-		      K_MSEC(CONFIG_SID_END_DEVICE_NOTIFY_DATA_PERIOD_MS));
+	/* Start periodic timer — interval configurable via app's set_timer_interval() */
+	uint32_t interval = timer_interval_ms ? timer_interval_ms : NOTIFY_TIMER_DEFAULT_MS;
+	LOG_INF("Starting app timer (10s delay, %ums period)", interval);
+	k_timer_start(&notify_timer, K_MSEC(NOTIFY_TIMER_INITIAL_MS), K_MSEC(interval));
 }

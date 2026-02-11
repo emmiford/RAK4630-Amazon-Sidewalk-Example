@@ -4,6 +4,10 @@
  * This file is the single entry point from the platform into the app.
  * It contains the app_callbacks struct at a fixed address (.app_header)
  * and dispatches platform callbacks to the app modules.
+ *
+ * The app owns all EVSE domain knowledge: sensor interpretation, change
+ * detection, payload format, command handling.  The platform provides
+ * generic services (ADC, GPIO, timer, Sidewalk, shell).
  */
 
 #include <platform_api.h>
@@ -16,6 +20,19 @@
 #include <string.h>
 
 static const struct platform_api *api;
+
+/* ------------------------------------------------------------------ */
+/*  Polling and change detection                                       */
+/* ------------------------------------------------------------------ */
+
+#define POLL_INTERVAL_MS        500
+#define HEARTBEAT_INTERVAL_MS   60000
+#define CURRENT_ON_THRESHOLD_MA 500
+
+static j1772_state_t last_j1772_state;
+static bool last_current_on;
+static uint8_t last_thermostat_flags;
+static uint32_t last_heartbeat_ms;
 
 /* ------------------------------------------------------------------ */
 /*  Shell command dispatch table                                       */
@@ -82,7 +99,22 @@ static int app_init(const struct platform_api *platform)
 	charge_control_init();
 	thermostat_inputs_init();
 
-	api->log_inf("App initialized (EVSE monitor v1)");
+	/* Request 500ms poll interval from platform */
+	api->set_timer_interval(POLL_INTERVAL_MS);
+
+	/* Read initial sensor state */
+	uint16_t mv = 0;
+	evse_j1772_state_get(&last_j1772_state, &mv);
+
+	uint16_t ma = 0;
+	if (evse_current_read(&ma) == 0) {
+		last_current_on = (ma >= CURRENT_ON_THRESHOLD_MA);
+	}
+
+	last_thermostat_flags = thermostat_flags_get();
+	last_heartbeat_ms = api->uptime_ms();
+
+	api->log_inf("App initialized (EVSE monitor v2, poll=%dms)", POLL_INTERVAL_MS);
 	return 0;
 }
 
@@ -112,17 +144,61 @@ static void app_on_send_error(uint32_t msg_id, int error)
 
 static void app_on_timer(void)
 {
-	/* Periodic tick — check auto-resume, read sensors, transmit */
-	charge_control_tick();
-	app_tx_send_evse_data();
-}
-
-static void app_on_sensor_change(uint8_t source)
-{
-	if (api) {
-		api->log_inf("Sensor change: 0x%02x", source);
+	if (!api) {
+		return;
 	}
-	app_tx_send_evse_data();
+
+	/* Check auto-resume timer */
+	charge_control_tick();
+
+	/* --- Poll sensors and detect changes --- */
+	bool changed = false;
+
+	/* J1772 pilot state */
+	j1772_state_t state;
+	uint16_t voltage_mv = 0;
+	if (evse_j1772_state_get(&state, &voltage_mv) == 0) {
+		if (state != last_j1772_state) {
+			api->log_inf("J1772: %s -> %s (%d mV)",
+				     j1772_state_to_string(last_j1772_state),
+				     j1772_state_to_string(state), voltage_mv);
+			last_j1772_state = state;
+			changed = true;
+		}
+	}
+
+	/* Current clamp (binary on/off) */
+	uint16_t current_ma = 0;
+	if (evse_current_read(&current_ma) == 0) {
+		bool current_on = (current_ma >= CURRENT_ON_THRESHOLD_MA);
+		if (current_on != last_current_on) {
+			api->log_inf("Current: %s (%d mA)",
+				     current_on ? "ON" : "OFF", current_ma);
+			last_current_on = current_on;
+			changed = true;
+		}
+	}
+
+	/* Thermostat inputs */
+	uint8_t flags = thermostat_flags_get();
+	if (flags != last_thermostat_flags) {
+		api->log_inf("Thermostat: heat=%d cool=%d",
+			     (flags & 0x01) ? 1 : 0, (flags & 0x02) ? 1 : 0);
+		last_thermostat_flags = flags;
+		changed = true;
+	}
+
+	/* --- Send on change or heartbeat --- */
+	uint32_t now = api->uptime_ms();
+	bool heartbeat_due = !last_heartbeat_ms ||
+			     (now - last_heartbeat_ms) >= HEARTBEAT_INTERVAL_MS;
+
+	if (changed || heartbeat_due) {
+		app_tx_send_evse_data();
+		if (heartbeat_due) {
+			last_heartbeat_ms = now;
+		}
+	}
 }
 
 static int app_on_shell_cmd(const char *cmd, const char *args,
@@ -189,8 +265,12 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 /*  App callback table — placed at start of app partition              */
 /* ------------------------------------------------------------------ */
 
+#ifdef HOST_TEST
+const struct app_callbacks app_cb = {
+#else
 __attribute__((section(".app_header"), used))
 const struct app_callbacks app_cb = {
+#endif
 	.magic           = APP_CALLBACK_MAGIC,
 	.version         = APP_CALLBACK_VERSION,
 	.init            = app_init,
@@ -200,5 +280,4 @@ const struct app_callbacks app_cb = {
 	.on_send_error   = app_on_send_error,
 	.on_timer        = app_on_timer,
 	.on_shell_cmd    = app_on_shell_cmd,
-	.on_sensor_change = app_on_sensor_change,
 };

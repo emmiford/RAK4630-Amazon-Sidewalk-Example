@@ -23,6 +23,7 @@ static uint32_t last_send_ms;
 void app_tx_set_api(const struct platform_api *platform)
 {
 	api = platform;
+	last_send_ms = 0;
 }
 
 void app_tx_set_ready(bool ready)
