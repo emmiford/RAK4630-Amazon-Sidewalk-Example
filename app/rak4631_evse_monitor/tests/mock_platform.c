@@ -146,6 +146,13 @@ static bool mock_mfg_get_dev_id(uint8_t *id_out)
 	return true;
 }
 
+static void mock_led_set(int led_id, bool on)
+{
+	state.led_set_count++;
+	state.led_last_id = led_id;
+	state.led_last_on = on;
+}
+
 /* --- The mock API table --- */
 
 static const struct platform_api mock_api_table = {
@@ -161,6 +168,7 @@ static const struct platform_api mock_api_table = {
 	.adc_read_mv     = mock_adc_read_mv,
 	.gpio_get        = mock_gpio_get,
 	.gpio_set        = mock_gpio_set,
+	.led_set         = mock_led_set,
 
 	.uptime_ms       = mock_uptime_ms,
 	.reboot          = mock_reboot,

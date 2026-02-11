@@ -38,7 +38,7 @@ extern "C" {
 /* ------------------------------------------------------------------ */
 
 #define PLATFORM_API_MAGIC      0x504C4154  /* "PLAT" */
-#define PLATFORM_API_VERSION    2
+#define PLATFORM_API_VERSION    3
 
 struct platform_api {
     uint32_t magic;
@@ -55,6 +55,7 @@ struct platform_api {
     int   (*adc_read_mv)(int channel);          /* returns millivolts, <0 on error */
     int   (*gpio_get)(int pin_index);           /* returns 0/1, <0 on error */
     int   (*gpio_set)(int pin_index, int val);  /* returns 0 on success */
+    void  (*led_set)(int led_id, bool on);      /* control board LEDs (0-3) */
 
     /* --- System --- */
     uint32_t (*uptime_ms)(void);
