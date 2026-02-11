@@ -12,5 +12,9 @@ mfg_page.*
 .vscode/
 *.code-workspace
 
+# Test binaries
+app/rak4631_evse_monitor/tests/test_app
+app/rak4631_evse_monitor/tests/test_app.dSYM/
+
 # OS
 .DS_Store
