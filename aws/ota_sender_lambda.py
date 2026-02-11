@@ -301,6 +301,33 @@ def handle_device_ack(ack_data):
         return {"statusCode": 200, "body": "no session"}
 
     if status != OTA_STATUS_OK:
+        # NO_SESSION: device has no active OTA session. Re-send START so it
+        # can either reply COMPLETE (firmware already applied) or begin fresh.
+        if status == OTA_STATUS_NO_SESSION:
+            restarts = int(session.get("restarts", 0)) + 1
+            if restarts > 3:
+                print(f"NO_SESSION: restart limit (3) exceeded, aborting")
+                log_ota_event("ota_aborted", {"reason": "no_session_max_restarts"})
+                clear_session()
+                return {"statusCode": 200, "body": "aborted: no_session restarts"}
+
+            print(f"NO_SESSION: re-sending OTA_START (restart {restarts}/3)")
+            firmware = load_firmware(session["s3_bucket"], session["s3_key"])
+            fw_crc = crc32(firmware)
+            msg = build_ota_start(
+                int(session["fw_size"]),
+                int(session["total_chunks"]),
+                int(session["chunk_size"]),
+                fw_crc,
+                int(session.get("version", 0))
+            )
+            write_session({**{k: v for k, v in session.items()
+                             if k not in ("device_id", "timestamp", "updated_at")},
+                           "restarts": restarts,
+                           "status": "restarting"})
+            send_sidewalk_msg(msg)
+            return {"statusCode": 200, "body": f"no_session: resent START (restart {restarts})"}
+
         retries = int(session.get("retries", 0)) + 1
         if retries > MAX_RETRIES:
             print(f"Max retries ({MAX_RETRIES}) exceeded, aborting OTA")
@@ -309,8 +336,19 @@ def handle_device_ack(ack_data):
             send_sidewalk_msg(build_ota_abort())
             return {"statusCode": 200, "body": "aborted: max retries"}
 
-        # Retry the chunk that failed
-        print(f"Retrying chunk {next_chunk} (attempt {retries})")
+        # Retry the chunk that failed — in delta mode, look up correct abs index
+        delta_chunks_json = session.get("delta_chunks")
+        if delta_chunks_json:
+            delta_list = json.loads(delta_chunks_json)
+            delta_cursor = int(session.get("delta_cursor", 0))
+            if delta_cursor < len(delta_list):
+                retry_idx = delta_list[delta_cursor]
+            else:
+                retry_idx = int(next_chunk)
+        else:
+            retry_idx = int(next_chunk)
+
+        print(f"Retrying chunk {retry_idx} (attempt {retries})")
         write_session({**{k: v for k, v in session.items()
                          if k not in ("device_id", "timestamp", "updated_at")},
                        "next_chunk": int(next_chunk),
@@ -318,8 +356,8 @@ def handle_device_ack(ack_data):
                        "status": "retrying"})
 
         firmware = load_firmware(session["s3_bucket"], session["s3_key"])
-        send_chunk(firmware, int(next_chunk), int(session["chunk_size"]))
-        return {"statusCode": 200, "body": f"retrying chunk {next_chunk}"}
+        send_chunk(firmware, retry_idx, int(session["chunk_size"]))
+        return {"statusCode": 200, "body": f"retrying chunk {retry_idx}"}
 
     # Success — send next chunk (ignore stale/duplicate ACKs)
     total_chunks = int(session["total_chunks"])
@@ -457,8 +495,9 @@ def handle_retry_check(event):
                    "retries": retries,
                    "status": "retrying"})
 
-    if status == "starting":
-        # Re-send START
+    if status in ("starting", "validating", "restarting"):
+        # Re-send START — covers initial start, lost COMPLETE (validating),
+        # and NO_SESSION restart. Device will reply COMPLETE if already applied.
         firmware = load_firmware(session["s3_bucket"], session["s3_key"])
         fw_crc = crc32(firmware)
         msg = build_ota_start(

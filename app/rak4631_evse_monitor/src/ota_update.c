@@ -24,6 +24,14 @@
 LOG_MODULE_REGISTER(ota_update, CONFIG_SIDEWALK_LOG_LEVEL);
 
 /* ------------------------------------------------------------------ */
+/*  Deferred apply — delay reboot to let COMPLETE uplink transmit       */
+/* ------------------------------------------------------------------ */
+
+static void ota_deferred_apply_handler(struct k_work *work);
+static K_WORK_DELAYABLE_DEFINE(ota_deferred_apply_work, ota_deferred_apply_handler);
+#define OTA_APPLY_DELAY_SEC 15
+
+/* ------------------------------------------------------------------ */
 /*  Internal state                                                      */
 /* ------------------------------------------------------------------ */
 
@@ -417,6 +425,21 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 		total_size, total_chunks, full_image_chunks, chunk_size, crc32,
 		version, is_delta ? " DELTA" : "");
 
+	/* Reject START during active apply phases */
+	if (ota_state.phase == OTA_PHASE_APPLYING || ota_state.phase == OTA_PHASE_COMPLETE) {
+		LOG_WRN("OTA START: busy (phase=%s), rejecting", ota_phase_str(ota_state.phase));
+		send_ack(OTA_STATUS_NO_SESSION, 0, 0);
+		return;
+	}
+
+	/* Check if firmware already applied (handles lost COMPLETE after reboot) */
+	uint32_t primary_crc = compute_flash_crc32(OTA_APP_PRIMARY_ADDR, total_size);
+	if (primary_crc == crc32) {
+		LOG_INF("OTA START: firmware already applied (CRC 0x%08x), sending COMPLETE", crc32);
+		send_complete(OTA_STATUS_OK, primary_crc);
+		return;
+	}
+
 	/* Validate size fits staging area */
 	if (total_size > OTA_STAGING_SIZE || total_size == 0) {
 		LOG_ERR("OTA START: invalid size %u (max %u)", total_size, OTA_STAGING_SIZE);
@@ -485,17 +508,10 @@ static void ota_validate_and_apply(void)
 		return;
 	}
 
-	LOG_INF("OTA: CRC32 OK (0x%08x), applying update", calc_crc32);
+	LOG_INF("OTA: CRC32 OK (0x%08x), scheduling apply in %ds", calc_crc32, OTA_APPLY_DELAY_SEC);
 	send_complete(OTA_STATUS_OK, calc_crc32);
-
-	/* Apply the update */
-	ota_state.phase = OTA_PHASE_APPLYING;
-	int ret = ota_apply();
-	if (ret) {
-		LOG_ERR("OTA: apply failed: %d", ret);
-		ota_state.phase = OTA_PHASE_ERROR;
-	}
-	/* ota_apply reboots on success, so we only get here on failure */
+	ota_state.phase = OTA_PHASE_COMPLETE;
+	k_work_schedule(&ota_deferred_apply_work, K_SECONDS(OTA_APPLY_DELAY_SEC));
 }
 
 /* ------------------------------------------------------------------ */
@@ -549,9 +565,14 @@ static void delta_validate_and_apply(void)
 		return;
 	}
 
-	LOG_INF("OTA: delta CRC32 OK (0x%08x), applying", crc);
+	LOG_INF("OTA: delta CRC32 OK (0x%08x), scheduling apply in %ds", crc, OTA_APPLY_DELAY_SEC);
 	send_complete(OTA_STATUS_OK, crc);
+	ota_state.phase = OTA_PHASE_COMPLETE;
+	k_work_schedule(&ota_deferred_apply_work, K_SECONDS(OTA_APPLY_DELAY_SEC));
+}
 
+static void delta_apply(void)
+{
 	/* Stop all app callbacks before erasing primary partition */
 	if (ota_pre_apply_hook) {
 		LOG_INF("OTA: stopping app callbacks before delta apply");
@@ -661,6 +682,25 @@ static void delta_validate_and_apply(void)
 	clear_metadata();
 	LOG_PANIC();
 	sys_reboot(SYS_REBOOT_WARM);
+}
+
+static void ota_deferred_apply_handler(struct k_work *work)
+{
+	if (ota_state.phase != OTA_PHASE_COMPLETE) {
+		LOG_WRN("OTA: deferred apply cancelled (phase=%s)", ota_phase_str(ota_state.phase));
+		return;
+	}
+	LOG_INF("OTA: deferred apply firing after %ds delay", OTA_APPLY_DELAY_SEC);
+	if (ota_state.delta_mode) {
+		delta_apply();
+	} else {
+		ota_state.phase = OTA_PHASE_APPLYING;
+		int ret = ota_apply();
+		if (ret) {
+			LOG_ERR("OTA: apply failed: %d", ret);
+			ota_state.phase = OTA_PHASE_ERROR;
+		}
+	}
 }
 
 static void handle_ota_chunk(const uint8_t *data, size_t len)
@@ -796,17 +836,10 @@ static void handle_ota_chunk(const uint8_t *data, size_t len)
 			return;
 		}
 
-		LOG_INF("OTA: CRC32 OK (0x%08x), applying update", calc_crc32);
+		LOG_INF("OTA: CRC32 OK (0x%08x), scheduling apply in %ds", calc_crc32, OTA_APPLY_DELAY_SEC);
 		send_complete(OTA_STATUS_OK, calc_crc32);
-
-		/* Apply the update */
-		ota_state.phase = OTA_PHASE_APPLYING;
-		int ret = ota_apply();
-		if (ret) {
-			LOG_ERR("OTA: apply failed: %d", ret);
-			ota_state.phase = OTA_PHASE_ERROR;
-		}
-		/* ota_apply reboots on success, so we only get here on failure */
+		ota_state.phase = OTA_PHASE_COMPLETE;
+		k_work_schedule(&ota_deferred_apply_work, K_SECONDS(OTA_APPLY_DELAY_SEC));
 	} else {
 		/* ACK with next expected chunk */
 		send_ack(OTA_STATUS_OK, ota_state.chunks_received, ota_state.chunks_received);
@@ -815,6 +848,7 @@ static void handle_ota_chunk(const uint8_t *data, size_t len)
 
 static void handle_ota_abort(void)
 {
+	k_work_cancel_delayable(&ota_deferred_apply_work);
 	LOG_WRN("OTA: abort received");
 	ota_state.phase = OTA_PHASE_IDLE;
 	memset(&ota_state, 0, sizeof(ota_state));
@@ -905,6 +939,7 @@ void ota_process_msg(const uint8_t *data, size_t len)
 
 void ota_abort(void)
 {
+	k_work_cancel_delayable(&ota_deferred_apply_work);
 	if (ota_state.phase != OTA_PHASE_IDLE) {
 		LOG_WRN("OTA: manually aborted (was in phase %s)",
 			ota_phase_str(ota_state.phase));
