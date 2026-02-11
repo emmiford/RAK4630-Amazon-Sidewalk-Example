@@ -25,7 +25,7 @@ struct k_work { int dummy; };
 struct k_work_delayable { struct k_work work; };
 
 #define K_WORK_DELAYABLE_DEFINE(name, fn) \
-	static struct k_work_delayable name = { .work = { .dummy = 0 } }
+	struct k_work_delayable name = { .work = { .dummy = 0 } }
 
 #define K_MSEC(ms) (ms)
 #define K_SECONDS(s) ((s) * 1000)
