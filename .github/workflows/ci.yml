@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Static Analysis (cppcheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      - name: cppcheck (app_evse sources)
+        run: |
+          cppcheck \
+            --enable=warning,performance,portability \
+            --error-exitcode=1 \
+            --suppress=missingIncludeSystem \
+            -I app/rak4631_evse_monitor/include \
+            app/rak4631_evse_monitor/src/app_evse/
+
+  test-c:
+    name: C Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S tests -B tests/build
+
+      - name: Build
+        run: cmake --build tests/build
+
+      - name: Run tests
+        run: ctest --test-dir tests/build --output-on-failure
+
+  test-python:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r aws/requirements-test.txt
+
+      - name: Run pytest
+        run: python -m pytest aws/tests/ -v --tb=short
