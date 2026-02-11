@@ -26,7 +26,7 @@ jobs:
             app/rak4631_evse_monitor/src/app_evse/
 
   test-c:
-    name: C Unit Tests
+    name: C Unit Tests (CMake/Unity)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +39,15 @@ jobs:
 
       - name: Run tests
         run: ctest --test-dir tests/build --output-on-failure
+
+  test-c-grenning:
+    name: C Unit Tests (Grenning)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and run
+        run: make -C app/rak4631_evse_monitor/tests clean test
 
   test-python:
     name: Python Tests

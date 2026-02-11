@@ -84,15 +84,32 @@ After a full flash, reboot the device once for LoRa to connect (first boot does 
 
 ## Testing
 
-### Host-side C unit tests (app layer)
+CI runs automatically on push/PR via GitHub Actions: static analysis (cppcheck), C unit tests, and Python tests.
+
+### Host-side C unit tests
+
+**Unity/CMake suite** (59 tests — sensors, charge control, thermostat, TX/RX):
+```shell
+cmake -S tests -B tests/build && cmake --build tests/build && \
+  ctest --test-dir tests/build --output-on-failure
+```
+
+**Grenning suite** (32 tests — integration: change detection, heartbeat, rate limiting):
 ```shell
 make -C app/rak4631_evse_monitor/tests/ clean test
 ```
-32 tests covering sensors, thermostat inputs, charge control, TX payload format, and on_timer change detection. Uses the [Grenning dual-target pattern](https://pragprog.com/titles/jgade/test-driven-development-for-embedded-c/) — same app sources compiled against a mock platform on the host.
 
-### Lambda tests
+Both suites compile app sources against a mock `platform_api` on the host — no hardware needed.
+
+### Python tests (81 tests — decode, scheduler, OTA deploy, Lambda chain)
 ```shell
+pip install -r aws/requirements-test.txt
 python3 -m pytest aws/tests/ -v
+```
+
+### Integration tests (7 tests — requires device connected via USB)
+```shell
+pytest tests/integration/ -v --serial-port /dev/cu.usbmodem101
 ```
 
 ## Flash Memory Map

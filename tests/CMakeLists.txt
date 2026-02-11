@@ -78,3 +78,27 @@ add_unit_test(test_app_rx
     ${APP_SRC}/app_rx.c
     ${APP_SRC}/charge_control.c
 )
+
+# --- OTA recovery tests (platform module, needs mock Zephyr) ---
+
+# Mock flash library (provides RAM-backed Zephyr flash stubs)
+add_library(mock_flash STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks/mock_flash.c
+)
+target_include_directories(mock_flash PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks
+    ${APP_INC}
+)
+
+# OTA recovery test — compiles ota_update.c against mock Zephyr headers
+add_executable(test_ota_recovery
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/test_ota_recovery.c
+    ${APP_ROOT}/src/ota_update.c
+)
+target_include_directories(test_ota_recovery PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks   # mock Zephyr headers found here first
+    ${APP_INC}
+    ${UNITY_DIR}
+)
+target_link_libraries(test_ota_recovery unity mock_flash)
+add_test(NAME test_ota_recovery COMMAND test_ota_recovery)
