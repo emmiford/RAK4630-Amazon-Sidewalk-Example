@@ -9,7 +9,7 @@
 
 /* EVSE payload format constants */
 #define EVSE_MAGIC   0xE5
-#define EVSE_VERSION 0x05
+#define EVSE_VERSION 0x06
 #define EVSE_PAYLOAD_SIZE 8
 
 /* Minimum interval between uplinks to avoid flooding on rapid state changes */
