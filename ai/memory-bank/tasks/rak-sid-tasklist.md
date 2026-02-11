@@ -1,5 +1,12 @@
 # RAK Sidewalk EVSE Monitor — Development Task List
 
+## Session Registry
+
+| Agent | Role | Branch | Sessions | Tasks |
+|-------|------|--------|----------|-------|
+| Oliver | Architecture / OTA / infra | `main`, `feature/generic-platform` | 2026-02-11 | TASK-001, 002, 004, 006, 007, 009, 010, 014, 019 |
+| Eero | Testing architect | `feature/testing-pyramid` | 2026-02-11 | TASK-003, 005, 009, 012, 013, 016, 018, 020 |
+
 ## Specification Summary
 **Project**: Embedded IoT EVSE monitor over Amazon Sidewalk (LoRa) with OTA firmware updates
 **Technical Stack**: Zephyr RTOS / nRF Connect SDK, C (firmware), Python (AWS Lambda), Terraform (IaC)
@@ -85,9 +92,9 @@ CLAUDE.md already existed with comprehensive coverage exceeding acceptance crite
 
 ---
 
-### TASK-003: Update README.md for generic platform architecture — DONE
+### TASK-003: Update README.md for generic platform architecture — DONE (Eero)
 
-## Status: DONE (2026-02-11)
+## Status: DONE (2026-02-11, Eero)
 README updated on `feature/testing-pyramid` with comprehensive testing section documenting all 4 test suites (Unity/CMake 75 tests, Grenning 32 tests, Python 81 tests, integration 7 tests). Note: changes are on feature branch, not yet merged to main.
 
 ## Acceptance Criteria
@@ -124,9 +131,9 @@ README updated on `feature/testing-pyramid` with comprehensive testing section d
 
 ---
 
-### TASK-005: Add OTA recovery path host-side tests — DONE
+### TASK-005: Add OTA recovery path host-side tests — DONE (Eero)
 
-## Status: DONE (2026-02-11)
+## Status: DONE (2026-02-11, Eero)
 16 tests in `tests/app/test_ota_recovery.c` using Unity/CMake framework (not Grenning). Tests use RAM-backed mock flash (400KB covering primary + metadata + staging). Mock Zephyr headers created at `tests/mocks/zephyr/` (kernel.h, device.h, drivers/flash.h, logging/log.h, sys/crc.h, sys/reboot.h). All 16 tests passing in CI. Branch: `feature/testing-pyramid`.
 
 Key finding: `clear_metadata()` page-aligned erase at 0xCFF00 extends to 0xD0FFF, partially erasing first page of staging area. Tests account for this behavior.
@@ -218,9 +225,9 @@ The OTA system has recovery metadata that survives power loss during apply, and 
 
 ---
 
-### TASK-009: Set up GitHub Actions for host-side unit tests — DONE
+### TASK-009: Set up GitHub Actions for host-side unit tests — DONE (Oliver + Eero)
 
-## Status: DONE (2026-02-11)
+## Status: DONE (2026-02-11, Oliver initial + Eero completed)
 CI at `.github/workflows/ci.yml` runs both test suites: CMake/ctest (Unity tests) and Grenning Makefile tests. Also includes cppcheck static analysis and Python pytest. All 4 CI jobs passing. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -280,9 +287,9 @@ The project has a `credentials.example/` directory but no documentation on how t
 
 ---
 
-### TASK-012: Validate WattTime MOER threshold for PSCO region — DONE
+### TASK-012: Validate WattTime MOER threshold for PSCO region — DONE (Eero)
 
-## Status: DONE (2026-02-11)
+## Status: DONE (2026-02-11, Eero)
 Analysis script created and executed. WattTime free tier only provides current signal index (not historical data needed for full distribution analysis). Current MOER consistently at 70% for PSCO region. Recommendation: keep 70% threshold. Full historical analysis requires WattTime paid tier upgrade. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -302,9 +309,9 @@ Analysis script created and executed. WattTime free tier only provides current s
 
 ---
 
-### TASK-013: OTA field reliability testing across RF conditions — PARTIAL
+### TASK-013: OTA field reliability testing across RF conditions — PARTIAL (Eero)
 
-## Status: PARTIAL (2026-02-11)
+## Status: PARTIAL (2026-02-11, Eero)
 Test plan written at `ai/memory-bank/tasks/ota-field-test-results.md`. Defines 4 test conditions (lab, indoor 10m, near outdoor 50m, far outdoor 200m+), 3 OTA cycles each, power-cycle recovery test, success criteria, and go/no-go framework. **Execution requires physical field work with device at various locations — cannot be done remotely.**
 
 ## Acceptance Criteria
@@ -378,9 +385,9 @@ The `ext/` directory contains the old sid_demo_parser protocol implementation (~
 
 ---
 
-### TASK-016: Document SDK divergence and architecture decisions — DONE
+### TASK-016: Document SDK divergence and architecture decisions — DONE (Eero)
 
-## Status: DONE (2026-02-11)
+## Status: DONE (2026-02-11, Eero)
 Comprehensive architecture document created at `docs/architecture.md`. Covers split-image design, memory layout diagram, API contract (22 platform functions, 7 app callbacks), boot sequence, OTA flow, SDK compliance table, patches, GPIO mapping, and testing architecture. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -401,9 +408,9 @@ Comprehensive architecture document created at `docs/architecture.md`. Covers sp
 
 ---
 
-### TASK-018: Add old Grenning tests to CI — DONE
+### TASK-018: Add old Grenning tests to CI — DONE (Eero)
 
-## Status: DONE (2026-02-11)
+## Status: DONE (2026-02-11, Eero)
 Added `test-c-grenning` job to `.github/workflows/ci.yml`. Runs `make -C app/rak4631_evse_monitor/tests clean test` as a separate CI job. All 4 CI jobs passing (lint, test-c, test-c-grenning, test-python). Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -427,9 +434,9 @@ Evaluated and declined. Code is already consistently styled by hand. clang-forma
 
 ---
 
-### TASK-020: Execute E2E runbook tests on physical device — DONE
+### TASK-020: Execute E2E runbook tests on physical device — DONE (Eero)
 
-## Status: DONE (2026-02-11)
+## Status: DONE (2026-02-11, Eero)
 6/7 E2E tests passed, OTA test skipped (device in use by other agent). Results documented at `tests/e2e/RESULTS-2026-02-11.md`. Key finding: serial DTR reset issue — must use `/dev/cu.usbmodem101` (not tty) with persistent connections. J1772 state mapping mismatch found between firmware and decode Lambda. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
