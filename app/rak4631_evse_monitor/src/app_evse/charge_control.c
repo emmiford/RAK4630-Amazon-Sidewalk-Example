@@ -8,6 +8,9 @@
 #include <platform_api.h>
 #include <string.h>
 
+/* GPIO pin index — must match platform board-level mapping */
+#define EVSE_PIN_CHARGE_EN  0
+
 static const struct platform_api *api;
 
 /* Current state */
@@ -26,7 +29,7 @@ int charge_control_init(void)
 {
 	/* Platform owns GPIO init — just set default state */
 	if (api) {
-		api->gpio_set(PIN_CHARGE_EN, 1);
+		api->gpio_set(EVSE_PIN_CHARGE_EN, 1);
 		api->log_inf("Charge control initialized");
 	}
 	return 0;
@@ -70,7 +73,7 @@ void charge_control_set(bool allowed, uint16_t auto_resume_min)
 	}
 
 	if (api) {
-		api->gpio_set(PIN_CHARGE_EN, allowed ? 1 : 0);
+		api->gpio_set(EVSE_PIN_CHARGE_EN, allowed ? 1 : 0);
 		api->log_inf("Charge control: %s%s",
 			     allowed ? "ALLOW" : "PAUSE",
 			     (!allowed && auto_resume_min > 0) ? " (with auto-resume)" : "");
@@ -104,7 +107,7 @@ void charge_control_tick(void)
 			current_state.charging_allowed = true;
 			current_state.auto_resume_min = 0;
 			current_state.pause_timestamp_ms = 0;
-			api->gpio_set(PIN_CHARGE_EN, 1);
+			api->gpio_set(EVSE_PIN_CHARGE_EN, 1);
 		}
 	}
 }

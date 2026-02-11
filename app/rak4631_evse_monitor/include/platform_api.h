@@ -7,6 +7,11 @@
  *
  * Both tables carry a magic word and a version number so that each side
  * can detect incompatible images at boot time.
+ *
+ * The platform is a generic Sidewalk sensor device runtime — it provides
+ * connectivity, hardware access, timers, OTA, and shell infrastructure.
+ * All application-specific logic (sensor interpretation, payload format,
+ * domain knowledge) lives in the app image, which is OTA-updatable.
  */
 
 #ifndef PLATFORM_API_H
@@ -33,12 +38,7 @@ extern "C" {
 /* ------------------------------------------------------------------ */
 
 #define PLATFORM_API_MAGIC      0x504C4154  /* "PLAT" */
-#define PLATFORM_API_VERSION    1
-
-/* GPIO pin indices used by gpio_get / gpio_set */
-#define PIN_CHARGE_EN   0
-#define PIN_HEAT        1
-#define PIN_COOL        2
+#define PLATFORM_API_VERSION    2
 
 struct platform_api {
     uint32_t magic;
@@ -59,6 +59,9 @@ struct platform_api {
     /* --- System --- */
     uint32_t (*uptime_ms)(void);
     void     (*reboot)(void);
+
+    /* --- Timer --- */
+    int   (*set_timer_interval)(uint32_t interval_ms);  /* configure on_timer period */
 
     /* --- Logging (variadic, printf-style) --- */
     void (*log_inf)(const char *fmt, ...);
@@ -82,13 +85,8 @@ struct platform_api {
 /*  App callback table (provided by app at APP_CALLBACKS_ADDR)        */
 /* ------------------------------------------------------------------ */
 
-#define APP_CALLBACK_MAGIC      0x45565345  /* "EVSE" */
-#define APP_CALLBACK_VERSION    2
-
-/* Sensor change sources (bitmask for on_sensor_change) */
-#define SENSOR_SRC_J1772       0x01
-#define SENSOR_SRC_CURRENT     0x02
-#define SENSOR_SRC_THERMOSTAT  0x04
+#define APP_CALLBACK_MAGIC      0x53415050  /* "SAPP" (Sidewalk App) */
+#define APP_CALLBACK_VERSION    3
 
 struct app_callbacks {
     uint32_t magic;
@@ -103,16 +101,13 @@ struct app_callbacks {
     void  (*on_msg_sent)(uint32_t msg_id);
     void  (*on_send_error)(uint32_t msg_id, int error);
 
-    /* Periodic timer (called every 60 s from platform) */
+    /* Periodic timer — app configures interval via set_timer_interval() */
     void  (*on_timer)(void);
 
     /* Shell command dispatch */
     int   (*on_shell_cmd)(const char *cmd, const char *args,
                           void (*print)(const char *fmt, ...),
                           void (*error)(const char *fmt, ...));
-
-    /* v2: event-driven sensor notification */
-    void  (*on_sensor_change)(uint8_t source);
 };
 
 #ifdef __cplusplus
