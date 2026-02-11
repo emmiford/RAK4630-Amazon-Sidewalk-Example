@@ -1,58 +1,174 @@
-RAK Sidewalk SDK
-===
+# RAK Sidewalk EVSE Monitor
 
-In order to make things simple and to keep all developer on the same page,
-this project serve as `west` manifest repo, to take advantage of west to
-manage the set of repositories.
+EV charger monitoring over Amazon Sidewalk using RAK4631 (nRF52840 + SX1262 LoRa).
 
+Monitors J1772 pilot state, charging current, and thermostat inputs. Sends status uplinks over Sidewalk LoRa. Receives charge-control downlinks for demand response (TOU peak pricing + WattTime grid carbon signal).
 
-Please check out our [Sidewalk Quick Start Guide](https://docs.rakwireless.com/Product-Categories/WisBlock/RAK4631/Sidewalk) as well.
+## Architecture
 
-## Getting started
+Split-image firmware: a generic **platform** and an OTA-updatable **app**.
 
-Before getting started, make sure you have a proper nRF Connect SDK development environment.
-Follow the official
-[Getting started guide](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/getting_started.html).
-
-Or using `Docker` to build the application. To build the `ncs-builder` docker image
-run the `build-docker-image` in the docker folder.
 ```
-./docker/build-docker-image
+┌─────────────────────────────────────────┐
+│  AWS Cloud                              │
+│  decode Lambda → DynamoDB               │
+│  charge scheduler Lambda → downlinks    │
+│  OTA sender Lambda → firmware chunks    │
+└──────────────┬──────────────────────────┘
+               │ Amazon Sidewalk (LoRa 915MHz)
+┌──────────────┴──────────────────────────┐
+│  Platform (576KB @ 0x00000)             │
+│  Zephyr RTOS, BLE+LoRa Sidewalk stack, │
+│  OTA engine, shell, hardware drivers    │
+│  Generic — no EVSE knowledge            │
+├─────────────────────────────────────────┤
+│  App (4KB @ 0x90000)  ← OTA updatable  │
+│  J1772 sensing, charge control,         │
+│  thermostat inputs, payload format,     │
+│  change detection, shell commands       │
+└─────────────────────────────────────────┘
 ```
 
-### Initialization
-The first step is to initialize the workspace folder. Run the following command:
+The two images communicate via function pointer tables defined in [`include/platform_api.h`](app/rak4631_evse_monitor/include/platform_api.h):
+- **Platform API** at `0x8FF00` — services the app can call (ADC, GPIO, Sidewalk send, timers, logging)
+- **App callbacks** at `0x90000` — hooks the platform calls into (init, on_timer, on_msg_received, shell commands)
+
+## Prerequisites
+
+- [nRF Connect SDK v2.9.1](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/getting_started.html) via nrfutil toolchain-manager
+- [pyOCD](https://pyocd.io/) for flashing
+- Python 3.9+ for AWS tooling and tests
+
+## Getting Started
+
+### Workspace initialization
 ```shell
-west init -m https://github.com/RAKWireless/this.git rak-sid-workspace
+west init -m https://github.com/emmiford/RAK4630-Amazon-Sidewalk-Example.git rak-sid-workspace
 cd rak-sid-workspace
 west update
-```
-
-### Patch
-To patch sidewalk subsys for RAK4631, run the following command:
-```shell
 cd rak-sid
 west patch -a
 ```
 
-### Build
-To build the application, run the following command:
-
-#### Start the toolchain environment
-```
-nrfutil toolchain-manager launch --shell
-```
-
-#### RAK4631 EVB
-- Sidewalk sensor_monitoring demo
-```
-west build -p -b rak4631 app/rak4631_rak1901_demo/ -- -DOVERLAY_CONFIG="lora.conf"
+### Build platform
+```shell
+nrfutil toolchain-manager launch --ncs-version v2.9.1 -- bash -c \
+  "cd .. && west build -p -b rak4631 rak-sid/app/rak4631_evse_monitor/ \
+   -- -DOVERLAY_CONFIG=lora.conf"
 ```
 
-### Build with docker(`ncs-builder`)
-To build application via docker, run the following command:
-```
-./docker/dock-run west build -p -b rak4631 app/rak4631_rak1901_demo/ -- -DOVERLAY_CONFIG="lora.conf"
+### Build app (standalone ~4KB)
+```shell
+nrfutil toolchain-manager launch --ncs-version v2.9.1 -- bash -c \
+  "rm -rf build_app && mkdir build_app && cd build_app && \
+   cmake ../rak-sid/app/rak4631_evse_monitor/app_evse && make"
 ```
 
+### Flash
+```shell
+# All partitions (MFG credentials + platform + app):
+bash app/rak4631_evse_monitor/flash.sh all
 
+# App only (fast, ~20KB):
+bash app/rak4631_evse_monitor/flash.sh app
+```
+
+After a full flash, reboot the device once for LoRa to connect (first boot does BLE registration only).
+
+### Docker build (alternative)
+```shell
+./docker/build-docker-image
+./docker/dock-run west build -p -b rak4631 app/rak4631_evse_monitor/ \
+  -- -DOVERLAY_CONFIG="lora.conf"
+```
+
+## Testing
+
+### Host-side C unit tests (app layer)
+```shell
+make -C app/rak4631_evse_monitor/tests/ clean test
+```
+32 tests covering sensors, thermostat inputs, charge control, TX payload format, and on_timer change detection. Uses the [Grenning dual-target pattern](https://pragprog.com/titles/jgade/test-driven-development-for-embedded-c/) — same app sources compiled against a mock platform on the host.
+
+### Lambda tests
+```shell
+python3 -m pytest aws/tests/ -v
+```
+
+## Flash Memory Map
+
+| Partition | Address | Size | Content |
+|-----------|---------|------|---------|
+| platform | `0x00000` | 576KB | Zephyr + Sidewalk + API table |
+| app primary | `0x90000` | 256KB | EVSE app (~4KB actual) |
+| ota_meta | `0xCFF00` | 256B | OTA recovery metadata |
+| ota_staging | `0xD0000` | 148KB | OTA incoming image |
+| settings | `0xF5000` | 8KB | Zephyr settings |
+| sidewalk | `0xF8000` | 28KB | Sidewalk session keys |
+| mfg | `0xFF000` | 4KB | Device credentials |
+
+## OTA Updates
+
+The app partition can be updated over-the-air via Sidewalk LoRa:
+
+```shell
+# Capture baseline of current device firmware
+python3 aws/ota_deploy.py baseline
+
+# Build, upload to S3, trigger OTA
+python3 aws/ota_deploy.py deploy --build --version <N>
+
+# Monitor progress
+python3 aws/ota_deploy.py status
+```
+
+Delta mode compares against a stored baseline and sends only changed chunks (typically 2-3 chunks, completes in seconds). Full mode sends all ~276 chunks (~69 minutes at LoRa rates).
+
+## Shell Commands
+
+Connect via serial (`/dev/tty.usbmodem101`, 115200 baud):
+
+| Command | Description |
+|---------|-------------|
+| `sid status` | Sidewalk connection state |
+| `sid ota status` | OTA state machine phase |
+| `app evse status` | J1772 state, pilot voltage, current, charge control |
+| `app evse a/b/c` | Simulate J1772 states A/B/C for 10s |
+| `app evse allow` | Enable charging relay |
+| `app evse pause` | Disable charging relay |
+| `app hvac status` | Thermostat input flags (heat/cool calls) |
+| `app sid send` | Manual uplink trigger |
+
+## AWS Infrastructure
+
+All cloud resources managed via Terraform:
+
+```shell
+cd aws/terraform && terraform apply
+```
+
+- **decode Lambda**: Parses Sidewalk uplinks → DynamoDB
+- **charge scheduler Lambda**: TOU + WattTime demand response → charge control downlinks (EventBridge, every 5 min)
+- **OTA sender Lambda**: S3-triggered firmware chunk delivery with EventBridge retry
+- **DynamoDB**: Device events and state (`sidewalk-v1-device_events_v2`)
+- **S3**: Firmware binaries (`evse-ota-firmware-dev`)
+
+## Project Structure
+
+```
+app/rak4631_evse_monitor/
+├── src/                  # Platform sources
+├── src/app_evse/         # App sources (EVSE domain logic)
+├── include/              # Shared headers (platform_api.h, ota_update.h)
+├── app_evse/             # App-only CMake build
+├── tests/                # Host-side unit tests
+└── flash.sh              # Flash helper script
+aws/
+├── terraform/            # Infrastructure as code
+├── tests/                # Lambda test suite
+├── decode_evse_lambda.py
+├── charge_scheduler_lambda.py
+├── ota_sender_lambda.py
+├── ota_deploy.py         # OTA deployment CLI
+└── sidewalk_utils.py     # Shared utilities
+```
