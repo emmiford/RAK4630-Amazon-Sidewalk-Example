@@ -37,8 +37,8 @@ class TestEvseShell:
         send_and_expect(device, "app evse c", "Simulat")
         time.sleep(11)
         response = send_and_expect(device, "app evse status", "J1772")
-        # After expiry, state should be real reading (not necessarily C)
-        assert "Simulat" not in response or "expired" in response.lower()
+        # After expiry, status line should show "Simulation active: NO"
+        assert "Simulation active: NO" in response
 
     def test_charge_pause_allow(self, device):
         """'evse pause' and 'evse allow' should toggle charge control."""
