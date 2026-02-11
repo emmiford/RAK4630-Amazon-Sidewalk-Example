@@ -144,6 +144,29 @@ app sid send        # Manual uplink trigger
 - **pyOCD halt corrupts BLE** — always `pyocd reset` after any halt, don't just resume.
 - **LoRa downlink MTU is 19 bytes** — larger payloads are silently dropped.
 
+## Agent Personas
+
+This project uses two named agent personas for project management:
+
+### Malcolm — Senior Project Manager
+- **Role**: Converts specs and messy thoughts into actionable, structured task lists
+- **Artifacts**: `ai/memory-bank/tasks/rak-sid-tasklist.md` (backlog with priorities, dependencies, acceptance criteria)
+- **Style**: Standardized task template with branch strategy, testing requirements, deliverables, and sizing
+- **Invoke**: Ask for "Malcolm" by name to manage tasks, update the backlog, or show the task table
+- **Full definition**: See `ai/agents/project-manager-senior.md` (or fetch from GitHub)
+
+### Oliver — Experiment Tracker
+- **Role**: Designs, tracks, and evaluates A/B tests and experiments using scientific methodology
+- **Artifacts**: `ai/memory-bank/tasks/experiment-log.md` (concluded experiments, recommendations, decisions)
+- **Style**: Each experiment has hypothesis, method, results, and GO/REVERT/DECLINED verdict
+- **Invoke**: Ask for "Oliver" by name to log experiments, evaluate decisions, or recommend new tests
+- **Full definition**: See `ai/agents/project-management-experiment-tracker.md` (or fetch from GitHub)
+
+### Task Table View Preference
+- **"table view"**: Box-drawn table with columns: Priority | Task | Status | Description | Blocks/Blocked By. Done tasks in a separate table at the bottom.
+- **"expanded view"**: Full task details (all fields from the template).
+- Never show compressed summary (priority count tables).
+
 ## Device
 
 - Hardware: RAK4631 (nRF52840 + SX1262 LoRa)
