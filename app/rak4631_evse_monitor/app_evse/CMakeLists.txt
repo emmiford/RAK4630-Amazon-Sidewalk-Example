@@ -107,7 +107,7 @@ target_link_libraries(app.elf
 
 # Generate hex and binary
 add_custom_command(TARGET app.elf POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} -O ihex app.elf app.hex
+    COMMAND ${CMAKE_OBJCOPY} -O ihex --gap-fill 0x00 app.elf app.hex
     COMMAND ${CMAKE_OBJCOPY} -O binary app.elf app.bin
     COMMAND ${CMAKE_SIZE} app.elf
     COMMAND ${CMAKE_OBJDUMP} -h app.elf
