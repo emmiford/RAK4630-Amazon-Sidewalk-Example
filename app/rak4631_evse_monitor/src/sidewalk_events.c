@@ -11,6 +11,7 @@
 #include <sid_pal_common_ifc.h>
 #include <sid_hal_memory_ifc.h>
 #include <sid_pal_mfg_store_ifc.h>
+#include <mfg_health.h>
 #ifdef CONFIG_SIDEWALK_SUBGHZ_SUPPORT
 #include <app_subGHz_config.h>
 #include <sid_pal_radio_ifc.h>
@@ -32,38 +33,7 @@
 
 LOG_MODULE_REGISTER(sidewalk_events, CONFIG_SIDEWALK_LOG_LEVEL);
 
-/* Boot-time MFG key health check — catches lost keys early */
-static void mfg_key_health_check(void)
-{
-	static const uint8_t zeros[32] = {0};
-	uint8_t buf[32];
-	bool all_ok = true;
-
-	memset(buf, 0, sizeof(buf));
-	sid_pal_mfg_store_read(SID_PAL_MFG_STORE_DEVICE_PRIV_ED25519,
-			       buf, SID_PAL_MFG_STORE_DEVICE_PRIV_ED25519_SIZE);
-	if (memcmp(buf, zeros, 32) == 0) {
-		LOG_ERR("MFG ED25519 private key MISSING — re-provision mfg.hex!");
-		all_ok = false;
-	}
-
-	memset(buf, 0, sizeof(buf));
-	sid_pal_mfg_store_read(SID_PAL_MFG_STORE_DEVICE_PRIV_P256R1,
-			       buf, SID_PAL_MFG_STORE_DEVICE_PRIV_P256R1_SIZE);
-	if (memcmp(buf, zeros, 32) == 0) {
-		LOG_ERR("MFG P256R1 private key MISSING — re-provision mfg.hex!");
-		all_ok = false;
-	}
-
-	memset(buf, 0, sizeof(buf));
-
-	if (all_ok) {
-		LOG_INF("MFG key health check: OK");
-	} else {
-		LOG_ERR("MFG keys lost (HUK change after reflash?). BLE handshake will fail.");
-		LOG_ERR("Fix: re-flash mfg.hex then app. See 'sid mfg' for details.");
-	}
-}
+/* Boot-time MFG key health check — extracted to mfg_health.c for testability */
 
 /* Init state tracking */
 static sid_init_status_t init_status = {

@@ -79,6 +79,22 @@ add_unit_test(test_app_rx
     ${APP_SRC}/charge_control.c
 )
 
+# shell command dispatch tests (needs app_entry + all app modules)
+add_executable(test_shell_commands
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/test_shell_commands.c
+    ${APP_SRC}/app_entry.c
+    ${APP_SRC}/evse_sensors.c
+    ${APP_SRC}/charge_control.c
+    ${APP_SRC}/thermostat_inputs.c
+    ${APP_SRC}/rak_sidewalk.c
+    ${APP_SRC}/app_tx.c
+    ${APP_SRC}/app_rx.c
+)
+target_include_directories(test_shell_commands PRIVATE ${TEST_INCLUDES})
+target_compile_definitions(test_shell_commands PRIVATE HOST_TEST)
+target_link_libraries(test_shell_commands unity mock_platform)
+add_test(NAME test_shell_commands COMMAND test_shell_commands)
+
 # --- OTA recovery tests (platform module, needs mock Zephyr) ---
 
 # Mock flash library (provides RAM-backed Zephyr flash stubs)
@@ -102,3 +118,30 @@ target_include_directories(test_ota_recovery PRIVATE
 )
 target_link_libraries(test_ota_recovery unity mock_flash)
 add_test(NAME test_ota_recovery COMMAND test_ota_recovery)
+
+# --- MFG key health check tests (platform module, needs mock MFG store) ---
+
+add_executable(test_mfg_health
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/test_mfg_health.c
+    ${APP_ROOT}/src/mfg_health.c
+)
+target_include_directories(test_mfg_health PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks   # mock sid_pal_mfg_store_ifc.h + Zephyr headers
+    ${APP_INC}
+    ${UNITY_DIR}
+)
+target_link_libraries(test_mfg_health unity)
+add_test(NAME test_mfg_health COMMAND test_mfg_health)
+
+# OTA chunk receive + delta bitmap tests
+add_executable(test_ota_chunks
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/test_ota_chunks.c
+    ${APP_ROOT}/src/ota_update.c
+)
+target_include_directories(test_ota_chunks PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks   # mock Zephyr headers found here first
+    ${APP_INC}
+    ${UNITY_DIR}
+)
+target_link_libraries(test_ota_chunks unity mock_flash)
+add_test(NAME test_ota_chunks COMMAND test_ota_chunks)

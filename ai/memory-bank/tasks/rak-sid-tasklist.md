@@ -30,6 +30,12 @@
   - 8 concluded experiments (7 GO, 1 REVERTED)
   - 6 recommended experiments (REC-001 through REC-006)
   - Key finding: WattTime MOER threshold (REC-004) and OTA field reliability (REC-005) are high-priority experiments that should inform future tasks
+- **Architecture Decision Records**: `docs/adr/`
+  - ADR-001: API version mismatch is a hard stop
+- **Known Issues**: `docs/known-issues.md`
+  - KI-001: Version mismatch leaves device in platform-only mode
+  - KI-002: PSA crypto AEAD error -149 after platform re-flash (TASK-023)
+  - KI-003: Stale flash data inflates OTA delta baselines (TASK-022)
 
 ---
 
@@ -485,7 +491,12 @@ TASK-015 (Remove dead ext/) ——— independent
 TASK-016 (Architecture docs) —— independent
 TASK-021 (Legacy app cleanup) — independent
 TASK-022 (Stale flash bug) ———— independent (plan drafted, not approved)
-TASK-023 (PSA crypto bug) ————— independent
+TASK-023 (PSA crypto bug) ————— blocked by TASK-028 (key health tests inform diagnosis)
+TASK-024 (API version hard stop)— independent (Eliel: architecture concern #1)
+TASK-025 (OTA chunk tests) ———— independent (Eliel/Eero: critical test gap)
+TASK-026 (Boot path tests) ———— blocked by TASK-024 (version behavior must be defined)
+TASK-027 (Shell cmd tests) ———— independent (Eero: untested operator interface)
+TASK-028 (MFG key health tests) — unblocks TASK-023
 ```
 
 ## Priority Order (Recommended)
@@ -507,12 +518,17 @@ TASK-023 (PSA crypto bug) ————— independent
 | Done | TASK-018 | Grenning tests added to CI |
 | Done | TASK-020 | E2E runbook executed — 6/7 pass, OTA skipped |
 | Done | TASK-021 | Legacy rak1901_demo removed (commit 0a3e622) |
+| Done | TASK-024 | API version mismatch hardened to hard stop (Claude) |
+| Done | TASK-025 | OTA chunk + delta bitmap tests — 13 C + 13 Python (Eero) |
+| Done | TASK-027 | Shell command dispatch tests — 31 tests (Eero) |
+| Done | TASK-028 | MFG key health check tests — 7 tests (Eero) |
 | — | TASK-019 | clang-format — DECLINED |
 | Partial | TASK-013 | OTA field test plan written, execution pending (requires field work) |
-| P1 | TASK-015 | Dead code removal — quick win (user working on this) |
-| P1 | TASK-022 | BUG: Stale flash inflates OTA delta baselines (plan drafted, not approved) |
-| P1 | TASK-023 | BUG: PSA crypto error -149 after platform re-flash |
+| P1 | TASK-015 | Dead code removal — quick win |
+| P1 | TASK-022 | BUG: Stale flash inflates OTA delta baselines (plan drafted, not approved) — KI-003 |
+| P1 | TASK-023 | BUG: PSA crypto error -149 after platform re-flash — KI-002 |
 | P2 | TASK-001 | Merge feature branches to main |
+| P2 | TASK-026 | Boot path + app discovery tests (Eero, unblocked by TASK-024) |
 | P2 | TASK-008 | OTA recovery runbook (TASK-005 done, unblocked) |
 
 ---
@@ -572,6 +588,111 @@ Serial console shows `sid_pal_crypto_aead_crypt` failing with PSA error code -14
 - [ ] Optional: `flash.sh` detects stale HUK state and prompts for MFG re-flash
 
 **Size**: S (2 points) — 30 min investigation + fix
+
+---
+
+### TASK-024: Harden API version mismatch to hard stop — DONE (Claude)
+
+## Status: DONE (2026-02-11, Claude)
+Changed `discover_app_image()` in `app.c` from warning to hard stop on version mismatch. Added `app_reject_reason` tracking for shell diagnostics. Updated `sid status` to show rejection reason. ADR-001 written at `docs/adr/001-version-mismatch-hard-stop.md`. KI-001 documented in `docs/known-issues.md`.
+
+## Acceptance Criteria
+- [x] Platform refuses to load app when callback table version doesn't match
+- [x] Platform logs an error (not warning) with expected vs actual version
+- [x] Platform boots without app functionality (safe degraded mode)
+- [x] Shell `sid status` reports "app: not loaded (version mismatch)"
+- [ ] Unit test: version mismatch → app callbacks not invoked — deferred to TASK-026
+
+**Size**: S (2 points) — 30 min
+
+---
+
+### TASK-025: Add OTA chunk receive and delta bitmap tests — DONE (Eero)
+
+## Status: DONE (2026-02-11, Eero)
+13 C tests in `tests/app/test_ota_chunks.c` covering chunk writes, phase rejection, duplicate handling, delta bitmap, state transitions, and out-of-bounds rejection. 13 Python tests in `aws/tests/test_ota_sender.py` covering `compute_delta_chunks()` edge cases and `build_ota_chunk()` format. All 9 C test suites (including new) and 94 Python tests pass.
+
+Key finding: mock flash alignment issue — `ota_flash_write()` pads unaligned writes with 0xFF, which overwrites adjacent data in RAM-backed mock. Tests use 4-byte-aligned chunk sizes to avoid this.
+
+## Acceptance Criteria
+- [x] C tests: CHUNK message writes correct data to staging flash
+- [x] C tests: CHUNK with wrong session/phase is rejected
+- [x] C tests: duplicate chunk is handled (overwrite or ignore)
+- [x] C tests: delta bitmap set/get works for chunks 0, 127, edge indices
+- [x] C tests: all chunks received → transition to COMPLETE (via VALIDATING)
+- [x] Python tests: `compute_delta_chunks()` with baseline > firmware
+- [x] Python tests: `compute_delta_chunks()` with empty baseline
+- [x] Python tests: `compute_delta_chunks()` with identical baseline and firmware (0 changed)
+- [x] Python tests: `build_ota_chunk()` format matches protocol spec (0x20, 0x02, index LE, data)
+
+**Size**: M (3 points) — 60 min
+
+---
+
+### TASK-026: Add app discovery and boot path tests
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: `feature/boot-path-tests`
+
+## Description
+**Source**: Eliel/Eero architecture + test coverage review (2026-02-11)
+
+`discover_app_image()` in `app.c` validates magic and version at the app callback address. This boot path has **zero test coverage**. Silent failures here mean the device boots without app functionality with no indication to the operator (except missing telemetry).
+
+Also covers: OTA message routing (cmd 0x20 → OTA engine, else → app), NULL app_cb safety, and timer interval bounds validation.
+
+## Dependencies
+**Blockers**: TASK-024 (version mismatch behavior must be defined first)
+**Unblocks**: None
+
+## Acceptance Criteria
+- [ ] Test: valid magic + version → app callbacks invoked
+- [ ] Test: wrong magic → app not loaded, platform boots standalone
+- [ ] Test: wrong version → app not loaded (after TASK-024 hardens this)
+- [ ] Test: OTA message (cmd 0x20) routed to OTA engine, not app
+- [ ] Test: non-OTA message routed to app_cb->on_msg_received
+- [ ] Test: app_cb NULL → messages handled safely (no crash)
+- [ ] Test: timer interval bounds (< 100ms rejected, > 300000ms rejected)
+
+**Size**: M (3 points) — 60 min
+
+---
+
+### TASK-027: Add shell command dispatch tests — DONE (Eero)
+
+## Status: DONE (2026-02-11, Eero)
+31 tests in `tests/app/test_shell_commands.c` covering entire `app_on_shell_cmd()` dispatch. Uses capture callback pattern for shell output verification. All tests passing.
+
+## Acceptance Criteria
+- [x] Test: `app evse status` outputs J1772 state, voltage, current, charge control
+- [x] Test: `app evse a/b/c` triggers simulation mode
+- [x] Test: `app evse allow/pause` changes charge control state
+- [x] Test: `app hvac status` outputs thermostat flags
+- [x] Test: `app sid send` triggers uplink
+- [x] Test: unknown subcommand prints error
+- [x] Test: NULL safety
+- [x] Tests use mock shell_print/shell_error callbacks
+
+**Size**: M (3 points) — 60 min
+
+---
+
+### TASK-028: Add MFG key health check tests — DONE (Eero)
+
+## Status: DONE (2026-02-11, Eero)
+7 tests in `tests/app/test_mfg_health.c`. Extracted `mfg_key_health_check()` from static function in `sidewalk_events.c` into standalone module (`mfg_health.h`/`mfg_health.c`) for testability. Returns `mfg_health_result_t` struct with `ed25519_ok` and `p256r1_ok` booleans. Mock at `tests/mocks/sid_pal_mfg_store_ifc.h`. All tests passing.
+
+## Acceptance Criteria
+- [x] Test: valid keys present → no error logged
+- [x] Test: ED25519 key all zeros → error logged
+- [x] Test: P256R1 key all zeros → error logged
+- [x] Test: both keys missing → both errors logged
+- [x] Test: single nonzero byte edge cases
+- [x] Test: no short-circuit verification (both keys always checked)
+- [x] Tests mock the MFG read functions
+
+**Size**: S (2 points) — 30 min
 
 ---
 

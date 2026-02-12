@@ -42,6 +42,7 @@ extern const struct platform_api platform_api_table;
 /* ------------------------------------------------------------------ */
 
 static const struct app_callbacks *app_cb;
+static const char *app_reject_reason;  /* NULL = loaded OK or not checked yet */
 
 static bool app_image_valid(void)
 {
@@ -54,18 +55,33 @@ static void discover_app_image(void)
 		(const struct app_callbacks *)APP_CALLBACKS_ADDR;
 
 	if (cb->magic != APP_CALLBACK_MAGIC) {
-		LOG_WRN("No valid app image at 0x%08x (magic=0x%08x, expected=0x%08x)",
+		LOG_ERR("No valid app image at 0x%08x (magic=0x%08x, expected=0x%08x)",
 			APP_CALLBACKS_ADDR, cb->magic, APP_CALLBACK_MAGIC);
 		app_cb = NULL;
+		app_reject_reason = "bad magic";
 		return;
 	}
 
 	if (cb->version != APP_CALLBACK_VERSION) {
-		LOG_WRN("App API version mismatch: %u vs %u",
+		/* ADR-001: Hard stop on version mismatch.
+		 *
+		 * Originally this was a warning (forward-compatible by convention)
+		 * to allow iterating on platform or app independently. Changed to
+		 * hard stop because mismatched function pointer tables cause hard
+		 * faults or silent memory corruption on bare metal.
+		 *
+		 * Version should ONLY be bumped when the table layout changes
+		 * (add/remove/reorder pointers), not on every build. */
+		LOG_ERR("App API version mismatch (app=%u, platform=%u) — refusing to load. "
+			"Mismatched function pointer tables cause hard faults.",
 			cb->version, APP_CALLBACK_VERSION);
+		app_cb = NULL;
+		app_reject_reason = "version mismatch";
+		return;
 	}
 
 	app_cb = cb;
+	app_reject_reason = NULL;
 	LOG_INF("App image found at 0x%08x (version %u)", APP_CALLBACKS_ADDR, cb->version);
 }
 
@@ -346,7 +362,13 @@ static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
 		    sidewalk_init_state_str(init.state), init.err_code);
 	shell_print(sh, "  Ready: %s", ready ? "YES" : "NO");
 	shell_print(sh, "  Link type: %s (0x%x)", link_type_str(link_mask), link_mask);
-	shell_print(sh, "  App image: %s", app_image_valid() ? "LOADED" : "NOT FOUND");
+	if (app_image_valid()) {
+		shell_print(sh, "  App image: LOADED");
+	} else if (app_reject_reason) {
+		shell_error(sh, "  App image: NOT LOADED (%s)", app_reject_reason);
+	} else {
+		shell_print(sh, "  App image: NOT FOUND");
+	}
 
 	switch (init.state) {
 	case SID_INIT_NOT_STARTED:

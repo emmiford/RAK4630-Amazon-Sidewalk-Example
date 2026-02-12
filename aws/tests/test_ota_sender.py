@@ -449,3 +449,143 @@ class TestNoActiveSession:
         with patch.object(ota, "get_session", return_value=None):
             result = ota.handle_retry_check({"source": "aws.events"})
         assert "no active session" in result["body"]
+
+
+# --- compute_delta_chunks edge cases ---
+
+class TestComputeDeltaChunks:
+    """Edge cases for compute_delta_chunks(): baseline/firmware size mismatches,
+    identical images, and single-byte differences."""
+
+    def test_baseline_larger_than_firmware_pads_with_0xff(self):
+        """When baseline is larger than firmware, extra baseline bytes beyond
+        firmware length are irrelevant — we only compare up to firmware chunks.
+        Chunks where baseline extends but firmware is shorter should treat the
+        baseline suffix as 0xFF-padded for comparison against the (shorter)
+        firmware chunk."""
+        chunk_size = 4
+        baseline = b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08"  # 8 bytes, 2 chunks
+        firmware = b"\x01\x02\x03\x04"  # 4 bytes, 1 chunk — identical first chunk
+
+        changed = ota.compute_delta_chunks(baseline, firmware, chunk_size)
+
+        # Only 1 firmware chunk; it matches baseline chunk 0, so 0 changes
+        assert changed == []
+
+    def test_baseline_larger_firmware_differs_in_first_chunk(self):
+        """Baseline larger than firmware, but first chunk differs."""
+        chunk_size = 4
+        baseline = b"\x01\x02\x03\x04" + b"\x05\x06\x07\x08"
+        firmware = b"\xFF\x02\x03\x04"  # differs in byte 0
+
+        changed = ota.compute_delta_chunks(baseline, firmware, chunk_size)
+        assert changed == [0]
+
+    def test_empty_baseline_all_chunks_changed(self):
+        """Empty baseline means no old data — all firmware chunks are new.
+        Each firmware chunk compared against empty (0xFF-padded), so any
+        non-0xFF data marks the chunk as changed."""
+        chunk_size = 4
+        baseline = b""
+        firmware = b"\x01\x02\x03\x04\x05\x06\x07\x08"  # 2 chunks
+
+        changed = ota.compute_delta_chunks(baseline, firmware, chunk_size)
+
+        # Both chunks differ from the 0xFF pad
+        assert changed == [0, 1]
+
+    def test_empty_baseline_firmware_all_0xff_no_changes(self):
+        """Edge case: empty baseline + firmware that is all 0xFF.
+        Padding with 0xFF makes them match."""
+        chunk_size = 4
+        baseline = b""
+        firmware = b"\xff\xff\xff\xff"
+
+        changed = ota.compute_delta_chunks(baseline, firmware, chunk_size)
+        assert changed == []
+
+    def test_identical_baseline_and_firmware_zero_changes(self):
+        """Identical images produce zero changed chunks."""
+        chunk_size = 4
+        image = b"\x10\x20\x30\x40\x50\x60\x70\x80"
+
+        changed = ota.compute_delta_chunks(image, image, chunk_size)
+        assert changed == []
+
+    def test_single_byte_difference_in_one_chunk(self):
+        """One byte different in chunk 1 should flag only chunk 1."""
+        chunk_size = 4
+        baseline = b"\xAA\xBB\xCC\xDD" + b"\x11\x22\x33\x44"
+        firmware = b"\xAA\xBB\xCC\xDD" + b"\x11\x22\x33\x45"  # last byte differs
+
+        changed = ota.compute_delta_chunks(baseline, firmware, chunk_size)
+        assert changed == [1]
+
+    def test_partial_last_chunk_pads_baseline(self):
+        """Firmware whose last chunk is partial — baseline should be padded
+        with 0xFF to match the shorter firmware chunk length."""
+        chunk_size = 4
+        baseline = b"\x01\x02\x03\x04\x05\x06"  # 6 bytes → 2 chunks (4 + 2)
+        firmware = b"\x01\x02\x03\x04\x05\x06"  # identical
+
+        changed = ota.compute_delta_chunks(baseline, firmware, chunk_size)
+        assert changed == []
+
+    def test_many_chunks_sparse_changes(self):
+        """Larger image with changes only in specific chunks."""
+        chunk_size = 4
+        baseline = bytes(range(40))  # 10 chunks
+        fw = bytearray(baseline)
+        fw[0] = 0xFF   # change chunk 0
+        fw[16] = 0xFF  # change chunk 4
+        fw[36] = 0xFF  # change chunk 9
+
+        changed = ota.compute_delta_chunks(baseline, bytes(fw), chunk_size)
+        assert changed == [0, 4, 9]
+
+
+# --- build_ota_chunk format ---
+
+class TestBuildOtaChunk:
+    """Verify the wire format of build_ota_chunk(): cmd=0x20, sub=0x02,
+    index as 2-byte little-endian, then raw data."""
+
+    def test_chunk_format_basic(self):
+        data = b"\xDE\xAD\xBE\xEF"
+        msg = ota.build_ota_chunk(0, data)
+
+        assert msg[0] == 0x20            # OTA_CMD_TYPE
+        assert msg[1] == 0x02            # OTA_SUB_CHUNK
+        assert msg[2] == 0x00            # chunk_idx low byte
+        assert msg[3] == 0x00            # chunk_idx high byte
+        assert msg[4:] == data           # payload
+
+    def test_chunk_index_little_endian(self):
+        """Chunk index 0x0102 should be encoded as [0x02, 0x01] (little-endian)."""
+        data = b"\xFF"
+        msg = ota.build_ota_chunk(0x0102, data)
+
+        assert msg[2] == 0x02  # low byte
+        assert msg[3] == 0x01  # high byte
+
+    def test_chunk_index_max_practical(self):
+        """Test with a large index (1023 — max for 128-byte bitmap)."""
+        data = b"\x42"
+        msg = ota.build_ota_chunk(1023, data)
+
+        assert msg[2] == 0xFF  # 1023 & 0xFF
+        assert msg[3] == 0x03  # 1023 >> 8
+
+    def test_chunk_total_length(self):
+        """Total message should be 4-byte header + data length."""
+        data = bytes(range(15))  # 15 bytes (max LoRa chunk)
+        msg = ota.build_ota_chunk(0, data)
+
+        assert len(msg) == 4 + 15  # 19 bytes (full LoRa MTU)
+
+    def test_chunk_data_passthrough(self):
+        """Data bytes should appear unchanged after the 4-byte header."""
+        data = bytes(range(256))  # larger than LoRa, still valid structurally
+        msg = ota.build_ota_chunk(42, data)
+
+        assert msg[4:] == data

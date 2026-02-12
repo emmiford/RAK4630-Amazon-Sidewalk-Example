@@ -112,7 +112,22 @@ static int ota_flash_write(uint32_t addr, const uint8_t *data, size_t len)
 
 	uint8_t buf[24]; /* max: 3 pre-pad + 15 data + 2 post-pad */
 	if (aligned_len > sizeof(buf)) {
-		return -ENOMEM;
+		if (pre_pad != 0) {
+			return -ENOMEM;
+		}
+		/* Large aligned-address write: split into aligned body + padded tail */
+		size_t body = len & ~3u;
+		int ret = 0;
+		if (body > 0) {
+			ret = flash_write(flash_dev, addr, data, body);
+		}
+		if (ret == 0 && body < aligned_len) {
+			uint8_t tail[4];
+			memset(tail, 0xFF, 4);
+			memcpy(tail, data + body, len - body);
+			ret = flash_write(flash_dev, addr + body, tail, 4);
+		}
+		return ret;
 	}
 	memset(buf, 0xFF, aligned_len);
 	memcpy(buf + pre_pad, data, len);

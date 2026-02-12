@@ -73,9 +73,10 @@ The app provides 7 callback pointers that the platform invokes:
 
 ### Versioning Rules
 
-- Magic mismatch: platform skips app entirely (boots without app)
-- Version mismatch: platform logs a warning but continues (forward-compatible by convention)
-- Both sides should increment their version when the table layout changes
+- Magic mismatch: platform refuses to load app (boots in platform-only mode)
+- Version mismatch: platform refuses to load app (mismatched function pointer tables cause hard faults)
+- Both sides must have exactly matching version numbers — no forward/backward compatibility
+- `sid status` shell command reports the rejection reason ("bad magic" or "version mismatch")
 
 ## Boot Sequence
 
