@@ -8,6 +8,7 @@
 #include <platform_api.h>
 #include <sidewalk.h>
 #include <app_tx.h>
+#include <app_leds.h>
 #include <sid_hal_memory_ifc.h>
 #include <sid_pal_mfg_store_ifc.h>
 
@@ -198,6 +199,18 @@ static int platform_set_link_mask(uint32_t mask)
 	sidewalk_event_send(sidewalk_event_set_link,
 			    (void *)(uintptr_t)mask, NULL);
 	return 0;
+}
+
+static void platform_led_set(int led_id, bool on)
+{
+	if (led_id < 0 || led_id >= LED_ID_LAST) {
+		return;
+	}
+	if (on) {
+		app_led_turn_on((enum leds_id_t)led_id);
+	} else {
+		app_led_turn_off((enum leds_id_t)led_id);
+	}
 }
 
 static int platform_factory_reset(void)
@@ -421,6 +434,7 @@ const struct platform_api platform_api_table = {
 	.adc_read_mv     = platform_adc_read_mv,
 	.gpio_get        = platform_gpio_get,
 	.gpio_set        = platform_gpio_set,
+	.led_set         = platform_led_set,
 
 	/* System */
 	.uptime_ms       = platform_uptime_ms,

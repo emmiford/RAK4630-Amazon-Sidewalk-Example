@@ -41,6 +41,11 @@ struct mock_state {
 
 	/* Observable outputs — timer */
 	uint32_t timer_interval;
+
+	/* Observable outputs — LEDs */
+	int led_set_count;
+	int led_last_id;
+	bool led_last_on;
 };
 
 /* Reset all mock state to defaults */
