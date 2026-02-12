@@ -1,7 +1,6 @@
 """Tests for decode_evse_lambda.py — EVSE payload decoding + OTA routing."""
 
 import base64
-import json
 import os
 import struct
 import sys

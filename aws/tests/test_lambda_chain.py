@@ -9,7 +9,7 @@ import json
 import os
 import struct
 import sys
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -25,7 +25,6 @@ if "boto3" not in sys.modules:
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import decode_evse_lambda as decode  # noqa: E402
 import ota_sender_lambda as ota  # noqa: E402
-
 
 # --- Test helpers ---
 

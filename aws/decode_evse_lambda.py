@@ -12,12 +12,13 @@ Extracts:
 - Thermostat input bits
 """
 
-import json
 import base64
+import json
 import os
-import boto3
 import time
 from decimal import Decimal
+
+import boto3
 
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
@@ -218,13 +219,13 @@ def decode_payload(raw_payload_b64):
         # Try new raw format first (magic byte 0xE5)
         decoded = decode_raw_evse_payload(raw_bytes)
         if decoded:
-            print(f"Decoded as raw EVSE format")
+            print("Decoded as raw EVSE format")
             return decoded
 
         # Fall back to legacy sid_demo format
         decoded = decode_legacy_sid_demo_payload(raw_bytes)
         if decoded:
-            print(f"Decoded as legacy sid_demo format")
+            print("Decoded as legacy sid_demo format")
             return decoded
 
         # If we can't parse, return raw for debugging

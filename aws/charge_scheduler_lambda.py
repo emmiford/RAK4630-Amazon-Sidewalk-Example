@@ -14,14 +14,13 @@ import base64
 import json
 import os
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import boto3
-
 from sidewalk_utils import get_device_id, send_sidewalk_msg
 
 # --- Clients (created once per container) ---

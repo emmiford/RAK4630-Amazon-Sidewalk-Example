@@ -5,7 +5,7 @@
 | Agent | Role | Branch | Sessions | Tasks |
 |-------|------|--------|----------|-------|
 | Oliver | Architecture / OTA / infra | `main`, `feature/generic-platform` | 2026-02-11 | TASK-001, 002, 004, 006, 007, 009, 010, 014, 019 |
-| Eero | Testing architect | `feature/testing-pyramid` | 2026-02-11 | TASK-003, 005, 009, 012, 013, 016, 018, 020 |
+| Eero | Testing architect | `feature/testing-pyramid` | 2026-02-11 | TASK-003, 005, 009, 010, 011, 012, 013, 016, 018, 020, 021 |
 
 ## Specification Summary
 **Project**: Embedded IoT EVSE monitor over Amazon Sidewalk (LoRa) with OTA firmware updates
@@ -242,46 +242,38 @@ CI at `.github/workflows/ci.yml` runs both test suites: CMake/ctest (Unity tests
 
 ---
 
-### TASK-010: Set up GitHub Actions for Lambda tests + linting — PARTIAL
+### TASK-010: Set up GitHub Actions for Lambda tests + linting — DONE (Oliver + Eero)
 
-## Status: PARTIAL (2026-02-11)
-CI at `.github/workflows/ci.yml` already runs `python -m pytest aws/tests/ -v` with Python 3.11. **However**, no Python linting (ruff/flake8) is configured.
+## Status: DONE (2026-02-11, Oliver initial + Eero completed)
+CI runs pytest and ruff linting. Config in `pyproject.toml` (line-length 100, E/W/F/I rules). Auto-fixed 30 violations (unused f-prefixes, unused imports). Branch: `feature/testing-pyramid`.
 
-## What's Done
+## Acceptance Criteria
 - [x] Python tests run in CI via pytest
-- [x] `aws/requirements-test.txt` exists (pytest, pytest-cov)
-
-## What's Remaining
-- [ ] Add Python linting (ruff or flake8) to CI
-- [ ] New Lambda tests (TASK-004, TASK-006) will automatically run once written
+- [x] `aws/requirements-test.txt` exists (pytest, pytest-cov, ruff)
+- [x] Python linting (ruff) added to CI
+- [x] `pyproject.toml` with ruff config created
+- [x] All existing code passes ruff
 
 **Size**: S (2 points) — 30 min
 
 ---
 
-### TASK-011: Document device provisioning workflow
+### TASK-011: Document device provisioning workflow — DONE (Eero)
 
-## Branch & Worktree Strategy
-**Base Branch**: `main`
-
-## Description
-The project has a `credentials.example/` directory but no documentation on how to provision a new device for Amazon Sidewalk. Document the full flow: credential generation, flashing, Sidewalk registration, and AWS IoT Wireless setup.
-
-## Dependencies
-**Blockers**: None
-**Unblocks**: None
+## Status: DONE (2026-02-11, Eero)
+Provisioning guide at `docs/provisioning.md`. Covers credential generation, MFG partition build, flash sequence, first boot registration, shell diagnostics, AWS IoT Wireless registration, E2E verification, OTA baseline capture, and troubleshooting table. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
-- [ ] Document: `docs/provisioning.md` or section in README
-- [ ] Covers: Sidewalk credential generation (Nordic tools / Sidewalk console)
-- [ ] Covers: Credential file format and placement
-- [ ] Covers: Flashing credentials to device
-- [ ] Covers: AWS IoT Wireless device registration
-- [ ] Covers: Verification steps (device connects, first uplink received)
-- [ ] References `credentials.example/` as template
+- [x] Document: `docs/provisioning.md`
+- [x] Covers: Sidewalk credential generation (AWS IoT Wireless console)
+- [x] Covers: Credential file format and placement
+- [x] Covers: Flashing credentials to device (flash.sh, pyOCD, safety warnings)
+- [x] Covers: AWS IoT Wireless device registration (CLI command)
+- [x] Covers: Verification steps (sid status, sid mfg, DynamoDB query)
+- [x] References `credentials.example/` as template
 
 ## Deliverables
-- Provisioning documentation
+- `docs/provisioning.md`
 
 **Size**: S (2 points) — 30 min
 
@@ -456,26 +448,19 @@ Evaluated and declined. Code is already consistently styled by hand. clang-forma
 
 ---
 
-### TASK-021: Archive or remove legacy rak1901_demo app
+### TASK-021: Archive or remove legacy rak1901_demo app — DONE
 
-## Branch & Worktree Strategy
-**Base Branch**: `main`
-
-## Description
-`app/rak4631_rak1901_demo/` is the original sensor demo app predating the EVSE monitor. It's still in the tree but appears unmaintained. Decide whether to archive it (move to a branch/tag) or remove it to reduce confusion.
-
-## Dependencies
-**Blockers**: TASK-001 (after merge, so main is clean)
-**Unblocks**: None
+## Status: DONE (2026-02-11)
+Already removed in commit `0a3e622` (merged to main via `900dfbe`). Decision: remove (not archive). 39 files deleted (3,925 lines). RAK1901 driver and DTS binding also removed. No remaining references in codebase. Upstream RAKWireless repo retains originals.
 
 ## Acceptance Criteria
-- [ ] Decision documented: keep, archive to tag, or remove
-- [ ] If removing: files deleted, any references in CMakeLists/west.yml cleaned up
-- [ ] If archiving: tagged as `archive/rak1901-demo` before deletion from main
-- [ ] Build still succeeds after cleanup
+- [x] Decision documented: REMOVE (upstream retains originals)
+- [x] Files deleted: 39 files, 3,925 lines
+- [x] References cleaned up: CMakeLists, Kconfig, DTS bindings
+- [x] Build still succeeds
 
 ## Deliverables
-- Clean tree (or documented decision to keep)
+- Clean `app/` directory (only `rak4631_evse_monitor/` remains)
 
 **Size**: XS (1 point) — 15 min
 
@@ -499,6 +484,8 @@ TASK-011 (Provisioning docs) —— independent
 TASK-015 (Remove dead ext/) ——— independent
 TASK-016 (Architecture docs) —— independent
 TASK-021 (Legacy app cleanup) — independent
+TASK-022 (Stale flash bug) ———— independent (plan drafted, not approved)
+TASK-023 (PSA crypto bug) ————— independent
 ```
 
 ## Priority Order (Recommended)
@@ -512,19 +499,81 @@ TASK-021 (Legacy app cleanup) — independent
 | Done | TASK-006 | Decode Lambda tests — 20 tests passing |
 | Done | TASK-007 | E2E test plan (runbook written) |
 | Done | TASK-009 | CI pipeline — all 4 jobs (CMake + Grenning + cppcheck + pytest) |
-| Done | TASK-010 | Lambda tests in CI (pytest runs, no linting) |
+| Done | TASK-010 | Python linting (ruff) added to CI |
+| Done | TASK-011 | Provisioning docs at docs/provisioning.md |
 | Done | TASK-012 | MOER threshold validated — keep 70% |
 | Done | TASK-014 | PRD written |
 | Done | TASK-016 | Architecture docs at docs/architecture.md |
 | Done | TASK-018 | Grenning tests added to CI |
 | Done | TASK-020 | E2E runbook executed — 6/7 pass, OTA skipped |
+| Done | TASK-021 | Legacy rak1901_demo removed (commit 0a3e622) |
 | — | TASK-019 | clang-format — DECLINED |
 | Partial | TASK-013 | OTA field test plan written, execution pending (requires field work) |
 | P1 | TASK-015 | Dead code removal — quick win (user working on this) |
+| P1 | TASK-022 | BUG: Stale flash inflates OTA delta baselines (plan drafted, not approved) |
+| P1 | TASK-023 | BUG: PSA crypto error -149 after platform re-flash |
 | P2 | TASK-001 | Merge feature branches to main |
 | P2 | TASK-008 | OTA recovery runbook (TASK-005 done, unblocked) |
-| P3 | TASK-011 | Provisioning docs |
-| P4 | TASK-021 | Legacy cleanup |
+
+---
+
+### TASK-022: BUG — Stale flash data inflates OTA delta baselines
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: `fix/stale-flash-erase`
+
+## Description
+When physically flashing a smaller app over a larger one, pyOCD only erases pages it writes to. Pages beyond the new image retain old code. `ota_deploy.py baseline` captures the full partition trimming only trailing 0xFF — stale non-0xFF bytes survive and inflate the baseline. Same problem after OTA apply: the apply loop only processes pages for the new image size, leaving stale pages from a previous larger image.
+
+**Symptom**: Baseline shows 4524 bytes when actual app is 239 bytes. Delta OTA computes against inflated baseline.
+
+**Plan**: Saved at `~/.claude/plans/witty-painting-matsumoto.md` — NOT YET APPROVED. Three-layer defense-in-depth:
+1. `flash.sh`: Erase app partition before writing (primary fix)
+2. `ota_update.c`: Erase stale pages after OTA apply — local flash op, no extra OTA chunks (~5s)
+3. `ota_deploy.py`: Warn if baseline is significantly larger than app binary
+
+## Dependencies
+**Blockers**: None
+**Unblocks**: None (but affects OTA delta reliability)
+
+## Acceptance Criteria
+- [ ] `flash.sh app` erases 0x90000-0xCEFFF before writing app hex
+- [ ] OTA apply (full, delta, recovery) erases pages beyond new image up to metadata boundary
+- [ ] `ota_deploy.py baseline` warns if dump is significantly larger than app.bin
+- [ ] Host-side tests cover stale page erase after apply
+- [ ] Manual verification: flash large app → flash small app → dump partition → all bytes beyond small app are 0xFF
+
+**Size**: M (3 points) — 60 min
+
+---
+
+### TASK-023: BUG — PSA crypto AEAD error -149 after platform re-flash
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: `fix/psa-crypto-flash-order`
+
+## Description
+Serial console shows `sid_pal_crypto_aead_crypt` failing with PSA error code -149 (`PSA_ERROR_INVALID_SIGNATURE`). Device cannot encrypt/decrypt Sidewalk messages — effectively offline.
+
+**Likely cause**: HUK (Hardware Unique Key) invalidated by platform re-flash. Per CLAUDE.md safety note: "Platform flash erases HUK — PSA keys must be re-derived. Flash MFG first, then platform, then app." If flash order is wrong, PSA key store is inconsistent with MFG credentials.
+
+**Symptom**: `[00:05:30.229,309] <err> sid_crypto: PSA Error code: -149 in sid_pal_crypto_aead_crypt`
+
+## Dependencies
+**Blockers**: None
+**Unblocks**: None
+
+## Acceptance Criteria
+- [ ] Root cause confirmed (HUK invalidation vs session key corruption vs other)
+- [ ] Immediate fix documented: re-flash in correct order (MFG → platform → app) + BLE re-registration
+- [ ] `flash.sh` updated: `platform` and `all` subcommands enforce correct flash order or warn
+- [ ] Optional: `flash.sh` detects stale HUK state and prompts for MFG re-flash
+
+**Size**: S (2 points) — 30 min investigation + fix
+
+---
 
 ## Quality Requirements (Project-Level)
 - [ ] All host-side unit tests passing before merge to main

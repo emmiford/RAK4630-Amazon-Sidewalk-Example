@@ -14,9 +14,9 @@ or reads from aws/terraform/terraform.tfvars.
 
 import os
 import sys
-import json
-import requests
 from datetime import datetime, timedelta, timezone
+
+import requests
 
 # --- Configuration ---
 REGION = "PSCO"  # Public Service Company of Colorado

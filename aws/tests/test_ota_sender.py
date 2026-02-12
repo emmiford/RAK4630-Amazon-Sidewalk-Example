@@ -10,7 +10,6 @@ Covers:
 
 import json
 import os
-import struct
 import sys
 from unittest.mock import MagicMock, patch
 
@@ -31,7 +30,6 @@ sys.modules["boto3"] = MagicMock()
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import ota_sender_lambda as ota  # noqa: E402
-
 
 # --- Test fixtures ---
 
@@ -88,7 +86,7 @@ def reset_mocks():
     """Reset all mocks and caches before each test."""
     mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
     ota._firmware_cache.clear()
-    ota._firmware_cache[f"test-bucket/firmware/app-v2.bin"] = FIRMWARE
+    ota._firmware_cache["test-bucket/firmware/app-v2.bin"] = FIRMWARE
     yield
 
 

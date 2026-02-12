@@ -62,5 +62,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r aws/requirements-test.txt
 
+      - name: Lint with ruff
+        run: python -m ruff check aws/
+
       - name: Run pytest
         run: python -m pytest aws/tests/ -v --tb=short

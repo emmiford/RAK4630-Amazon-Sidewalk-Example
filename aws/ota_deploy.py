@@ -13,7 +13,6 @@ Usage:
 
 import argparse
 import binascii
-import json
 import os
 import re
 import subprocess
@@ -353,7 +352,7 @@ def cmd_deploy(args):
         device_data = pyocd_read_primary()
         device_crc = crc32(device_data)
         if device_crc != bl_crc or len(device_data) != len(baseline):
-            print(f"ERROR: Baseline mismatch!")
+            print("ERROR: Baseline mismatch!")
             print(f"  S3:     {len(baseline)} bytes, CRC32=0x{bl_crc:08x}")
             print(f"  Device: {len(device_data)} bytes, CRC32=0x{device_crc:08x}")
             print("Run 'baseline' to re-capture, or use --remote to skip verification.")
@@ -367,7 +366,7 @@ def cmd_deploy(args):
     full_chunks = (len(firmware) + CHUNK_DATA_SIZE - 1) // CHUNK_DATA_SIZE
     est_time = len(changed) * 15  # ~15s per LoRa downlink
 
-    print(f"\nDelta preview:")
+    print("\nDelta preview:")
     print(f"  Changed: {len(changed)}/{full_chunks} chunks")
     print(f"  Indices: {changed}")
     print(f"  Est. transfer: ~{format_duration(est_time)}")
@@ -392,7 +391,7 @@ def cmd_deploy(args):
         while True:
             time.sleep(5)
             session = get_session()
-            print(f"\033[2J\033[H", end="")  # clear screen
+            print("\033[2J\033[H", end="")  # clear screen
             print("OTA Deploy Monitor (Ctrl-C to stop)\n")
             if session:
                 session_seen = True
@@ -466,7 +465,7 @@ def cmd_status(args):
         interval = args.watch if args.watch else 30
         try:
             while True:
-                print(f"\033[2J\033[H", end="")
+                print("\033[2J\033[H", end="")
                 print(f"OTA Status  (Ctrl-C to stop, polling every {interval}s)\n")
                 session = get_session()
                 active = print_status(session)

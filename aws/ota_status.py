@@ -9,9 +9,9 @@ Usage:
 """
 
 import argparse
-import sys
 import time
 import warnings
+
 warnings.filterwarnings("ignore")
 
 import boto3
@@ -93,7 +93,7 @@ def main():
     if args.watch:
         try:
             while True:
-                print(f"\033[2J\033[H", end="")  # clear screen
+                print("\033[2J\033[H", end="")  # clear screen
                 print(f"OTA Status  (Ctrl-C to stop, polling every {args.watch}s)\n")
                 session = get_session()
                 print_status(session)

@@ -1,6 +1,5 @@
 """Tests for charge_scheduler_lambda.py — TOU schedule and charge decisions."""
 
-import json
 import os
 import sys
 from datetime import datetime

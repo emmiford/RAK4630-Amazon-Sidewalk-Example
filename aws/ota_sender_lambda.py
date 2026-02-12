@@ -9,7 +9,6 @@ Session state tracked in DynamoDB (sentinel key timestamp=-1).
 Firmware cached in /tmp for the duration of the Lambda container.
 """
 
-import base64
 import json
 import os
 import struct
@@ -17,7 +16,6 @@ import time
 from decimal import Decimal
 
 import boto3
-
 from sidewalk_utils import get_device_id, send_sidewalk_msg
 
 # --- Clients ---
@@ -306,7 +304,7 @@ def handle_device_ack(ack_data):
         if status == OTA_STATUS_NO_SESSION:
             restarts = int(session.get("restarts", 0)) + 1
             if restarts > 3:
-                print(f"NO_SESSION: restart limit (3) exceeded, aborting")
+                print("NO_SESSION: restart limit (3) exceeded, aborting")
                 log_ota_event("ota_aborted", {"reason": "no_session_max_restarts"})
                 clear_session()
                 return {"statusCode": 200, "body": "aborted: no_session restarts"}
@@ -480,7 +478,7 @@ def handle_retry_check(event):
 
     retries = int(session.get("retries", 0)) + 1
     if retries > MAX_RETRIES:
-        print(f"Session stale and max retries exceeded, aborting")
+        print("Session stale and max retries exceeded, aborting")
         log_ota_event("ota_aborted", {"reason": "stale_max_retries"})
         clear_session()
         return {"statusCode": 200, "body": "aborted: stale"}
@@ -578,5 +576,5 @@ def lambda_handler(event, context):
     if "source" in event and event["source"] == "aws.events":
         return handle_retry_check(event)
 
-    print(f"Unknown event type, ignoring")
+    print("Unknown event type, ignoring")
     return {"statusCode": 400, "body": "unknown event"}
