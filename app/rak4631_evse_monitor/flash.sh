@@ -26,6 +26,23 @@ flash_platform() {
     python3 -m pyocd flash --target $TARGET "$PLATFORM_HEX"
 }
 
+warn_huk() {
+    echo ""
+    echo "  WARNING: Platform flash erases the HUK (Hardware Unique Key)."
+    echo "  PSA crypto keys will be re-derived on next boot."
+    echo "  If MFG credentials are stale, Sidewalk crypto will fail (error -149)."
+    echo ""
+    echo "  Safe order: ./flash.sh mfg && ./flash.sh platform && ./flash.sh app"
+    echo "  Or simply:  ./flash.sh all"
+    echo ""
+    read -p "  Flash platform without MFG? (y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 1
+    fi
+}
+
 flash_app() {
     echo "=== Flashing App Image ==="
     python3 -m pyocd flash --target $TARGET "$APP_HEX"
@@ -39,6 +56,7 @@ case "${1:-all}" in
         echo "=== All images flashed ==="
         ;;
     platform)
+        warn_huk
         flash_platform
         ;;
     app)

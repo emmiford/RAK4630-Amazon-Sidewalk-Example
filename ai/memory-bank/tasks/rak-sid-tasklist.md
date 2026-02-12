@@ -203,29 +203,19 @@ E2E runbook exists at `tests/e2e/RUNBOOK.md`. Covers boot/connect, telemetry flo
 
 ---
 
-### TASK-008: Document OTA recovery and rollback procedures
+### TASK-008: Document OTA recovery and rollback procedures — DONE (Eero)
 
-## Branch & Worktree Strategy
-**Base Branch**: `main`
-
-## Description
-The OTA system has recovery metadata that survives power loss during apply, and `ota_boot_recovery_check()` resumes interrupted operations. But there is no operator-facing documentation for: what happens if OTA fails, how to diagnose, how to manually recover, what the flash states mean.
-
-## Dependencies
-**Blockers**: TASK-005 (tests validate the behavior we're documenting)
-**Unblocks**: None
+## Status: DONE (2026-02-11, Eero)
+Comprehensive 533-line runbook at `docs/ota-recovery.md`. Covers OTA state machine with ASCII diagram, recovery metadata struct layout, 5 failure modes with log messages, shell diagnosis commands, 5 manual recovery procedures, full cloud-side CLI reference, rollback limitations, prevention practices, and a quick-reference decision tree.
 
 ## Acceptance Criteria
-- [ ] Document: `ai/memory-bank/tasks/ota-recovery-runbook.md`
-- [ ] Documents OTA state machine: IDLE → RECEIVING → VALIDATING → APPLYING → reboot
-- [ ] Documents recovery metadata: flash address, fields (state, pages_copied, total_pages)
-- [ ] Documents failure modes: power loss during apply, CRC mismatch, staging corruption
-- [ ] Documents manual recovery: how to read metadata via shell, how to force-clear
-- [ ] Documents rollback: limitations (no automatic rollback to previous app version)
-- [ ] Includes `ota_deploy.py abort` and `ota_deploy.py status` for cloud-side recovery
-
-## Deliverables
-- `ai/memory-bank/tasks/ota-recovery-runbook.md`
+- [x] Document: `docs/ota-recovery.md` (533 lines)
+- [x] Documents OTA state machine: IDLE → RECEIVING → VALIDATING → COMPLETE → APPLYING → reboot
+- [x] Documents recovery metadata: flash address, struct fields, what survives power loss
+- [x] Documents failure modes: power loss (RECEIVING + APPLYING), CRC mismatch, magic failure, stale flash
+- [x] Documents manual recovery: shell commands, log message reference, decision tree
+- [x] Documents rollback: no A/B, no auto-rollback, manual OTA of old version
+- [x] Includes full `ota_deploy.py` CLI reference (status, abort, clear-session, deploy, baseline, preview)
 
 **Size**: S (2 points) — 30 min
 
@@ -353,31 +343,16 @@ Retroactive v1.0 PRD written to `docs/PRD.md`. Covers 9 sections: product overvi
 
 ---
 
-### TASK-015: Remove dead sid_demo_parser code
+### TASK-015: Remove dead sid_demo_parser code — DONE (Claude)
 
-## Branch & Worktree Strategy
-**Base Branch**: `main`
-- Branch: `cleanup/remove-dead-ext-code`
-
-## Description
-The `ext/` directory contains the old sid_demo_parser protocol implementation (~1,600 lines across 5 files). This was explicitly replaced by the raw 8-byte payload format in commit `550560f`. The files are still compiled via CMakeLists.txt but **no code references them**. This is confirmed dead code adding binary bloat and developer confusion.
-
-**Source**: SDK divergence audit (2026-02-11)
-
-## Dependencies
-**Blockers**: TASK-001 (merge first, then clean up on main)
-**Unblocks**: None
+## Status: DONE (2026-02-11, Claude)
+Deleted 5 files (~1,600 lines) from `ext/`, removed `ext/` directory entirely. Removed source entry and include path from `CMakeLists.txt`. Grep confirmed zero references in app code. All 9 C test suites pass.
 
 ## Acceptance Criteria
-- [ ] Remove from `CMakeLists.txt`: `ext/sid_demo_parser.c` source entry
-- [ ] Delete files: `ext/sid_demo_parser.c`, `ext/sid_demo_parser.h`, `ext/sid_demo_types.h`, `ext/sid_parser_utils.h`, `ext/sid_endian.h`
-- [ ] Verify: grep for `sid_demo_parser`, `sid_demo_types`, `sid_parser_utils`, `sid_endian` — zero references in app code
-- [ ] Firmware builds successfully
-- [ ] Host-side unit tests pass
-
-## Deliverables
-- Clean `ext/` directory (removed or empty)
-- Updated `CMakeLists.txt`
+- [x] Remove from `CMakeLists.txt`: `ext/sid_demo_parser.c` source entry
+- [x] Delete files: all 5 ext/ files
+- [x] Verify: grep for references — zero in app code
+- [x] Host-side unit tests pass (9/9)
 
 **Size**: XS (1 point) — 15 min
 
@@ -523,13 +498,13 @@ TASK-028 (MFG key health tests) — unblocks TASK-023
 | Done | TASK-027 | Shell command dispatch tests — 31 tests (Eero) |
 | Done | TASK-028 | MFG key health check tests — 7 tests (Eero) |
 | — | TASK-019 | clang-format — DECLINED |
+| Done | TASK-015 | Dead code removal — 5 files, ~1,600 lines deleted (Claude) |
+| Done | TASK-023 | PSA crypto -149 root caused, flash.sh warning added (Claude + Eero) |
 | Partial | TASK-013 | OTA field test plan written, execution pending (requires field work) |
-| P1 | TASK-015 | Dead code removal — quick win |
 | P1 | TASK-022 | BUG: Stale flash inflates OTA delta baselines (plan drafted, not approved) — KI-003 |
-| P1 | TASK-023 | BUG: PSA crypto error -149 after platform re-flash — KI-002 |
 | P2 | TASK-001 | Merge feature branches to main |
 | P2 | TASK-026 | Boot path + app discovery tests (Eero, unblocked by TASK-024) |
-| P2 | TASK-008 | OTA recovery runbook (TASK-005 done, unblocked) |
+| Done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
 
 ---
 
@@ -564,28 +539,16 @@ When physically flashing a smaller app over a larger one, pyOCD only erases page
 
 ---
 
-### TASK-023: BUG — PSA crypto AEAD error -149 after platform re-flash
+### TASK-023: BUG — PSA crypto AEAD error -149 after platform re-flash — DONE (Claude + Eero)
 
-## Branch & Worktree Strategy
-**Base Branch**: `main`
-- Branch: `fix/psa-crypto-flash-order`
-
-## Description
-Serial console shows `sid_pal_crypto_aead_crypt` failing with PSA error code -149 (`PSA_ERROR_INVALID_SIGNATURE`). Device cannot encrypt/decrypt Sidewalk messages — effectively offline.
-
-**Likely cause**: HUK (Hardware Unique Key) invalidated by platform re-flash. Per CLAUDE.md safety note: "Platform flash erases HUK — PSA keys must be re-derived. Flash MFG first, then platform, then app." If flash order is wrong, PSA key store is inconsistent with MFG credentials.
-
-**Symptom**: `[00:05:30.229,309] <err> sid_crypto: PSA Error code: -149 in sid_pal_crypto_aead_crypt`
-
-## Dependencies
-**Blockers**: None
-**Unblocks**: None
+## Status: DONE (2026-02-11, Claude + Eero investigation)
+Root cause confirmed: HUK regenerated on platform flash, MFG keys still present, so `mfg_key_health_check()` passes but PSA derives wrong keys. `flash.sh platform` now warns about HUK invalidation and requires confirmation. KI-002 updated with resolution. Remaining gap: no runtime HUK mismatch detection at boot (would need test decryption).
 
 ## Acceptance Criteria
-- [ ] Root cause confirmed (HUK invalidation vs session key corruption vs other)
-- [ ] Immediate fix documented: re-flash in correct order (MFG → platform → app) + BLE re-registration
-- [ ] `flash.sh` updated: `platform` and `all` subcommands enforce correct flash order or warn
-- [ ] Optional: `flash.sh` detects stale HUK state and prompts for MFG re-flash
+- [x] Root cause confirmed: HUK invalidation (not session key corruption)
+- [x] Immediate fix documented: re-flash MFG → platform → app + BLE re-registration (KI-002)
+- [x] `flash.sh` updated: `platform` subcommand warns and requires confirmation
+- [ ] Optional: runtime HUK mismatch detection at boot — deferred (needs test decryption in PSA)
 
 **Size**: S (2 points) — 30 min investigation + fix
 

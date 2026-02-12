@@ -83,10 +83,13 @@ Reflash in the correct order:
 
 ### Resolution
 
-Investigation pending (TASK-023). Potential fixes:
-- Update `flash.sh` to enforce correct flash order
-- Add HUK validation at boot with clear error message
-- Document the flash order requirement prominently
+Root cause confirmed: HUK regenerated on platform flash, but MFG keys remain — so `mfg_key_health_check()` passes but PSA key derivation produces wrong keys. The health check detects **missing** keys, not **mismatched** HUK.
+
+Mitigations applied:
+- `flash.sh platform` now warns about HUK invalidation and requires confirmation
+- `flash.sh all` already uses correct order (MFG -> platform -> app)
+
+Remaining gap: no runtime detection of HUK mismatch at boot. Would require a test decryption of a stored session key during `sidewalk_event_platform_init()`.
 
 ---
 
