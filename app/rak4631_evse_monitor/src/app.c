@@ -542,12 +542,19 @@ static int cmd_app(const struct shell *sh, size_t argc, char **argv)
 	return cmd_app_dispatch(sh, argv[1], argc - 1, argv + 1);
 }
 
+static int cmd_sid_selftest(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+	return cmd_app_dispatch(sh, "selftest", 1, (char *[]){"selftest"});
+}
+
 /* Shell command registration — platform commands */
 SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(status, NULL, "Show Sidewalk status", cmd_sid_status),
 	SHELL_CMD(mfg, NULL, "Check MFG store", cmd_sid_mfg),
 	SHELL_CMD(reinit, NULL, "Re-run Sidewalk init", cmd_sid_reinit),
 	SHELL_CMD(send, NULL, "Trigger manual send (app)", cmd_sid_send_app),
+	SHELL_CMD(selftest, NULL, "Run commissioning self-test", cmd_sid_selftest),
 	SHELL_CMD(lora, NULL, "Switch to LoRa", cmd_sid_lora),
 	SHELL_CMD(ble, NULL, "Switch to BLE", cmd_sid_ble),
 	SHELL_CMD(reset, NULL, "Factory reset", cmd_sid_reset),

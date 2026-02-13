@@ -21,7 +21,10 @@ struct mock_send_record {
 struct mock_state {
 	/* Controllable inputs */
 	int adc_values[4];         /* return value for adc_read_mv(channel) */
+	bool adc_fail[4];          /* when true, adc_read_mv() returns -1 */
 	int gpio_values[4];        /* return value for gpio_get(pin) */
+	bool gpio_fail[4];         /* when true, gpio_get() returns -1 */
+	bool gpio_readback_fail[4]; /* when true, gpio_get() returns !gpio_values[pin] */
 	uint32_t uptime;           /* return value for uptime_ms() */
 	bool ready;                /* return value for is_ready() */
 

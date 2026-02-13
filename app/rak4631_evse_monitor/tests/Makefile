@@ -24,7 +24,8 @@ SRCS = \
     $(APP_SRC)/thermostat_inputs.c \
     $(APP_SRC)/rak_sidewalk.c \
     $(APP_SRC)/app_tx.c \
-    $(APP_SRC)/app_rx.c
+    $(APP_SRC)/app_rx.c \
+    $(APP_SRC)/selftest.c
 
 OUT = test_app
 

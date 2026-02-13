@@ -7,6 +7,7 @@
 #include <rak_sidewalk.h>
 #include <evse_sensors.h>
 #include <thermostat_inputs.h>
+#include <selftest.h>
 #include <platform_api.h>
 
 static const struct platform_api *api;
@@ -73,7 +74,7 @@ evse_payload_t rak_sidewalk_get_payload(void)
 		payload.current_ma = current_ma;
 	}
 
-	payload.thermostat_flags = thermostat_flags_get();
+	payload.thermostat_flags = thermostat_flags_get() | selftest_get_fault_flags();
 
 	if (api) {
 		api->log_inf("EVSE: J1772=%d (%dmV) I=%dmA therm=0x%02x",
