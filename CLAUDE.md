@@ -220,6 +220,19 @@ This project uses nine named agent personas:
 - **Full definition**: See `ai/agents/product-manager.md` (or fetch from [GitHub](https://github.com/VoltAgent/awesome-claude-code-subagents/blob/main/categories/08-business-product/product-manager.md))
 - **Note**: This definition is lightweight — if Pam needs more depth for specific tasks, revisit and upgrade
 
+### Task Ownership Convention
+When you start working on a task, **immediately** update the task entry in `ai/memory-bank/tasks/rak-sid-tasklist.md` to record:
+- **Session ID**: The current conversation/session identifier (from the `.jsonl` filename or context)
+- **Branch name**: The git branch you are working on
+
+Append these to the task's status line, e.g.:
+```
+## Status: IN PROGRESS (2026-02-13, Eliel)
+**Session**: `a1b2c3d4-...` | **Branch**: `feature/time-sync`
+```
+
+This prevents duplicate work across sessions and makes it possible to trace which conversation produced which changes. Update the status to DONE with the same fields when complete.
+
 ### Task Table View Preference
 - **"table view"**: Box-drawn table with columns: Priority | Task | Status | Description | Blocks/Blocked By. Done tasks in a separate table at the bottom.
 - **"expanded view"**: Full task details (all fields from the template).
