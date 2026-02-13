@@ -71,12 +71,20 @@ add_unit_test(test_app_tx
     ${APP_SRC}/rak_sidewalk.c
     ${APP_SRC}/evse_sensors.c
     ${APP_SRC}/thermostat_inputs.c
+    ${APP_SRC}/selftest.c
+    ${APP_SRC}/charge_control.c
 )
 
 # app_rx tests (needs charge_control)
 add_unit_test(test_app_rx
     ${APP_SRC}/app_rx.c
     ${APP_SRC}/charge_control.c
+    ${APP_SRC}/time_sync.c
+)
+
+# time_sync tests
+add_unit_test(test_time_sync
+    ${APP_SRC}/time_sync.c
 )
 
 # shell command dispatch tests (needs app_entry + all app modules)
@@ -89,6 +97,7 @@ add_executable(test_shell_commands
     ${APP_SRC}/rak_sidewalk.c
     ${APP_SRC}/app_tx.c
     ${APP_SRC}/app_rx.c
+    ${APP_SRC}/time_sync.c
 )
 target_include_directories(test_shell_commands PRIVATE ${TEST_INCLUDES})
 target_compile_definitions(test_shell_commands PRIVATE HOST_TEST)

@@ -94,7 +94,8 @@ class TestEvseTelemetryChain:
         raw = bytes([0xE5, 0x01, 0x03, 0xD1, 0x05, 0x98, 0x3A, 0x03])
         event = make_sidewalk_event(raw)
 
-        with patch.object(decode, "table") as mock_table:
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "maybe_send_time_sync"):
             mock_table.put_item = MagicMock()
             result = decode.lambda_handler(event, None)
 
