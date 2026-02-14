@@ -84,9 +84,9 @@ The generic platform refactor is complete (2 commits: `d5a84a5`, `e88d519`). All
 
 ---
 
-### TASK-002: Create CLAUDE.md project configuration — DONE
+### TASK-002: Create CLAUDE.md project configuration — MERGED DONE
 
-## Status: DONE (2026-02-11)
+## Status: MERGED DONE (2026-02-11)
 CLAUDE.md already existed with comprehensive coverage exceeding acceptance criteria. Includes safety notes, device-specific details, and branch conventions beyond original scope.
 
 ## Acceptance Criteria
@@ -101,9 +101,9 @@ CLAUDE.md already existed with comprehensive coverage exceeding acceptance crite
 
 ---
 
-### TASK-003: Update README.md for generic platform architecture — DONE (Eero)
+### TASK-003: Update README.md for generic platform architecture — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 README updated on `feature/testing-pyramid` with comprehensive testing section documenting all 4 test suites (Unity/CMake 75 tests, Grenning 32 tests, Python 81 tests, integration 7 tests). Note: changes are on feature branch, not yet merged to main.
 
 ## Acceptance Criteria
@@ -121,9 +121,9 @@ README updated on `feature/testing-pyramid` with comprehensive testing section d
 
 ---
 
-### TASK-004: Add charge scheduler Lambda unit tests — DONE
+### TASK-004: Add charge scheduler Lambda unit tests — MERGED DONE
 
-## Status: DONE (2026-02-11)
+## Status: MERGED DONE (2026-02-11)
 17 tests in `aws/tests/test_charge_scheduler.py`. Covers TOU peak detection (8 tests), charge command payload format (3 tests), lambda handler decision logic (3 tests), and MOER integration (3 tests). All passing in CI. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -140,9 +140,9 @@ README updated on `feature/testing-pyramid` with comprehensive testing section d
 
 ---
 
-### TASK-005: Add OTA recovery path host-side tests — DONE (Eero)
+### TASK-005: Add OTA recovery path host-side tests — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 16 tests in `tests/app/test_ota_recovery.c` using Unity/CMake framework (not Grenning). Tests use RAM-backed mock flash (400KB covering primary + metadata + staging). Mock Zephyr headers created at `tests/mocks/zephyr/` (kernel.h, device.h, drivers/flash.h, logging/log.h, sys/crc.h, sys/reboot.h). All 16 tests passing in CI. Branch: `feature/testing-pyramid`.
 
 Key finding: `clear_metadata()` page-aligned erase at 0xCFF00 extends to 0xD0FFF, partially erasing first page of staging area. Tests account for this behavior.
@@ -166,9 +166,9 @@ Key finding: `clear_metadata()` page-aligned erase at 0xCFF00 extends to 0xD0FFF
 
 ---
 
-### TASK-006: Add decode Lambda unit tests — DONE
+### TASK-006: Add decode Lambda unit tests — MERGED DONE
 
-## Status: DONE (2026-02-11)
+## Status: MERGED DONE (2026-02-11)
 20 tests in `aws/tests/test_decode_evse.py`. Covers raw EVSE payload decoding (9 tests), OTA uplink decoding (6 tests), full base64 decode pipeline (4 tests), and lambda handler integration with DynamoDB + OTA forwarding (2 tests). All passing in CI. Branch: `feature/testing-pyramid`.
 
 Note: Legacy sid_demo format decoding not explicitly tested — the decode_legacy_sid_demo_payload function exists but is a fallback path with scan-based parsing that's harder to unit test precisely. Coverage focuses on the primary raw format.
@@ -187,9 +187,9 @@ Note: Legacy sid_demo format decoding not explicitly tested — the decode_legac
 
 ---
 
-### TASK-007: Create E2E test plan for device-to-cloud round-trip — DONE
+### TASK-007: Create E2E test plan for device-to-cloud round-trip — MERGED DONE
 
-## Status: DONE (2026-02-11)
+## Status: MERGED DONE (2026-02-11)
 E2E runbook exists at `tests/e2e/RUNBOOK.md`. Covers boot/connect, telemetry flow, charge control downlink, OTA update, and sensor simulation. Manual checklist format with shell + AWS CLI verification commands.
 
 ## Acceptance Criteria
@@ -206,9 +206,9 @@ E2E runbook exists at `tests/e2e/RUNBOOK.md`. Covers boot/connect, telemetry flo
 
 ---
 
-### TASK-008: Document OTA recovery and rollback procedures — DONE (Eero)
+### TASK-008: Document OTA recovery and rollback procedures — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 Comprehensive 533-line runbook at `docs/ota-recovery.md`. Covers OTA state machine with ASCII diagram, recovery metadata struct layout, 5 failure modes with log messages, shell diagnosis commands, 5 manual recovery procedures, full cloud-side CLI reference, rollback limitations, prevention practices, and a quick-reference decision tree.
 
 ## Acceptance Criteria
@@ -224,9 +224,9 @@ Comprehensive 533-line runbook at `docs/ota-recovery.md`. Covers OTA state machi
 
 ---
 
-### TASK-009: Set up GitHub Actions for host-side unit tests — DONE (Oliver + Eero)
+### TASK-009: Set up GitHub Actions for host-side unit tests — MERGED DONE (Oliver + Eero)
 
-## Status: DONE (2026-02-11, Oliver initial + Eero completed)
+## Status: MERGED DONE (2026-02-11, Oliver initial + Eero completed)
 CI at `.github/workflows/ci.yml` runs both test suites: CMake/ctest (Unity tests) and Grenning Makefile tests. Also includes cppcheck static analysis and Python pytest. All 4 CI jobs passing. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -241,9 +241,9 @@ CI at `.github/workflows/ci.yml` runs both test suites: CMake/ctest (Unity tests
 
 ---
 
-### TASK-010: Set up GitHub Actions for Lambda tests + linting — DONE (Oliver + Eero)
+### TASK-010: Set up GitHub Actions for Lambda tests + linting — MERGED DONE (Oliver + Eero)
 
-## Status: DONE (2026-02-11, Oliver initial + Eero completed)
+## Status: MERGED DONE (2026-02-11, Oliver initial + Eero completed)
 CI runs pytest and ruff linting. Config in `pyproject.toml` (line-length 100, E/W/F/I rules). Auto-fixed 30 violations (unused f-prefixes, unused imports). Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -257,9 +257,9 @@ CI runs pytest and ruff linting. Config in `pyproject.toml` (line-length 100, E/
 
 ---
 
-### TASK-011: Document device provisioning workflow — DONE (Eero)
+### TASK-011: Document device provisioning workflow — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 Provisioning guide at `docs/provisioning.md`. Covers credential generation, MFG partition build, flash sequence, first boot registration, shell diagnostics, AWS IoT Wireless registration, E2E verification, OTA baseline capture, and troubleshooting table. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -278,9 +278,9 @@ Provisioning guide at `docs/provisioning.md`. Covers credential generation, MFG 
 
 ---
 
-### TASK-012: Validate WattTime MOER threshold for PSCO region — DONE (Eero)
+### TASK-012: Validate WattTime MOER threshold for PSCO region — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 Analysis script created and executed. WattTime free tier only provides current signal index (not historical data needed for full distribution analysis). Current MOER consistently at 70% for PSCO region. Recommendation: keep 70% threshold. Full historical analysis requires WattTime paid tier upgrade. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -300,9 +300,9 @@ Analysis script created and executed. WattTime free tier only provides current s
 
 ---
 
-### TASK-013: OTA field reliability testing across RF conditions — P4 DEFERRED
+### TASK-013: OTA field reliability testing across RF conditions — DEFERRED
 
-## Status: P4 DEFERRED (2026-02-13)
+## Status: DEFERRED (2026-02-13)
 Test plan written at `ai/memory-bank/tasks/ota-field-test-results.md`. Deprioritized to P4 — LoRa RF reliability at range is fundamentally a Sidewalk/AWS platform concern, not something we can solve at the application layer. We verify OTA works in lab; Sidewalk's link-layer retries handle the rest.
 
 ## Acceptance Criteria
@@ -322,9 +322,9 @@ Test plan written at `ai/memory-bank/tasks/ota-field-test-results.md`. Depriorit
 
 ---
 
-### TASK-014: Create Product Requirements Document (PRD) — DONE
+### TASK-014: Create Product Requirements Document (PRD) — MERGED DONE
 
-## Status: DONE (2026-02-11)
+## Status: MERGED DONE (2026-02-11)
 Retroactive v1.0 PRD written to `docs/PRD.md`. Covers 9 sections: product overview, device requirements, connectivity, cloud, operational, non-functional, scope boundaries, known gaps, and requirement traceability. Every requirement tagged IMPLEMENTED / NOT STARTED / N/A. All 14 remaining backlog tasks mapped to PRD gaps.
 
 ## Acceptance Criteria
@@ -346,9 +346,9 @@ Retroactive v1.0 PRD written to `docs/PRD.md`. Covers 9 sections: product overvi
 
 ---
 
-### TASK-015: Remove dead sid_demo_parser code — DONE (Claude)
+### TASK-015: Remove dead sid_demo_parser code — MERGED DONE (Claude)
 
-## Status: DONE (2026-02-11, Claude)
+## Status: MERGED DONE (2026-02-11, Claude)
 Deleted 5 files (~1,600 lines) from `ext/`, removed `ext/` directory entirely. Removed source entry and include path from `CMakeLists.txt`. Grep confirmed zero references in app code. All 9 C test suites pass.
 
 ## Acceptance Criteria
@@ -361,9 +361,9 @@ Deleted 5 files (~1,600 lines) from `ext/`, removed `ext/` directory entirely. R
 
 ---
 
-### TASK-016: Document SDK divergence and architecture decisions — DONE (Eero)
+### TASK-016: Document SDK divergence and architecture decisions — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 Comprehensive architecture document created at `docs/architecture.md`. Covers split-image design, memory layout diagram, API contract (22 platform functions, 7 app callbacks), boot sequence, OTA flow, SDK compliance table, patches, GPIO mapping, and testing architecture. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -384,9 +384,9 @@ Comprehensive architecture document created at `docs/architecture.md`. Covers sp
 
 ---
 
-### TASK-018: Add old Grenning tests to CI — DONE (Eero)
+### TASK-018: Add old Grenning tests to CI — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 Added `test-c-grenning` job to `.github/workflows/ci.yml`. Runs `make -C app/rak4631_evse_monitor/tests clean test` as a separate CI job. All 4 CI jobs passing (lint, test-c, test-c-grenning, test-python). Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -410,9 +410,9 @@ Evaluated and declined. Code is already consistently styled by hand. clang-forma
 
 ---
 
-### TASK-020: Execute E2E runbook tests on physical device — DONE (Eero)
+### TASK-020: Execute E2E runbook tests on physical device — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 6/7 E2E tests passed, OTA test skipped (device in use by other agent). Results documented at `tests/e2e/RESULTS-2026-02-11.md`. Key finding: serial DTR reset issue — must use `/dev/cu.usbmodem101` (not tty) with persistent connections. J1772 state mapping mismatch found between firmware and decode Lambda. Branch: `feature/testing-pyramid`.
 
 ## Acceptance Criteria
@@ -432,9 +432,9 @@ Evaluated and declined. Code is already consistently styled by hand. clang-forma
 
 ---
 
-### TASK-021: Archive or remove legacy rak1901_demo app — DONE
+### TASK-021: Archive or remove legacy rak1901_demo app — MERGED DONE
 
-## Status: DONE (2026-02-11)
+## Status: MERGED DONE (2026-02-11)
 Already removed in commit `0a3e622` (merged to main via `900dfbe`). Decision: remove (not archive). 39 files deleted (3,925 lines). RAK1901 driver and DTS binding also removed. No remaining references in codebase. Upstream RAKWireless repo retains originals.
 
 ## Acceptance Criteria
@@ -495,30 +495,33 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 
 ## Priority Order (Recommended)
 
+**Status pipeline**: not started -> planned -> in progress -> coded -> committed -> pushed -> merged done
+**Special**: deferred, declined
+
 | Priority | Task | Rationale |
 |----------|------|-----------|
-| Done | TASK-002 | CLAUDE.md — already existed |
-| Done | TASK-003 | README updated (on feature/testing-pyramid) |
-| Done | TASK-004 | Charge scheduler tests — 17 tests passing |
-| Done | TASK-005 | OTA recovery tests — 16 tests passing |
-| Done | TASK-006 | Decode Lambda tests — 20 tests passing |
-| Done | TASK-007 | E2E test plan (runbook written) |
-| Done | TASK-009 | CI pipeline — all 4 jobs (CMake + Grenning + cppcheck + pytest) |
-| Done | TASK-010 | Python linting (ruff) added to CI |
-| Done | TASK-011 | Provisioning docs at docs/provisioning.md |
-| Done | TASK-012 | MOER threshold validated — keep 70% |
-| Done | TASK-014 | PRD written |
-| Done | TASK-016 | Architecture docs at docs/architecture.md |
-| Done | TASK-018 | Grenning tests added to CI |
-| Done | TASK-020 | E2E runbook executed — 6/7 pass, OTA skipped |
-| Done | TASK-021 | Legacy rak1901_demo removed (commit 0a3e622) |
-| Done | TASK-024 | API version mismatch hardened to hard stop (Claude) |
-| Done | TASK-025 | OTA chunk + delta bitmap tests — 13 C + 13 Python (Eero) |
-| Done | TASK-027 | Shell command dispatch tests — 31 tests (Eero) |
-| Done | TASK-028 | MFG key health check tests — 7 tests (Eero) |
+| Merged done | TASK-002 | CLAUDE.md — already existed |
+| Merged done | TASK-003 | README updated (on feature/testing-pyramid) |
+| Merged done | TASK-004 | Charge scheduler tests — 17 tests passing |
+| Merged done | TASK-005 | OTA recovery tests — 16 tests passing |
+| Merged done | TASK-006 | Decode Lambda tests — 20 tests passing |
+| Merged done | TASK-007 | E2E test plan (runbook written) |
+| Merged done | TASK-009 | CI pipeline — all 4 jobs (CMake + Grenning + cppcheck + pytest) |
+| Merged done | TASK-010 | Python linting (ruff) added to CI |
+| Merged done | TASK-011 | Provisioning docs at docs/provisioning.md |
+| Merged done | TASK-012 | MOER threshold validated — keep 70% |
+| Merged done | TASK-014 | PRD written |
+| Merged done | TASK-016 | Architecture docs at docs/architecture.md |
+| Merged done | TASK-018 | Grenning tests added to CI |
+| Merged done | TASK-020 | E2E runbook executed — 6/7 pass, OTA skipped |
+| Merged done | TASK-021 | Legacy rak1901_demo removed (commit 0a3e622) |
+| Merged done | TASK-024 | API version mismatch hardened to hard stop (Claude) |
+| Merged done | TASK-025 | OTA chunk + delta bitmap tests — 13 C + 13 Python (Eero) |
+| Merged done | TASK-027 | Shell command dispatch tests — 31 tests (Eero) |
+| Merged done | TASK-028 | MFG key health check tests — 7 tests (Eero) |
 | — | TASK-019 | clang-format — DECLINED |
-| Done | TASK-015 | Dead code removal — 5 files, ~1,600 lines deleted (Claude) |
-| Done | TASK-023 | PSA crypto -149 root caused, flash.sh warning added (Claude + Eero) |
+| Merged done | TASK-015 | Dead code removal — 5 files, ~1,600 lines deleted (Claude) |
+| Merged done | TASK-023 | PSA crypto -149 root caused, flash.sh warning added (Claude + Eero) |
 | P4 | TASK-013 | OTA field RF testing — deferred, Sidewalk platform concern |
 | P0 | TASK-039 | Commissioning self-test — P0 for first field install (Eero) |
 | P0 | TASK-041 | Commissioning checklist card — P0 for first field install (Bobby) |
@@ -535,18 +538,18 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | P2 | TASK-026 | Boot path + app discovery tests (Eero, unblocked by TASK-024) |
 | P2 | TASK-030 | Fleet command throttling — staggered random delays (Eliel) |
 | P2 | TASK-032 | Cloud command authentication — signed downlinks (Eliel) |
-| Scoped | TASK-037 | Utility identification — lookup pipeline + TOU data model designed (Pam) |
+| Planned | TASK-037 | Utility identification — lookup pipeline + TOU data model designed (Pam) |
 | P2 | TASK-038 | Data privacy — policy + retention + CCPA review (Pam) |
 | P2 | TASK-042 | Privacy agent — assign legal/privacy owner (Pam) |
-| Scoped | TASK-043 | Warranty/liability risk — EVSE pilot wire, MMWA, mitigation roadmap (Pam) |
-| Done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
-| Done | TASK-043 | Warranty/liability risk — PRD section 6.4 (Pam) |
+| Planned | TASK-043 | Warranty/liability risk — EVSE pilot wire, MMWA, mitigation roadmap (Pam) |
+| Merged done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
+| Merged done | TASK-043 | Warranty/liability risk — PRD section 6.4 (Pam) |
 
 ---
 
-### TASK-043: Warranty and liability risk assessment — DONE (Pam)
+### TASK-043: Warranty and liability risk assessment — MERGED DONE (Pam)
 
-## Status: DONE (2026-02-13, Pam)
+## Status: MERGED DONE (2026-02-13, Pam)
 ## Branch: `feature/warranty-scoping`
 
 PRD section 6.4 added: Warranty and Liability. Documents risk that intercepting J1772 pilot wire may void EVSE/vehicle warranties. Covers per-circuit risk assessment (pilot HIGH, clamp NONE, relay HIGH, thermostat LOW), Magnuson-Moss Warranty Act analysis, 8 mitigations, phased compliance roadmap, and 5 open questions for legal review. Known Gaps and Traceability tables updated.
@@ -593,9 +596,9 @@ When physically flashing a smaller app over a larger one, pyOCD only erases page
 
 ---
 
-### TASK-023: BUG — PSA crypto AEAD error -149 after platform re-flash — DONE (Claude + Eero)
+### TASK-023: BUG — PSA crypto AEAD error -149 after platform re-flash — MERGED DONE (Claude + Eero)
 
-## Status: DONE (2026-02-11, Claude + Eero investigation)
+## Status: MERGED DONE (2026-02-11, Claude + Eero investigation)
 Root cause confirmed: HUK regenerated on platform flash, MFG keys still present, so `mfg_key_health_check()` passes but PSA derives wrong keys. `flash.sh platform` now warns about HUK invalidation and requires confirmation. KI-002 updated with resolution. Remaining gap: no runtime HUK mismatch detection at boot (would need test decryption).
 
 ## Acceptance Criteria
@@ -608,9 +611,9 @@ Root cause confirmed: HUK regenerated on platform flash, MFG keys still present,
 
 ---
 
-### TASK-024: Harden API version mismatch to hard stop — DONE (Claude)
+### TASK-024: Harden API version mismatch to hard stop — MERGED DONE (Claude)
 
-## Status: DONE (2026-02-11, Claude)
+## Status: MERGED DONE (2026-02-11, Claude)
 Changed `discover_app_image()` in `app.c` from warning to hard stop on version mismatch. Added `app_reject_reason` tracking for shell diagnostics. Updated `sid status` to show rejection reason. ADR-001 written at `docs/adr/001-version-mismatch-hard-stop.md`. KI-001 documented in `docs/known-issues.md`.
 
 ## Acceptance Criteria
@@ -624,9 +627,9 @@ Changed `discover_app_image()` in `app.c` from warning to hard stop on version m
 
 ---
 
-### TASK-025: Add OTA chunk receive and delta bitmap tests — DONE (Eero)
+### TASK-025: Add OTA chunk receive and delta bitmap tests — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 13 C tests in `tests/app/test_ota_chunks.c` covering chunk writes, phase rejection, duplicate handling, delta bitmap, state transitions, and out-of-bounds rejection. 13 Python tests in `aws/tests/test_ota_sender.py` covering `compute_delta_chunks()` edge cases and `build_ota_chunk()` format. All 9 C test suites (including new) and 94 Python tests pass.
 
 Key finding: mock flash alignment issue — `ota_flash_write()` pads unaligned writes with 0xFF, which overwrites adjacent data in RAM-backed mock. Tests use 4-byte-aligned chunk sizes to avoid this.
@@ -676,9 +679,9 @@ Also covers: OTA message routing (cmd 0x20 → OTA engine, else → app), NULL a
 
 ---
 
-### TASK-027: Add shell command dispatch tests — DONE (Eero)
+### TASK-027: Add shell command dispatch tests — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 31 tests in `tests/app/test_shell_commands.c` covering entire `app_on_shell_cmd()` dispatch. Uses capture callback pattern for shell output verification. All tests passing.
 
 ## Acceptance Criteria
@@ -695,9 +698,9 @@ Also covers: OTA message routing (cmd 0x20 → OTA engine, else → app), NULL a
 
 ---
 
-### TASK-028: Add MFG key health check tests — DONE (Eero)
+### TASK-028: Add MFG key health check tests — MERGED DONE (Eero)
 
-## Status: DONE (2026-02-11, Eero)
+## Status: MERGED DONE (2026-02-11, Eero)
 7 tests in `tests/app/test_mfg_health.c`. Extracted `mfg_key_health_check()` from static function in `sidewalk_events.c` into standalone module (`mfg_health.h`/`mfg_health.c`) for testability. Returns `mfg_health_result_t` struct with `ed25519_ok` and `p256r1_ok` booleans. Mock at `tests/mocks/sid_pal_mfg_store_ifc.h`. All tests passing.
 
 ## Acceptance Criteria
@@ -1044,9 +1047,9 @@ Also covers: OTA message routing (cmd 0x20 → OTA engine, else → app), NULL a
 
 ---
 
-### TASK-037: Utility identification — per-device meter number to utility/TOU schedule lookup — SCOPED (Pam)
+### TASK-037: Utility identification — per-device meter number to utility/TOU schedule lookup — PLANNED (Pam)
 
-## Status: SCOPED (2026-02-13, Pam)
+## Status: PLANNED (2026-02-13, Pam)
 Product scoping complete in PRD section 4.5. Corrected the original design assumption (meter number → utility is wrong; address → utility is correct). Defined the three-step lookup pipeline (address → utility, utility → TOU schedule + WattTime region, meter number → rate plan). Designed TOU schedule JSON data model with peak window arrays. Documented reference schedules for top 5 US residential EV utility markets (Xcel, SCE, PG&E, SDG&E, Con Edison). Defined the charge scheduler refactor path (4 changes needed). Resolved the open question about meter number vs. address roles. Implementation is a v1.1 deliverable (v1.0 remains Xcel-only).
 
 ## Branch & Worktree Strategy
@@ -1282,9 +1285,9 @@ Product scoping complete in PRD section 4.5. Corrected the original design assum
 
 ---
 
-### TASK-043: Warranty and liability risk — EVSE/vehicle warranty impact from pilot wire modification — SCOPED (Pam)
+### TASK-043: Warranty and liability risk — EVSE/vehicle warranty impact from pilot wire modification — PLANNED (Pam)
 
-## Status: SCOPED (2026-02-13, Pam)
+## Status: PLANNED (2026-02-13, Pam)
 Warranty risk analysis complete in PRD section 6.4. Identified three affected circuits (J1772 pilot — HIGH risk, vehicle onboard charger — MEDIUM risk, HVAC thermostat — LOW risk). Documented Magnuson-Moss Warranty Act protections and their limits. Identified 8 mitigation strategies with effort/impact ratings, organized into a phased roadmap (v1.0 accept + disclose → pre-customer: insurance → v1.1: reversible connector + relay logging → v1.1+: EVSE partnerships → v2.0: OCPP integration). Flagged EVSE relay wear as a plausible SideCharge-caused defect that MMWA wouldn't protect against. Four open questions documented for legal/engineering follow-up.
 
 ## Branch & Worktree Strategy
