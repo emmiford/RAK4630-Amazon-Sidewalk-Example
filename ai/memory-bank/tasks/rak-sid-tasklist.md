@@ -540,6 +540,25 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | P2 | TASK-042 | Privacy agent — assign legal/privacy owner (Pam) |
 | Scoped | TASK-043 | Warranty/liability risk — EVSE pilot wire, MMWA, mitigation roadmap (Pam) |
 | Done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
+| Done | TASK-043 | Warranty/liability risk — PRD section 6.4 (Pam) |
+
+---
+
+### TASK-043: Warranty and liability risk assessment — DONE (Pam)
+
+## Status: DONE (2026-02-13, Pam)
+## Branch: `feature/warranty-scoping`
+
+PRD section 6.4 added: Warranty and Liability. Documents risk that intercepting J1772 pilot wire may void EVSE/vehicle warranties. Covers per-circuit risk assessment (pilot HIGH, clamp NONE, relay HIGH, thermostat LOW), Magnuson-Moss Warranty Act analysis, 8 mitigations, phased compliance roadmap, and 5 open questions for legal review. Known Gaps and Traceability tables updated.
+
+## Acceptance Criteria
+- [x] PRD documents warranty risk per circuit (pilot, current clamp, relay, thermostat)
+- [x] PRD documents Magnuson-Moss Warranty Act applicability
+- [x] PRD documents 8 mitigation strategies
+- [x] PRD documents phased compliance roadmap (v1.0 → v2.1)
+- [x] PRD documents open questions for legal review
+
+**Size**: S (2 points) — 30 min
 
 ---
 
