@@ -74,16 +74,22 @@ add_unit_test(test_app_tx
     ${APP_SRC}/charge_control.c
 )
 
-# app_rx tests (needs charge_control)
+# app_rx tests (needs charge_control + time_sync + event_buffer)
 add_unit_test(test_app_rx
     ${APP_SRC}/app_rx.c
     ${APP_SRC}/charge_control.c
     ${APP_SRC}/time_sync.c
+    ${APP_SRC}/event_buffer.c
 )
 
 # time_sync tests
 add_unit_test(test_time_sync
     ${APP_SRC}/time_sync.c
+)
+
+# event_buffer tests
+add_unit_test(test_event_buffer
+    ${APP_SRC}/event_buffer.c
 )
 
 # shell command dispatch tests (needs app_entry + all app modules)
@@ -97,6 +103,7 @@ add_executable(test_shell_commands
     ${APP_SRC}/app_tx.c
     ${APP_SRC}/app_rx.c
     ${APP_SRC}/time_sync.c
+    ${APP_SRC}/event_buffer.c
 )
 target_include_directories(test_shell_commands PRIVATE ${TEST_INCLUDES})
 target_compile_definitions(test_shell_commands PRIVATE HOST_TEST)
