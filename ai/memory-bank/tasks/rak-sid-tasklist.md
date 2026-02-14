@@ -478,7 +478,9 @@ TASK-028 (MFG key health tests) — unblocks TASK-023
 
 TASK-029 (Prod observability) —— independent (Eliel: cloud alerting + remote query)
 TASK-030 (Fleet cmd throttling) — independent (Eliel: security threat mitigation)
-TASK-031 (OTA image signing) ——— independent (Eliel: ED25519 signing)
+TASK-031 (OTA image signing) ——— MERGED DONE (Eliel)
+TASK-045 (ED25519 verify lib) —— blocked by TASK-031 (needs signing infra)
+TASK-046 (Signed OTA E2E) ————— blocked by TASK-045 (needs real verify on device)
 TASK-032 (Cloud cmd auth) ————— independent (Eliel: signed downlinks)
 TASK-033 (TIME_SYNC downlink) —— independent (Eliel: device wall-clock time)
 TASK-034 (Event buffer) ————————— depends on TASK-033 (ACK watermark needs time sync)
@@ -542,6 +544,8 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | P2 | TASK-038 | Data privacy — policy + retention + CCPA review (Pam) |
 | P2 | TASK-042 | Privacy agent — assign legal/privacy owner (Pam) |
 | Planned | TASK-043 | Warranty/liability risk — EVSE pilot wire, MMWA, mitigation roadmap (Pam) |
+| P1 | TASK-045 | ED25519 verify library integration — platform firmware (Eliel) |
+| P1 | TASK-046 | Signed OTA E2E verification on device — blocked by 045 (Eero) |
 | Merged done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
 | Merged done | TASK-043 | Warranty/liability risk — PRD section 6.4 (Pam) |
 
@@ -1368,6 +1372,75 @@ Reference: commissioning card design spec at `docs/commissioning-card-source/REA
 - Updated `docs/PRD.md`
 
 **Size**: M (3 points) — 2 hours
+
+---
+
+### TASK-045: Integrate real ED25519 verify library into platform firmware
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: `task/045-ed25519-verify-lib`
+
+## Description
+**Agent**: Eliel (Backend Architect). TASK-031 added OTA image signing with a placeholder `ota_signing.c` that always returns success. This task replaces the placeholder with a real ED25519 verify-only implementation. Options: (1) PSA Crypto API if Mbed TLS in NCS v2.9.1 supports ED25519 (check `PSA_ALG_PURE_EDDSA`), or (2) standalone ed25519-donna (~3-4KB verify-only). The 32-byte public key constant must be compiled into firmware. Requires a platform rebuild and reflash.
+
+## Dependencies
+**Blockers**: TASK-031 (signing infrastructure — MERGED DONE)
+**Unblocks**: TASK-046 (E2E signed OTA verification needs real verify)
+
+## Acceptance Criteria
+- [ ] `ota_signing.c` calls a real ED25519 verify function (PSA Crypto or ed25519-donna)
+- [ ] 32-byte public key embedded as a constant (generated via `ota_deploy.py keygen`)
+- [ ] Platform firmware builds with ED25519 verify (~3-4KB code size increase acceptable)
+- [ ] Host-side C tests still pass (mock_ota_signing unaffected)
+- [ ] Unsigned images pass through (no signature check when `is_signed=false`)
+
+## Testing Requirements
+- [ ] Platform build succeeds with real ED25519 library
+- [ ] On-device: `ota_verify_signature()` returns 0 for valid signature, nonzero for invalid
+- [ ] Code size delta documented (before/after)
+
+## Deliverables
+- `app/rak4631_evse_monitor/src/ota_signing.c`: Real ED25519 verify implementation
+- Kconfig or CMake changes for ED25519 library inclusion
+- Documentation: which library chosen and why
+
+**Size**: M (3 points) — 2 hours
+
+---
+
+### TASK-046: E2E signed OTA verification on physical device
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: `task/046-signed-ota-e2e`
+
+## Description
+**Agent**: Eero (Testing Architect). End-to-end verification that the full signing pipeline works on hardware: keygen, sign, deploy, device receives signed image, verifies ED25519 signature, and applies. Also verify negative case: tamper with the S3 binary and confirm device rejects with SIG_ERR. This is the final validation gate for TASK-031 signing infrastructure.
+
+## Dependencies
+**Blockers**: TASK-045 (real ED25519 verify library must be integrated first)
+**Unblocks**: None
+
+## Acceptance Criteria
+- [ ] Generate keypair via `ota_deploy.py keygen`
+- [ ] Deploy signed firmware via `ota_deploy.py deploy --build --version N`
+- [ ] Device receives all chunks, CRC32 passes, ED25519 signature verifies, image applied
+- [ ] Device reboots and runs new firmware successfully
+- [ ] Negative test: tamper with S3 binary → device rejects with OTA_STATUS_SIG_ERR (5)
+- [ ] Negative test: deploy with `--unsigned` → device accepts (backward compatible, no verify)
+- [ ] Results documented in E2E results file
+
+## Testing Requirements
+- [ ] Requires physical device with platform firmware containing real ED25519 verify
+- [ ] Requires AWS infrastructure (S3, Lambda, IoT Wireless)
+- [ ] Serial monitor to observe OTA state machine transitions and verify/reject logs
+
+## Deliverables
+- `tests/e2e/RESULTS-signed-ota.md`: E2E test results
+- Updated `tests/e2e/RUNBOOK.md`: Add signed OTA test procedure
+
+**Size**: S (2 points) — 1 hour (requires device + AWS access)
 
 ---
 
