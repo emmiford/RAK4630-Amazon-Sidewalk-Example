@@ -8,6 +8,7 @@
 
 #include <app_rx.h>
 #include <charge_control.h>
+#include <time_sync.h>
 #include <platform_api.h>
 #include <string.h>
 
@@ -34,6 +35,15 @@ void app_rx_process_msg(const uint8_t *data, size_t len)
 		} else {
 			api->log_inf("Charge control: %s",
 				     charge_control_is_allowed() ? "ALLOW" : "PAUSE");
+		}
+		return;
+	}
+
+	/* TIME_SYNC command (0x30) */
+	if (data[0] == TIME_SYNC_CMD_TYPE) {
+		int ret = time_sync_process_cmd(data, len);
+		if (ret < 0) {
+			api->log_err("TIME_SYNC processing failed: %d", ret);
 		}
 		return;
 	}

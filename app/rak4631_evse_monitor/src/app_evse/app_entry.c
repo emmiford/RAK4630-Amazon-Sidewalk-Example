@@ -17,6 +17,7 @@
 #include <rak_sidewalk.h>
 #include <app_tx.h>
 #include <app_rx.h>
+#include <time_sync.h>
 #include <string.h>
 
 static const struct platform_api *api;
@@ -93,11 +94,13 @@ static int app_init(const struct platform_api *platform)
 	rak_sidewalk_set_api(api);
 	app_tx_set_api(api);
 	app_rx_set_api(api);
+	time_sync_set_api(api);
 
 	/* Initialize app subsystems */
 	evse_sensors_init();
 	charge_control_init();
 	thermostat_inputs_init();
+	time_sync_init();
 
 	/* Request 500ms poll interval from platform */
 	api->set_timer_interval(POLL_INTERVAL_MS);
@@ -245,6 +248,23 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 		error("Unknown hvac subcommand: %s", args);
 		return -1;
 	}
+
+	/* sid commands */
+	if (strcmp(cmd, "sid") == 0 && args && strcmp(args, "time") == 0) {
+		if (!time_sync_is_synced()) {
+			print("Time: NOT SYNCED (no TIME_SYNC received)");
+			return 0;
+		}
+		uint32_t epoch = time_sync_get_epoch();
+		uint32_t wm = time_sync_get_ack_watermark();
+		uint32_t since = time_sync_ms_since_sync();
+		print("Time sync status:");
+		print("  SideCharge epoch: %u", epoch);
+		print("  ACK watermark: %u", wm);
+		print("  Since last sync: %u ms", since);
+		return 0;
+	}
+
 
 	/* sid send (manual trigger) */
 	if (strcmp(cmd, "sid") == 0 && args && strcmp(args, "send") == 0) {

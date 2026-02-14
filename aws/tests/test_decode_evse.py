@@ -168,8 +168,9 @@ class TestDecodePayload:
 class TestLambdaHandler:
     @pytest.fixture(autouse=True)
     def mock_dynamodb(self):
-        """Mock the DynamoDB table put_item."""
-        with patch.object(decode, "table") as mock_table:
+        """Mock the DynamoDB table and TIME_SYNC auto-send."""
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "maybe_send_time_sync"):
             mock_table.put_item = MagicMock()
             self.mock_table = mock_table
             yield

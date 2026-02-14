@@ -26,6 +26,13 @@ table_name = os.environ.get('DYNAMODB_TABLE', 'sidewalk-v1-device_events_v2')
 ota_lambda_name = os.environ.get('OTA_LAMBDA_NAME', 'ota-sender')
 table = dynamodb.Table(table_name)
 
+# TIME_SYNC constants
+TIME_SYNC_CMD_TYPE = 0x30
+SIDECHARGE_EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z as Unix timestamp
+TIME_SYNC_INTERVAL_S = 86400  # Re-sync daily
+
+from sidewalk_utils import send_sidewalk_msg  # noqa: E402
+
 # EVSE payload magic byte and version
 EVSE_MAGIC = 0xE5
 EVSE_VERSION = 0x01
@@ -50,6 +57,57 @@ J1772_STATES = {
     5: 'E',  # Error - short circuit
     6: 'F',  # Error - no pilot
 }
+
+
+def _build_time_sync_bytes(sc_epoch, watermark):
+    """Build a 9-byte TIME_SYNC downlink payload.
+
+    Format: [0x30] [epoch LE 4B] [watermark LE 4B]
+    """
+    payload = bytearray(9)
+    payload[0] = TIME_SYNC_CMD_TYPE
+    payload[1] = sc_epoch & 0xFF
+    payload[2] = (sc_epoch >> 8) & 0xFF
+    payload[3] = (sc_epoch >> 16) & 0xFF
+    payload[4] = (sc_epoch >> 24) & 0xFF
+    payload[5] = watermark & 0xFF
+    payload[6] = (watermark >> 8) & 0xFF
+    payload[7] = (watermark >> 16) & 0xFF
+    payload[8] = (watermark >> 24) & 0xFF
+    return bytes(payload)
+
+
+def maybe_send_time_sync(device_id):
+    """Send TIME_SYNC if no sentinel exists or sentinel is >24h old."""
+    try:
+        resp = table.get_item(Key={
+            'device_id': device_id,
+            'timestamp': -2,
+        })
+        item = resp.get('Item')
+        if item:
+            last_sync = item.get('last_sync_unix', 0)
+            if (int(time.time()) - last_sync) < TIME_SYNC_INTERVAL_S:
+                return  # Recently synced, skip
+    except Exception as e:
+        print(f"TIME_SYNC sentinel read error: {e}")
+
+    # Build and send TIME_SYNC
+    now_unix = int(time.time())
+    sc_epoch = now_unix - SIDECHARGE_EPOCH_OFFSET
+    watermark = sc_epoch  # ACK watermark = current time (all data received so far)
+    payload = _build_time_sync_bytes(sc_epoch, watermark)
+    send_sidewalk_msg(payload)
+    print(f"Sent TIME_SYNC: epoch={sc_epoch}, watermark={watermark}")
+
+    # Write sentinel
+    table.put_item(Item={
+        'device_id': device_id,
+        'timestamp': -2,
+        'event_type': 'time_sync_state',
+        'last_sync_unix': now_unix,
+        'last_sync_epoch': sc_epoch,
+    })
 
 
 def decode_raw_evse_payload(raw_bytes):
@@ -315,6 +373,12 @@ def lambda_handler(event, context):
                     'thermostat_cool_active': decoded['thermostat_cool'],
                 }
             }
+
+            # Auto-send TIME_SYNC on EVSE uplinks
+            try:
+                maybe_send_time_sync(wireless_device_id)
+            except Exception as e:
+                print(f"TIME_SYNC error: {e}")
         else:
             item['data'] = {'decode_result': decoded}
 

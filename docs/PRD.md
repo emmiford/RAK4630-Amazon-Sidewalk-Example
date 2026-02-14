@@ -184,7 +184,103 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 
 **Notes**: The 70% MOER threshold is unvalidated against real PSCO data. See Oliver REC-004 / TASK-012.
 
-### 4.5 Infrastructure as Code
+### 4.5 Utility Identification and Multi-Utility Support
+
+#### 4.5.1 Problem
+
+The charge scheduler (section 4.4) hardcodes Xcel Colorado: `WATTTIME_REGION = "PSCO"`, `is_tou_peak()` checks weekdays 5-9 PM Mountain Time. This works for the single-site v1.0 deployment but blocks multi-customer or multi-region use. Any second customer on a different utility — or even a different Xcel rate plan — gets the wrong schedule.
+
+#### 4.5.2 Lookup Pipeline
+
+Utility identification requires a two-step lookup, not one. The original assumption (meter number → utility → TOU) is wrong because US electric meter numbers are utility-specific with no standard format — you cannot determine the utility from the meter number alone.
+
+The correct pipeline is:
+
+```
+install_address → utility → TOU schedule
+                          → WattTime region
+meter_number   → rate plan (within the utility)
+```
+
+**Step 1: Address → Utility.** The install address (collected during commissioning, stored in the device registry) identifies which utility serves the property. In v1.0 this is manually configured. In v1.1+ it could be automated via the OpenEI USURDB API (free, from NREL — 3,700+ US utilities, lookup by address or zip code, requires free API key from developer.nrel.gov).
+
+**Step 2: Utility → TOU Schedule + WattTime Region.** Each utility maps to a TOU schedule (peak window, timezone, weekend rules) and a WattTime balancing authority region. This is a static configuration table — utilities change rate structures at most once or twice per year.
+
+**Step 3: Meter Number → Rate Plan (optional).** Within a single utility, the meter number disambiguates the customer's rate plan. Xcel Colorado has multiple residential TOU plans (R, RE-TOU, S-EV) with different peak windows and pricing. For v1.0, we assume all Xcel customers are on the standard TOU plan. For v1.1+, the meter number (or customer self-selection) resolves the specific plan.
+
+#### 4.5.3 TOU Schedule Data Model
+
+Each TOU schedule is a JSON object describing the peak window:
+
+```json
+{
+  "schedule_id": "xcel-co-tou-residential",
+  "utility_name": "Xcel Energy",
+  "utility_region": "Colorado",
+  "timezone": "America/Denver",
+  "watttime_region": "PSCO",
+  "peak_windows": [
+    {
+      "name": "weekday_evening",
+      "days": [0, 1, 2, 3, 4],
+      "start_hour": 17,
+      "end_hour": 21,
+      "seasonal": false
+    }
+  ],
+  "notes": "Weekdays 5-9 PM MT year-round. Weekends and holidays are off-peak."
+}
+```
+
+The `peak_windows` array supports multiple windows (e.g., summer vs. winter) and seasonal variation. The `days` array uses Python weekday convention (0=Monday, 6=Sunday).
+
+Reference schedules for the top 5 US residential EV utility markets:
+
+| Utility | Region | TOU Peak | Timezone | WattTime BA | Notes |
+|---------|--------|----------|----------|-------------|-------|
+| Xcel Energy | Colorado (PSCO) | Weekdays 5-9 PM | America/Denver | PSCO | v1.0 target. Year-round, no seasonal variation. |
+| SCE | Southern California | Weekdays 4-9 PM | America/Los_Angeles | CAISO | Some plans 5-8 PM. Summer/winter rates differ. |
+| PG&E | Northern California | Weekdays 4-9 PM | America/Los_Angeles | CAISO | EV-specific plans with super off-peak midnight-3 PM. |
+| SDG&E | San Diego | Weekdays 4-9 PM | America/Los_Angeles | CAISO | Similar to SCE/PG&E. |
+| Con Edison | New York | Weekdays 2-6 PM (summer only, Jun-Sep) | America/New_York | NYISO | Seasonal — no TOU peak in winter. |
+
+**Key observation**: Peak windows are remarkably consistent — 4-9 PM is the de facto standard for California utilities, Xcel is 5-9 PM, and Con Ed is the outlier at 2-6 PM summer-only. A static table covering these 5 utilities handles the vast majority of US residential EV charging deployments.
+
+#### 4.5.4 Configuration Storage
+
+**v1.0**: No per-device config. Hardcoded Xcel Colorado in the Lambda. One utility, one schedule.
+
+**v1.1**: TOU schedule table in DynamoDB (`sidecharge-tou-schedules`), keyed by `schedule_id`. Device registry (TASK-036) gains a `schedule_id` field that maps each device to its TOU schedule. The charge scheduler Lambda reads the device's `schedule_id` from the registry and loads the corresponding schedule. Devices without a `schedule_id` fall back to Xcel Colorado (backward-compatible default).
+
+**v1.1+ (optional)**: OpenEI API integration — on commissioning, automatically look up the utility from the install address and assign the default TOU schedule for that utility. Installer confirms or overrides.
+
+#### 4.5.5 Charge Scheduler Refactor Path
+
+The current `charge_scheduler_lambda.py` needs these changes for multi-utility support:
+
+1. **`is_tou_peak(now_mt)`** → **`is_tou_peak(now, schedule)`** — Accepts a schedule object instead of hardcoded values. Evaluates `now` in the schedule's timezone against the schedule's peak windows.
+2. **`WATTTIME_REGION = "PSCO"`** → Read from the schedule's `watttime_region` field.
+3. **`MT = ZoneInfo("America/Denver")`** → Read timezone from the schedule.
+4. **Single-device `get_device_id()`** → Iterate over all active devices in the registry, evaluate each against its own schedule, send per-device downlinks.
+
+This is a straightforward refactor — the decision logic (pause if TOU peak OR MOER high) doesn't change, only where the parameters come from.
+
+#### 4.5.6 Requirements
+
+| Requirement | Status |
+|-------------|--------|
+| Meter number collected during commissioning | NOT STARTED |
+| Meter number stored in device registry (`meter_number` field) | NOT STARTED (depends on TASK-036) |
+| TOU schedule data model defined | DESIGNED (section 4.5.3) |
+| TOU schedule table in DynamoDB | NOT STARTED |
+| Charge scheduler reads per-device schedule from registry | NOT STARTED |
+| Fallback to Xcel Colorado when no schedule configured | NOT STARTED (current behavior is the fallback) |
+| Address → utility lookup (OpenEI API) | NOT STARTED (v1.1+) |
+| Meter number → rate plan disambiguation | NOT STARTED (v1.1+) |
+
+**Open question** (resolved): The meter number alone doesn't identify the utility — the install address does. The meter number identifies the specific rate plan within a utility. Both are captured during commissioning, but they serve different purposes in the lookup pipeline.
+
+### 4.6 Infrastructure as Code
 
 | Requirement | Status |
 |-------------|--------|
@@ -282,6 +378,80 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 
 **Notes**: OTA images are validated by CRC32 only — no cryptographic signature. A compromised S3 bucket or Lambda could push malicious firmware. This is acceptable for single-site development but would need signing for production deployment.
 
+### 6.4 Warranty and Liability
+
+#### 6.4.1 The Risk
+
+SideCharge's core function requires physically intercepting two control circuits that belong to other manufacturers' equipment:
+
+1. **J1772 pilot wire (EVSE ↔ vehicle)**: SideCharge taps the pilot signal between the EVSE and the vehicle and actively manipulates it — presenting resistance to the EVSE control circuit to force it into State B (pause charging), and potentially driving PWM to 0% for cloud override. This is not passive monitoring. It is active modification of the signaling protocol between the charger and the car.
+
+2. **Thermostat call wire (thermostat ↔ compressor contactor)**: SideCharge intercepts the 24VAC call signal between the thermostat and the compressor contactor. When the interlock needs to block AC, it breaks this circuit.
+
+Both are modifications to control circuits that belong to other manufacturers' equipment. The EVSE manufacturer, the vehicle manufacturer, and the HVAC manufacturer could each argue that a third-party device inserted into their control wiring constitutes unauthorized modification that voids the warranty.
+
+#### 6.4.2 Risk Assessment by Circuit
+
+**EVSE warranty — HIGH risk.** Most residential EVSE manufacturers (ChargePoint, JuiceBox, Wallbox, Emporia, Tesla Wall Connector, etc.) include warranty terms that exclude damage caused by "improper installation" or "unauthorized modification." Inserting a third-party device into the pilot wire is not an installation method contemplated by any EVSE manufacturer's installation manual. If the EVSE develops a fault — even one unrelated to SideCharge — the manufacturer could point to the pilot wire modification and deny the claim.
+
+There is also a mechanical wear concern: SideCharge cycles the EVSE's internal relay (which disconnects AC power when it sees State B) more frequently than normal use. A car that normally charges uninterrupted overnight might now see 5-10 State B → State C transitions per day as the interlock and demand response toggle charging. Accelerated relay wear is a plausible SideCharge-caused defect, not just a warranty technicality.
+
+**Vehicle warranty — MEDIUM risk.** SideCharge's pilot manipulation sends valid J1772 signals — the vehicle's onboard charger sees standard State B (pause) and State C (charge) transitions that it was designed to handle. The car doesn't know a third-party device is involved. However, if a charging-related defect occurs (onboard charger failure, battery management issue), a vehicle manufacturer could investigate the charging history and discover non-standard pilot signaling patterns. The risk is lower because the signals are protocol-compliant, but it is not zero.
+
+**HVAC warranty — LOW risk.** Thermostat replacement and wiring modification is standard homeowner/contractor practice. HVAC manufacturers generally don't void warranties for thermostat-side changes. The only SideCharge-specific risk is if the interlock logic causes compressor cycling patterns outside the thermostat's built-in protection timer — but SideCharge passes the thermostat's call signal through (or blocks it entirely), so the thermostat's short-cycle protection remains in the loop.
+
+#### 6.4.3 Legal Protection: Magnuson-Moss Warranty Act
+
+The federal Magnuson-Moss Warranty Act (15 U.S.C. §§ 2301-2312) is SideCharge's primary legal defense:
+
+- A manufacturer **cannot void a warranty** simply because a third-party product was installed
+- The manufacturer **must prove** that the third-party product **caused** the specific defect being claimed
+- "Tie-in sales provisions" (requiring OEM-only accessories) are generally prohibited for consumer products
+
+This is the same law that protects aftermarket car parts, third-party phone accessories, and non-OEM components across industries. SideCharge has a strong legal position under MMWA for defects unrelated to the pilot wire or thermostat modifications.
+
+**Where MMWA doesn't help**: If SideCharge's modifications actually cause the defect — accelerated relay wear from frequent State B cycling, signal integrity issues from the pilot wire tap, or a wiring error during installation — the manufacturer has a legitimate basis for denial. MMWA protects against blanket voiding, not against genuine causation.
+
+#### 6.4.4 Mitigation Strategies
+
+| # | Strategy | Effort | Risk Reduction | Timeline |
+|---|----------|--------|----------------|----------|
+| 1 | **J1772 protocol compliance** — All pilot manipulations use valid J1772 signaling (standard State A-F voltage levels, standard PWM). The EVSE and vehicle never see out-of-spec signals. | Done | Medium | v1.0 (current) |
+| 2 | **Professional installation only** — Licensed electrician installs with commissioning checklist. Documented wiring, verified connections, installer sign-off. Reduces risk of installation-caused defects. | Low | Medium | v1.0 |
+| 3 | **Customer disclosure** — Installation documentation explicitly states SideCharge modifies the EVSE pilot circuit and thermostat call wire, explains MMWA protections, recommends checking EVSE/vehicle warranty terms before installation. | Low | Low (legal CYA) | v1.0 |
+| 4 | **Product liability insurance** — General commercial liability + product liability coverage for claims arising from SideCharge installations. | Medium ($2-5K/yr) | Medium (financial protection) | Pre-customer deployment |
+| 5 | **Reversible connector design** — Redesign the pilot wire tap as a pass-through adapter with standard connectors. No wire cutting or splicing — the EVSE's original wiring is unmodified. Removal restores the original circuit instantly. | Medium | High | v1.1 |
+| 6 | **Relay cycle logging** — Track how many State B ↔ State C transitions SideCharge causes per day/week. If an EVSE relay fails, we have data showing whether SideCharge's cycling was within the relay's rated lifetime. | Low | Medium (evidentiary) | v1.1 |
+| 7 | **EVSE manufacturer partnerships** — Approach 1-2 EVSE manufacturers (Emporia and OpenEVSE are most accessible) for explicit compatibility acknowledgment or co-testing. | High | Very High | v1.1+ |
+| 8 | **OCPP software integration** — For OCPP-capable EVSEs, control charging via the EVSE's own management API instead of hardware pilot manipulation. Eliminates the pilot wire modification entirely for compatible chargers. | High | Very High | v2.0 |
+
+#### 6.4.5 Recommended Phased Approach
+
+**v1.0 (current — early adopters, installer-owned properties)**:
+Accept the warranty risk. Mitigate with strategies 1-3: protocol compliance (done), professional installation (planned), customer disclosure (add to commissioning docs). The first installations are on properties where the installer understands and accepts the tradeoff.
+
+**Pre-customer deployment (before any non-installer customer)**:
+Add strategy 4: product liability insurance. Non-negotiable before any customer installation. Budget $2-5K/year for a small commercial general liability + product liability policy. An insurance broker with IoT/hardware product experience can quote this.
+
+**v1.1**:
+Add strategies 5-6: reversible connector and relay cycle logging. The reversible connector is the single highest-impact mitigation — it changes the installation from "modified your EVSE wiring" to "plugged in an adapter." This fundamentally shifts the warranty argument. Relay cycle logging provides evidentiary defense if an EVSE relay fails.
+
+**v1.1+ (growth phase)**:
+Add strategy 7: EVSE manufacturer partnerships. Start with Emporia (small, US-based, receptive to integrations) or OpenEVSE (open-source hardware, community-driven). A single manufacturer's explicit compatibility acknowledgment validates the product category.
+
+**v2.0 (scale)**:
+Add strategy 8: OCPP integration. This is the long-term answer for compatible EVSEs. OCPP adoption is growing rapidly — ChargePoint, JuiceBox, Wallbox, and OpenEVSE all support it. Software-only control eliminates the pilot wire modification entirely. Hardware pilot control remains as the universal fallback for non-OCPP chargers.
+
+#### 6.4.6 Open Questions
+
+1. **EVSE relay wear**: Does SideCharge's cycling pattern (5-10 transitions/day from demand response + interlock) exceed the EVSE's internal relay rated lifetime? Most contactors are rated for 100K+ operations, which would be 27+ years at 10/day. But cheap relays in consumer EVSEs may have lower ratings. **Need to check spec sheets for target EVSE models.**
+
+2. **Product positioning**: Should SideCharge be marketed as an "EVSE accessory" or an "energy management system"? The framing affects how EVSE manufacturers perceive the relationship. An "accessory" implies subordinate to the EVSE; an "energy management system" implies independent and authorized by code (NEC Article 750).
+
+3. **Insurance scope**: Does product liability insurance cover warranty claims that a customer brings against us (i.e., "SideCharge told me it was safe and my EVSE warranty was voided"), or only claims for physical damage? Need to confirm scope with an insurance broker.
+
+4. **State lemon laws and implied warranty**: Some states extend implied warranty protections beyond the manufacturer's written warranty. If SideCharge causes a defect within the implied warranty period, state law may provide the customer additional remedies. This varies by state and needs legal review.
+
 ---
 
 ## 7. Scope Boundaries
@@ -305,14 +475,14 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 - On-device data logging (device is stateless, cloud stores everything)
 - OCPP (Open Charge Point Protocol) integration
 - Solar/battery storage integration
-- Multi-tariff or multi-utility TOU schedules (Xcel Colorado only)
+- Multi-tariff or multi-utility TOU schedules (Xcel Colorado only for v1.0 — data model designed in 4.5, implementation is v1.1)
 
 ### 7.3 Future Considerations
 - Fleet provisioning and management tooling
 - Dashboard for real-time monitoring (DynamoDB → API Gateway → frontend)
 - OTA image signing with ED25519 (keys already in MFG store)
 - Battery-powered variant with sleep modes and reduced heartbeat
-- Additional utility TOU schedules beyond Xcel Colorado
+- Additional utility TOU schedules beyond Xcel Colorado (data model and top-5 schedules designed in 4.5)
 - OCPP gateway for commercial EVSE integration
 
 ---
@@ -336,6 +506,10 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 | No OTA image signing | Compromised S3 could push bad firmware | Future (out of v1.0 scope) |
 | No device offline alerting | Silent failures undetected | Future |
 | J1772 thresholds not hardware-calibrated | Possible misclassification | Oliver REC-002 |
+| Charge scheduler hardcoded to Xcel Colorado | Cannot support second utility without code change | TASK-037 (designed in 4.5) |
+| **EVSE/vehicle warranty risk from pilot wire modification** | SideCharge intercepts the J1772 pilot wire and actively manipulates signals. EVSE and vehicle manufacturers could deny warranty claims. Relay wear from frequent cycling is a plausible SideCharge-caused defect. See section 6.4. | TASK-043 (scoped in 6.4) |
+| No product liability insurance | Controls high-power loads in residential settings. Property damage or injury creates liability exposure. Required before any customer deployment. | TASK-043 |
+| No reversible connector design | Current prototype uses soldered/spliced pilot wire tap. Reversible pass-through adapter eliminates the "modified wiring" argument. Highest-impact warranty mitigation. | TASK-043 (v1.1) |
 
 ---
 
@@ -359,3 +533,5 @@ Every backlog task maps to a gap in this PRD:
 | TASK-015 | — (Cleanup) | Dead code removal |
 | TASK-016 | 3.1 / 5.3 (SDK/Observability) | Architecture decisions documentation |
 | TASK-017 | — (Cleanup) | Legacy app removal |
+| TASK-037 | 4.5 (Utility Identification) | Per-device meter number → utility → TOU schedule lookup |
+| TASK-043 | 6.4 (Warranty and Liability) | Warranty risk scoping, mitigation roadmap, insurance, reversible connector, OCPP path |
