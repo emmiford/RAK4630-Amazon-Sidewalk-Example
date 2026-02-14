@@ -18,6 +18,7 @@
 #include <app_tx.h>
 #include <app_rx.h>
 #include <time_sync.h>
+#include <event_buffer.h>
 #include <string.h>
 
 static const struct platform_api *api;
@@ -101,6 +102,7 @@ static int app_init(const struct platform_api *platform)
 	charge_control_init();
 	thermostat_inputs_init();
 	time_sync_init();
+	event_buffer_init();
 
 	/* Request 500ms poll interval from platform */
 	api->set_timer_interval(POLL_INTERVAL_MS);
@@ -191,6 +193,20 @@ static void app_on_timer(void)
 		changed = true;
 	}
 
+	/* --- Record snapshot in event buffer --- */
+	{
+		struct event_snapshot snap = {
+			.timestamp = time_sync_get_epoch(),
+			.pilot_voltage_mv = voltage_mv,
+			.current_ma = current_ma,
+			.j1772_state = (uint8_t)last_j1772_state,
+			.thermostat_flags = last_thermostat_flags,
+			.charge_flags = charge_control_is_allowed()
+					? EVENT_FLAG_CHARGE_ALLOWED : 0,
+		};
+		event_buffer_add(&snap);
+	}
+
 	/* --- Send on change or heartbeat --- */
 	uint32_t now = api->uptime_ms();
 	bool heartbeat_due = !last_heartbeat_ms ||
@@ -234,6 +250,14 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 		} else if (strcmp(args, "pause") == 0) {
 			charge_control_set(false, 0);
 			print("Charging PAUSED (GPIO low)");
+			return 0;
+		} else if (strcmp(args, "buffer") == 0) {
+			uint8_t cnt = event_buffer_count();
+			print("Event buffer: %d/%d entries", cnt, EVENT_BUFFER_CAPACITY);
+			if (cnt > 0) {
+				print("  Oldest: %u", event_buffer_oldest_timestamp());
+				print("  Newest: %u", event_buffer_newest_timestamp());
+			}
 			return 0;
 		}
 		error("Unknown evse subcommand: %s", args);
