@@ -1,0 +1,2038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SideCharge -- Level 2 charging. No panel upgrade.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sc-teal: #0A7E8C;
+    --sc-teal-dark: #064E56;
+    --sc-teal-light: #B8E4E9;
+    --sc-amber: #F5A623;
+    --sc-violet: #7B61FF;
+    --sc-green: #2ECC71;
+    --sc-charcoal: #1A1A2E;
+    --sc-slate: #6B7280;
+    --sc-cloud: #F4F5F7;
+    --sc-white: #FFFFFF;
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+    --space-3xl: 64px;
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-full: 9999px;
+    --shadow-card: 0 1px 3px rgba(26,26,46,0.08), 0 4px 12px rgba(26,26,46,0.04);
+    --shadow-elevated: 0 4px 12px rgba(26,26,46,0.12), 0 12px 32px rgba(26,26,46,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--sc-cloud);
+    background: var(--sc-charcoal);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  section {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: var(--space-2xl) var(--space-lg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--sc-white);
+  }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    color: var(--sc-white);
+    margin-bottom: var(--space-lg);
+  }
+
+  h3 {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--sc-white);
+  }
+
+  p {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: rgba(184, 228, 233, 0.85);
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+  }
+
+  .content-width {
+    max-width: 400px;
+    width: 100%;
+  }
+
+
+  /* ==============================
+     SECTION 1: HERO
+     ============================== */
+
+  .hero {
+    background: linear-gradient(135deg, #064E56 0%, #0A7E8C 50%, #7B61FF 100%);
+    text-align: center;
+    padding-top: 80px;
+    padding-bottom: 60px;
+  }
+
+  .hero-brand {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--sc-white);
+    margin-bottom: var(--space-sm);
+    letter-spacing: -0.03em;
+  }
+
+  .hero-tagline {
+    font-family: var(--font-body);
+    font-size: 1.125rem;
+    color: rgba(255,255,255,0.9);
+    margin-bottom: var(--space-3xl);
+    font-weight: 500;
+  }
+
+  /* Interlock motif — the hero animation */
+  .interlock-motif {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto var(--space-2xl);
+  }
+
+  .interlock-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The input power line */
+  .il-input-line {
+    stroke: rgba(255,255,255,0.6);
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+  }
+
+  /* The SideCharge node */
+  .il-node {
+    fill: var(--sc-white);
+    filter: drop-shadow(0 0 12px rgba(255,255,255,0.4));
+  }
+
+  /* AC path */
+  .il-hvac-path {
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke 0.6s ease-out, opacity 0.6s ease-out;
+  }
+
+  /* EV path */
+  .il-ev-path {
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke 0.6s ease-out, opacity 0.6s ease-out;
+  }
+
+  /* Icon circles */
+  .il-icon-bg {
+    transition: fill 0.6s ease-out, opacity 0.6s ease-out;
+  }
+
+  .il-icon-symbol {
+    fill: var(--sc-white);
+    transition: opacity 0.6s ease-out;
+  }
+
+  /* State: AC active */
+  .interlock-motif[data-state="hvac"] .il-hvac-path {
+    stroke: var(--sc-amber);
+    opacity: 1;
+  }
+  .interlock-motif[data-state="hvac"] .il-ev-path {
+    stroke: rgba(255,255,255,0.15);
+    opacity: 0.4;
+  }
+  .interlock-motif[data-state="hvac"] .il-hvac-bg {
+    fill: var(--sc-amber);
+    opacity: 1;
+  }
+  .interlock-motif[data-state="hvac"] .il-ev-bg {
+    fill: rgba(255,255,255,0.1);
+    opacity: 0.4;
+  }
+  .interlock-motif[data-state="hvac"] .il-hvac-glow {
+    opacity: 0.3;
+  }
+  .interlock-motif[data-state="hvac"] .il-ev-glow {
+    opacity: 0;
+  }
+
+  /* State: EV active */
+  .interlock-motif[data-state="ev"] .il-hvac-path {
+    stroke: rgba(255,255,255,0.15);
+    opacity: 0.4;
+  }
+  .interlock-motif[data-state="ev"] .il-ev-path {
+    stroke: var(--sc-teal);
+    opacity: 1;
+  }
+  .interlock-motif[data-state="ev"] .il-hvac-bg {
+    fill: rgba(255,255,255,0.1);
+    opacity: 0.4;
+  }
+  .interlock-motif[data-state="ev"] .il-ev-bg {
+    fill: var(--sc-teal);
+    opacity: 1;
+  }
+  .interlock-motif[data-state="ev"] .il-ev-glow {
+    opacity: 0.3;
+  }
+  .interlock-motif[data-state="ev"] .il-hvac-glow {
+    opacity: 0;
+  }
+
+  .il-state-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    fill: rgba(255,255,255,0.7);
+    text-anchor: middle;
+    letter-spacing: 0.08em;
+    transition: fill 0.6s ease-out;
+  }
+
+  .interlock-motif[data-state="hvac"] .il-hvac-label {
+    fill: var(--sc-amber);
+  }
+  .interlock-motif[data-state="ev"] .il-ev-label {
+    fill: var(--sc-teal-light);
+  }
+
+  /* Signal arcs from node */
+  .il-signal-arc {
+    stroke: rgba(255,255,255,0.3);
+    stroke-width: 1.5;
+    fill: none;
+    opacity: 0;
+    animation: il-signal-pulse 3s ease-out infinite;
+  }
+  .il-signal-arc:nth-child(1) { animation-delay: 0s; }
+  .il-signal-arc:nth-child(2) { animation-delay: 0.6s; }
+  .il-signal-arc:nth-child(3) { animation-delay: 1.2s; }
+
+  @keyframes il-signal-pulse {
+    0% { opacity: 0.6; transform-origin: center; }
+    100% { opacity: 0; }
+  }
+
+  .hero-scroll-hint {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.5);
+    font-size: 0.75rem;
+    font-family: var(--font-body);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    animation: gentle-bob 2s ease-in-out infinite;
+  }
+
+  .hero-scroll-hint::after {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 24px;
+    background: rgba(255,255,255,0.3);
+    margin: 8px auto 0;
+  }
+
+  @keyframes gentle-bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(6px); }
+  }
+
+
+  /* ==============================
+     SECTION 2: THE PROBLEM
+     ============================== */
+
+  .problem {
+    background: var(--sc-charcoal);
+    text-align: center;
+  }
+
+  .problem-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-lg);
+    margin: var(--space-2xl) 0;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .problem-icons-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xl);
+    width: 100%;
+  }
+
+  .problem-icon-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .problem-icon-circle {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(231,76,60,0.08);
+    border: 1.5px solid rgba(231,76,60,0.2);
+  }
+
+  .problem-icon-label {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgba(231,76,60,0.9);
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .problem-subtext {
+    font-size: 0.9375rem;
+    color: var(--sc-slate);
+    max-width: 300px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+
+  /* ==============================
+     SECTION 3: THE SOLUTION (Interlock Diagram)
+     ============================== */
+
+  .solution {
+    background: #111122;
+    text-align: center;
+    padding-top: var(--space-3xl);
+    padding-bottom: var(--space-3xl);
+  }
+
+  .solution-diagram {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    margin: var(--space-xl) auto 0;
+  }
+
+  .solution-svg {
+    width: 100%;
+    height: auto;
+  }
+
+  /* Animated paths in solution diagram */
+  .sd-power-line {
+    stroke: rgba(255,255,255,0.5);
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+  }
+
+  .sd-hvac-path {
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke 0.5s ease-out, opacity 0.5s ease-out, filter 0.5s ease-out;
+  }
+
+  .sd-ev-path {
+    stroke-width: 3;
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke 0.5s ease-out, opacity 0.5s ease-out, filter 0.5s ease-out;
+  }
+
+  .sd-node-bg {
+    transition: fill 0.5s ease-out;
+  }
+
+  .sd-hvac-icon, .sd-ev-icon {
+    transition: opacity 0.5s ease-out;
+  }
+
+  .sd-glow {
+    transition: opacity 0.5s ease-out;
+  }
+
+  /* States controlled by JS class on .solution-diagram */
+  .solution-diagram[data-state="hvac"] .sd-hvac-path {
+    stroke: var(--sc-amber);
+    filter: drop-shadow(0 0 6px rgba(245,166,35,0.4));
+  }
+  .solution-diagram[data-state="hvac"] .sd-ev-path {
+    stroke: rgba(255,255,255,0.12);
+    opacity: 0.35;
+  }
+  .solution-diagram[data-state="hvac"] .sd-hvac-glow { opacity: 0.25; }
+  .solution-diagram[data-state="hvac"] .sd-ev-glow { opacity: 0; }
+  .solution-diagram[data-state="hvac"] .sd-hvac-icon-bg { fill: var(--sc-amber); }
+  .solution-diagram[data-state="hvac"] .sd-ev-icon-bg { fill: rgba(255,255,255,0.08); }
+  .solution-diagram[data-state="hvac"] .sd-ev-icon svg { opacity: 0.3; }
+  .solution-diagram[data-state="hvac"] .sd-hvac-label-text { fill: var(--sc-amber); }
+  .solution-diagram[data-state="hvac"] .sd-ev-label-text { fill: rgba(255,255,255,0.25); }
+
+  .solution-diagram[data-state="ev"] .sd-ev-path {
+    stroke: var(--sc-teal);
+    filter: drop-shadow(0 0 6px rgba(10,126,140,0.4));
+  }
+  .solution-diagram[data-state="ev"] .sd-hvac-path {
+    stroke: rgba(255,255,255,0.12);
+    opacity: 0.35;
+  }
+  .solution-diagram[data-state="ev"] .sd-ev-glow { opacity: 0.25; }
+  .solution-diagram[data-state="ev"] .sd-hvac-glow { opacity: 0; }
+  .solution-diagram[data-state="ev"] .sd-ev-icon-bg { fill: var(--sc-teal); }
+  .solution-diagram[data-state="ev"] .sd-hvac-icon-bg { fill: rgba(255,255,255,0.08); }
+  .solution-diagram[data-state="ev"] .sd-hvac-icon svg { opacity: 0.3; }
+  .solution-diagram[data-state="ev"] .sd-ev-label-text { fill: var(--sc-teal-light); }
+  .solution-diagram[data-state="ev"] .sd-hvac-label-text { fill: rgba(255,255,255,0.25); }
+
+  .solution-caption {
+    font-size: 0.9375rem;
+    color: rgba(184,228,233,0.75);
+    max-width: 320px;
+    margin: var(--space-xl) auto 0;
+    line-height: 1.6;
+  }
+
+  .solution-code-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: rgba(123,97,255,0.1);
+    border: 1px solid rgba(123,97,255,0.2);
+    border-radius: var(--radius-full);
+    padding: var(--space-xs) var(--space-md);
+    margin-top: var(--space-lg);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--sc-violet);
+    letter-spacing: 0.03em;
+  }
+
+
+  /* ==============================
+     SECTION 4: THE NUMBERS (Economics)
+     ============================== */
+
+  .economics {
+    background: var(--sc-charcoal);
+    text-align: center;
+  }
+
+  .savings-comparison {
+    display: flex;
+    align-items: stretch;
+    gap: var(--space-md);
+    width: 100%;
+    max-width: 360px;
+    margin: var(--space-xl) auto 0;
+  }
+
+  .savings-card {
+    flex: 1;
+    border-radius: var(--radius-md);
+    padding: var(--space-lg) var(--space-md);
+    text-align: center;
+    position: relative;
+  }
+
+  .savings-card.before {
+    background: rgba(231,76,60,0.06);
+    border: 1px solid rgba(231,76,60,0.15);
+  }
+
+  .savings-card.after {
+    background: rgba(10,126,140,0.08);
+    border: 1px solid rgba(10,126,140,0.2);
+  }
+
+  .savings-card-label {
+    font-family: var(--font-body);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: var(--space-md);
+  }
+
+  .savings-card.before .savings-card-label { color: rgba(231,76,60,0.7); }
+  .savings-card.after .savings-card-label { color: var(--sc-teal); }
+
+  .savings-price {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    line-height: 1;
+    margin-bottom: var(--space-sm);
+  }
+
+  .savings-card.before .savings-price {
+    font-size: 2rem;
+    color: rgba(231,76,60,0.8);
+    text-decoration: line-through;
+    text-decoration-color: rgba(231,76,60,0.4);
+  }
+
+  .savings-card.after .savings-price {
+    font-size: 2.5rem;
+    color: var(--sc-white);
+  }
+
+  .savings-desc {
+    font-size: 0.75rem;
+    color: var(--sc-slate);
+    line-height: 1.4;
+    margin-top: var(--space-sm);
+  }
+
+  .savings-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    width: 100%;
+    max-width: 360px;
+    margin: var(--space-xl) auto 0;
+  }
+
+  .stat-cell {
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg) var(--space-md);
+    border: 1px solid rgba(255,255,255,0.06);
+    text-align: center;
+  }
+
+  .stat-value {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: 1.5rem;
+    line-height: 1;
+    margin-bottom: var(--space-sm);
+  }
+
+  .stat-value.teal { color: var(--sc-teal-light); }
+  .stat-value.amber { color: var(--sc-amber); }
+  .stat-value.violet { color: var(--sc-violet); }
+  .stat-value.green { color: var(--sc-green); }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--sc-slate);
+    line-height: 1.4;
+  }
+
+
+  /* ==============================
+     SECTION 5: NATURAL FIT (24-Hour Timeline)
+     ============================== */
+
+  .natural-fit {
+    background: #111122;
+    text-align: center;
+    padding-top: var(--space-3xl);
+    padding-bottom: var(--space-3xl);
+  }
+
+  .timeline-container {
+    width: 100%;
+    max-width: 360px;
+    margin: var(--space-xl) auto 0;
+  }
+
+  .timeline-bar {
+    position: relative;
+    width: 100%;
+    height: 56px;
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255,255,255,0.06);
+    overflow: hidden;
+  }
+
+  .timeline-block {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.4s ease-out;
+  }
+
+  .timeline-block.hvac {
+    background: rgba(245,166,35,0.2);
+    border: 1px solid rgba(245,166,35,0.3);
+  }
+
+  .timeline-block.ev {
+    background: rgba(10,126,140,0.2);
+    border: 1px solid rgba(10,126,140,0.3);
+  }
+
+  .timeline-block-label {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .timeline-block.hvac .timeline-block-label { color: var(--sc-amber); }
+  .timeline-block.ev .timeline-block-label { color: var(--sc-teal-light); }
+
+  .timeline-hours {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--space-sm);
+    padding: 0 2px;
+  }
+
+  .timeline-hour {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    color: rgba(107,114,128,0.6);
+    letter-spacing: 0.02em;
+  }
+
+  .timeline-legend {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-xl);
+    margin-top: var(--space-lg);
+  }
+
+  .tl-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.75rem;
+    color: var(--sc-slate);
+  }
+
+  .tl-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .tl-legend-dot.amber { background: var(--sc-amber); }
+  .tl-legend-dot.teal { background: var(--sc-teal); }
+
+  .timeline-caption {
+    font-size: 0.9375rem;
+    color: rgba(184,228,233,0.75);
+    max-width: 340px;
+    margin: var(--space-xl) auto 0;
+    line-height: 1.6;
+  }
+
+
+  /* ==============================
+     SECTION 6: CONNECTED BY RADIO
+     ============================== */
+
+  .radio-section {
+    background: var(--sc-charcoal);
+    text-align: center;
+  }
+
+  .radio-diagram {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    margin: var(--space-xl) auto 0;
+  }
+
+  .radio-svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .radio-caption {
+    font-size: 0.9375rem;
+    color: rgba(184,228,233,0.75);
+    max-width: 300px;
+    margin: var(--space-lg) auto 0;
+    line-height: 1.6;
+  }
+
+  .radio-stats {
+    display: flex;
+    gap: var(--space-lg);
+    justify-content: center;
+    margin-top: var(--space-xl);
+    flex-wrap: wrap;
+  }
+
+  .radio-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .radio-stat-value {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 500;
+    color: var(--sc-white);
+  }
+
+  .radio-stat-label {
+    font-size: 0.6875rem;
+    color: var(--sc-slate);
+  }
+
+
+  /* ==============================
+     SECTION 7: SMART OVER TIME
+     ============================== */
+
+  .smart-section {
+    background: #111122;
+    text-align: center;
+    padding-top: var(--space-3xl);
+    padding-bottom: var(--space-3xl);
+  }
+
+  .smart-features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    width: 100%;
+    max-width: 360px;
+    margin-top: var(--space-xl);
+  }
+
+  .smart-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    gap: var(--space-md);
+    text-align: left;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+  }
+
+  .smart-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .smart-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .smart-icon.teal { background: rgba(10,126,140,0.15); }
+  .smart-icon.amber { background: rgba(245,166,35,0.15); }
+  .smart-icon.violet { background: rgba(123,97,255,0.15); }
+  .smart-icon.green { background: rgba(46,204,113,0.15); }
+
+  .smart-text h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .smart-text p {
+    font-size: 0.8125rem;
+    color: rgba(184,228,233,0.65);
+    line-height: 1.5;
+  }
+
+  .smart-footnote {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--sc-violet);
+    margin-top: var(--space-xl);
+    opacity: 0.8;
+  }
+
+
+  /* ==============================
+     SECTION 8: WHAT YOU SEE (Dashboard)
+     ============================== */
+
+  .dashboard-section {
+    background: var(--sc-charcoal);
+    text-align: center;
+  }
+
+  .dashboard-mock {
+    width: 100%;
+    max-width: 340px;
+    background: #12121F;
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-top: var(--space-xl);
+    border: 1px solid rgba(10,126,140,0.15);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+  }
+
+  .dash-brand {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--sc-white);
+  }
+
+  .dash-signal {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.6875rem;
+    color: var(--sc-green);
+    font-family: var(--font-mono);
+  }
+
+  .dash-signal-bars {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+  }
+
+  .dash-signal-bars span {
+    display: block;
+    width: 3px;
+    background: var(--sc-green);
+    border-radius: 1px;
+  }
+
+  .dash-signal-bars span:nth-child(1) { height: 6px; }
+  .dash-signal-bars span:nth-child(2) { height: 9px; }
+  .dash-signal-bars span:nth-child(3) { height: 12px; }
+  .dash-signal-bars span:nth-child(4) { height: 15px; opacity: 0.3; }
+
+  /* Circuit status — PRIMARY card */
+  .circuit-card {
+    background: rgba(10,126,140,0.08);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-md);
+    border: 1px solid rgba(10,126,140,0.12);
+    text-align: left;
+  }
+
+  .circuit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+  }
+
+  .circuit-label {
+    font-family: var(--font-body);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--sc-teal);
+  }
+
+  .circuit-interlock-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    color: var(--sc-green);
+    background: rgba(46,204,113,0.08);
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(46,204,113,0.15);
+  }
+
+  .circuit-interlock-dot {
+    width: 5px;
+    height: 5px;
+    background: var(--sc-green);
+    border-radius: 50%;
+    animation: interlock-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes interlock-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(46,204,113,0.3); }
+    50% { box-shadow: 0 0 0 4px rgba(46,204,113,0); }
+  }
+
+  .circuit-loads {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+  }
+
+  .circuit-load-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm) 0;
+  }
+
+  .circuit-load-name {
+    font-size: 0.8125rem;
+    color: var(--sc-slate);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .circuit-load-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+
+  .circuit-load-dot.idle { background: var(--sc-slate); opacity: 0.5; }
+  .circuit-load-dot.active { background: var(--sc-teal); box-shadow: 0 0 6px rgba(10,126,140,0.4); }
+
+  .circuit-load-status {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+
+  .circuit-load-status.idle { color: var(--sc-slate); }
+  .circuit-load-status.active { color: var(--sc-teal-light); }
+
+  .circuit-kw {
+    font-family: var(--font-mono);
+    font-size: 1.75rem;
+    font-weight: 500;
+    color: var(--sc-white);
+    line-height: 1;
+    margin-bottom: var(--space-sm);
+  }
+
+  .circuit-kw span {
+    font-size: 0.875rem;
+    color: var(--sc-slate);
+    font-weight: 400;
+  }
+
+  .circuit-timeline-mini {
+    height: 20px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    margin-top: var(--space-md);
+  }
+
+  .ct-block {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ct-block.empty { flex: 1; }
+  .ct-block.hvac { background: rgba(245,166,35,0.2); }
+  .ct-block.ev { background: rgba(10,126,140,0.2); }
+
+  .ct-label {
+    font-family: var(--font-mono);
+    font-size: 0.4375rem;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .ct-block.hvac .ct-label { color: var(--sc-amber); }
+  .ct-block.ev .ct-label { color: var(--sc-teal-light); }
+
+  /* Savings card */
+  .dash-savings-card {
+    background: rgba(46,204,113,0.06);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    border: 1px solid rgba(46,204,113,0.1);
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    text-align: left;
+    margin-bottom: var(--space-md);
+  }
+
+  .dash-savings-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: rgba(46,204,113,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .dash-savings-info {
+    flex: 1;
+  }
+
+  .dash-savings-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--sc-slate);
+    margin-bottom: 2px;
+  }
+
+  .dash-savings-value {
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    color: var(--sc-green);
+    font-weight: 500;
+  }
+
+  /* Network card (small, ambient) */
+  .dash-network-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .dash-network-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.6875rem;
+    color: var(--sc-slate);
+  }
+
+  .dash-network-dot {
+    width: 5px;
+    height: 5px;
+    background: var(--sc-green);
+    border-radius: 50%;
+  }
+
+  .dash-network-time {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: rgba(107,114,128,0.6);
+  }
+
+
+  /* ==============================
+     SECTION 9: WHO IT'S FOR
+     ============================== */
+
+  .audience-section {
+    background: #111122;
+    text-align: center;
+    padding-top: var(--space-3xl);
+    padding-bottom: var(--space-3xl);
+  }
+
+  .audience-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    width: 100%;
+    max-width: 360px;
+    margin-top: var(--space-xl);
+  }
+
+  .audience-card {
+    background: rgba(255,255,255,0.03);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    border: 1px solid rgba(255,255,255,0.06);
+    text-align: left;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+  }
+
+  .audience-card.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .audience-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+
+  .audience-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .audience-icon.teal { background: rgba(10,126,140,0.15); }
+  .audience-icon.amber { background: rgba(245,166,35,0.15); }
+  .audience-icon.violet { background: rgba(123,97,255,0.15); }
+
+  .audience-card-title {
+    font-family: var(--font-display);
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--sc-white);
+  }
+
+  .audience-card-body {
+    font-size: 0.9375rem;
+    color: rgba(184,228,233,0.7);
+    line-height: 1.6;
+  }
+
+
+  /* ==============================
+     SECTION 10: FOOTER
+     ============================== */
+
+  .footer-section {
+    background: var(--sc-charcoal);
+    text-align: center;
+    min-height: auto;
+    padding-top: var(--space-3xl);
+    padding-bottom: 80px;
+  }
+
+  .footer-rule {
+    width: 40px;
+    height: 2px;
+    background: var(--sc-teal);
+    border-radius: 1px;
+    margin: 0 auto var(--space-2xl);
+  }
+
+  .footer-summary {
+    font-size: 1rem;
+    color: rgba(184,228,233,0.8);
+    max-width: 340px;
+    line-height: 1.7;
+    margin: 0 auto var(--space-2xl);
+  }
+
+  .footer-brand {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--sc-white);
+    margin-bottom: var(--space-sm);
+  }
+
+  .footer-tagline {
+    font-size: 0.875rem;
+    color: var(--sc-teal);
+    font-style: italic;
+  }
+
+  .footer-meta {
+    margin-top: var(--space-2xl);
+    font-size: 0.6875rem;
+    color: rgba(107,114,128,0.5);
+  }
+
+
+  /* ==============================
+     SCROLL REVEAL
+     ============================== */
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .reveal-delay-1 { transition-delay: 0.1s; }
+  .reveal-delay-2 { transition-delay: 0.2s; }
+  .reveal-delay-3 { transition-delay: 0.3s; }
+  .reveal-delay-4 { transition-delay: 0.4s; }
+
+
+  /* ==============================
+     RESPONSIVE
+     ============================== */
+
+  @media (min-width: 640px) {
+    h1 { font-size: 3rem; }
+    h2 { font-size: 2.25rem; }
+    .hero-brand { font-size: 3.5rem; }
+    .hero-tagline { font-size: 1.25rem; }
+    .content-width { max-width: 520px; }
+    .interlock-motif { width: 260px; height: 260px; }
+    .savings-comparison { max-width: 440px; }
+    .stats-grid { max-width: 440px; }
+    .timeline-container { max-width: 480px; }
+    .smart-features { max-width: 480px; }
+    .audience-cards { max-width: 480px; }
+    .dashboard-mock { max-width: 400px; }
+    .footer-summary { max-width: 460px; }
+    .solution-diagram { max-width: 400px; }
+  }
+
+  @media (min-width: 1024px) {
+    section { padding: var(--space-3xl) var(--space-xl); }
+    .stats-grid { max-width: 560px; }
+    .audience-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      max-width: 720px;
+    }
+  }
+</style>
+</head>
+<body>
+
+
+<!-- =============================================
+     SECTION 1: HERO
+     ============================================= -->
+<section class="hero">
+  <div class="interlock-motif" data-state="ev" id="heroInterlock">
+    <svg class="interlock-svg" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Signal arcs from center node -->
+      <circle class="il-signal-arc" cx="110" cy="110" r="28" stroke-dasharray="4 4"/>
+      <circle class="il-signal-arc" cx="110" cy="110" r="40" stroke-dasharray="4 6"/>
+      <circle class="il-signal-arc" cx="110" cy="110" r="52" stroke-dasharray="4 8"/>
+
+      <!-- Input power line from left -->
+      <path class="il-input-line" d="M 20 110 L 96 110"/>
+
+      <!-- AC path curving up -->
+      <path class="il-hvac-path" d="M 124 110 C 140 110, 160 80, 160 60" stroke="rgba(255,255,255,0.15)"/>
+
+      <!-- EV path curving down -->
+      <path class="il-ev-path" d="M 124 110 C 140 110, 160 140, 160 160" stroke="var(--sc-teal)"/>
+
+      <!-- Glow circles -->
+      <circle class="il-hvac-glow" cx="160" cy="60" r="28" fill="var(--sc-amber)" opacity="0"/>
+      <circle class="il-ev-glow" cx="160" cy="160" r="28" fill="var(--sc-teal)" opacity="0.3"/>
+
+      <!-- AC icon -->
+      <circle class="il-icon-bg il-hvac-bg" cx="160" cy="60" r="20" fill="rgba(255,255,255,0.1)"/>
+      <!-- Sun icon for AC -->
+      <g class="il-icon-symbol" transform="translate(160,60)">
+        <circle cx="0" cy="0" r="5" stroke="white" stroke-width="1.5" fill="none"/>
+        <line x1="0" y1="-10" x2="0" y2="-8" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="0" y1="8" x2="0" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="-10" y1="0" x2="-8" y2="0" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="8" y1="0" x2="10" y2="0" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="-7" y1="-7" x2="-5.5" y2="-5.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="5.5" y1="5.5" x2="7" y2="7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="7" y1="-7" x2="5.5" y2="-5.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="-5.5" y1="5.5" x2="-7" y2="7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+
+      <!-- EV icon -->
+      <circle class="il-icon-bg il-ev-bg" cx="160" cy="160" r="20" fill="var(--sc-teal)"/>
+      <!-- Plug/bolt icon for EV -->
+      <g class="il-icon-symbol" transform="translate(160,160)">
+        <path d="M -3 -9 L -3 -2 L -7 -2 L 1 9 L 1 2 L 5 2 L -3 -9 Z" fill="white"/>
+      </g>
+
+      <!-- Central SideCharge node -->
+      <circle class="il-node" cx="110" cy="110" r="14" fill="white"/>
+      <text x="110" y="113" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-size="8" font-weight="700" fill="#1A1A2E">SC</text>
+
+      <!-- State labels -->
+      <text class="il-state-label il-hvac-label" x="160" y="36">AC</text>
+      <text class="il-state-label il-ev-label" x="160" y="194">EV</text>
+    </svg>
+  </div>
+
+  <div class="hero-brand">SideCharge</div>
+  <p class="hero-tagline">Level 2 charging. No panel upgrade.</p>
+
+  <div class="hero-scroll-hint">Scroll</div>
+</section>
+
+
+<!-- =============================================
+     SECTION 2: THE PROBLEM
+     ============================================= -->
+<section class="problem">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">Your electrician opens the panel and says:</h2>
+    <p class="reveal reveal-delay-1" style="font-size:1.25rem; color:rgba(231,76,60,0.9); font-weight:500; font-style:italic; margin-bottom:var(--space-lg);">"You need a panel upgrade."</p>
+
+    <div class="problem-visual reveal reveal-delay-2">
+      <div class="problem-icons-row">
+        <!-- Price tag -->
+        <div class="problem-icon-block">
+          <div class="problem-icon-circle">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <text x="14" y="18" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="500" fill="rgba(231,76,60,0.8)">$$$</text>
+            </svg>
+          </div>
+          <div class="problem-icon-label">$2,400+</div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="problem-icon-block">
+          <div class="problem-icon-circle">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="5" y="7" width="18" height="16" rx="2" stroke="rgba(231,76,60,0.7)" stroke-width="1.5"/>
+              <line x1="5" y1="12" x2="23" y2="12" stroke="rgba(231,76,60,0.7)" stroke-width="1.5"/>
+              <line x1="10" y1="5" x2="10" y2="9" stroke="rgba(231,76,60,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <line x1="18" y1="5" x2="18" y2="9" stroke="rgba(231,76,60,0.7)" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="10" cy="17" r="1.5" fill="rgba(231,76,60,0.5)"/>
+              <circle cx="14" cy="17" r="1.5" fill="rgba(231,76,60,0.5)"/>
+              <circle cx="18" cy="17" r="1.5" fill="rgba(231,76,60,0.5)"/>
+            </svg>
+          </div>
+          <div class="problem-icon-label">3+ days</div>
+        </div>
+
+        <!-- Panel -->
+        <div class="problem-icon-block">
+          <div class="problem-icon-circle">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="7" y="4" width="14" height="20" rx="1.5" stroke="rgba(231,76,60,0.7)" stroke-width="1.5"/>
+              <line x1="14" y1="8" x2="14" y2="20" stroke="rgba(231,76,60,0.4)" stroke-width="1"/>
+              <rect x="10" y="8" width="3" height="2" rx="0.5" fill="rgba(231,76,60,0.5)"/>
+              <rect x="15" y="8" width="3" height="2" rx="0.5" fill="rgba(231,76,60,0.5)"/>
+              <rect x="10" y="12" width="3" height="2" rx="0.5" fill="rgba(231,76,60,0.5)"/>
+              <rect x="15" y="12" width="3" height="2" rx="0.5" fill="rgba(231,76,60,0.5)"/>
+              <rect x="10" y="16" width="3" height="2" rx="0.5" fill="rgba(231,76,60,0.5)"/>
+              <rect x="15" y="16" width="3" height="2" rx="0.5" fill="rgba(231,76,60,0.5)"/>
+            </svg>
+          </div>
+          <div class="problem-icon-label">Full panel</div>
+        </div>
+      </div>
+    </div>
+
+    <p class="problem-subtext reveal reveal-delay-3">
+      This is the #1 barrier to Level 2 EV charging at home. Your panel is full. The upgrade costs $2,400+, takes days, and requires permits. You were ready to charge at home -- today. Now you can't.
+    </p>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 3: THE SOLUTION (Interlock Animation)
+     ============================================= -->
+<section class="solution">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">One circuit. Two loads.<br>Zero upgrades.</h2>
+    <p class="reveal reveal-delay-1" style="font-size:0.9375rem; color:rgba(184,228,233,0.7); max-width:320px; margin: 0 auto;">Your AC circuit is also your EV circuit. SideCharge makes sure they share -- safely, automatically, and invisibly.</p>
+  </div>
+
+  <div class="solution-diagram reveal reveal-delay-2" data-state="ev" id="solutionDiagram">
+    <svg class="solution-svg" viewBox="0 0 320 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background grid dots for subtle texture -->
+      <pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+        <circle cx="10" cy="10" r="0.5" fill="rgba(255,255,255,0.04)"/>
+      </pattern>
+      <rect width="320" height="360" fill="url(#dots)"/>
+
+      <!-- Power source label -->
+      <text x="160" y="28" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="9" fill="rgba(255,255,255,0.4)" letter-spacing="0.08em">YOUR EXISTING 40A CIRCUIT</text>
+
+      <!-- Power input line -->
+      <path class="sd-power-line" d="M 160 40 L 160 130"/>
+
+      <!-- Glow effects -->
+      <circle class="sd-glow sd-hvac-glow" cx="80" cy="280" r="50" fill="var(--sc-amber)" opacity="0"/>
+      <circle class="sd-glow sd-ev-glow" cx="240" cy="280" r="50" fill="var(--sc-teal)" opacity="0.25"/>
+
+      <!-- AC branch path -->
+      <path class="sd-hvac-path" d="M 160 170 C 160 200, 80 220, 80 250" stroke="rgba(255,255,255,0.12)"/>
+
+      <!-- EV branch path -->
+      <path class="sd-ev-path" d="M 160 170 C 160 200, 240 220, 240 250" stroke="var(--sc-teal)"/>
+
+      <!-- SideCharge device node -->
+      <rect x="128" y="128" width="64" height="44" rx="10" fill="#1A1A2E" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+      <rect x="131" y="131" width="58" height="38" rx="8" fill="rgba(10,126,140,0.15)"/>
+      <text x="160" y="148" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-size="11" font-weight="700" fill="white">SideCharge</text>
+      <text x="160" y="161" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="rgba(255,255,255,0.4)">INTERLOCK</text>
+
+      <!-- AC icon at end -->
+      <circle class="sd-node-bg sd-hvac-icon-bg" cx="80" cy="280" r="28" fill="rgba(255,255,255,0.08)"/>
+      <g class="sd-hvac-icon" transform="translate(80,280)">
+        <circle cx="0" cy="0" r="7" stroke="white" stroke-width="1.5" fill="none"/>
+        <line x1="0" y1="-14" x2="0" y2="-10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="0" y1="10" x2="0" y2="14" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="-14" y1="0" x2="-10" y2="0" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="10" y1="0" x2="14" y2="0" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="-10" y1="-10" x2="-7" y2="-7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="7" y1="7" x2="10" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="10" y1="-10" x2="7" y2="-7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="-7" y1="7" x2="-10" y2="10" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+
+      <!-- EV icon at end -->
+      <circle class="sd-node-bg sd-ev-icon-bg" cx="240" cy="280" r="28" fill="var(--sc-teal)"/>
+      <g class="sd-ev-icon" transform="translate(240,280)">
+        <path d="M -5 -13 L -5 -3 L -10 -3 L 2 13 L 2 3 L 7 3 L -5 -13 Z" fill="white"/>
+      </g>
+
+      <!-- Labels -->
+      <text class="sd-hvac-label-text" x="80" y="322" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="rgba(255,255,255,0.25)" font-weight="500" letter-spacing="0.05em">AC</text>
+      <text x="80" y="336" text-anchor="middle" font-family="'Inter', sans-serif" font-size="8" fill="rgba(107,114,128,0.5)">Idle</text>
+
+      <text class="sd-ev-label-text" x="240" y="322" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="10" fill="var(--sc-teal-light)" font-weight="500" letter-spacing="0.05em">EV CHARGER</text>
+      <text x="240" y="336" text-anchor="middle" font-family="'Inter', sans-serif" font-size="8" fill="rgba(107,114,128,0.5)">Active at 7.2 kW</text>
+
+      <!-- "Never both" indicator -->
+      <rect x="110" y="342" width="100" height="18" rx="9" fill="rgba(123,97,255,0.08)" stroke="rgba(123,97,255,0.15)" stroke-width="1"/>
+      <text x="160" y="354" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="var(--sc-violet)" letter-spacing="0.04em">NEVER BOTH AT ONCE</text>
+    </svg>
+  </div>
+
+  <div class="content-width" style="text-align:center;">
+    <p class="solution-caption reveal reveal-delay-3">When your AC calls for cooling, charging pauses. When the AC cycle ends, charging resumes. They share one circuit -- they just never run at the same time. SideCharge is the guard at the gate.</p>
+
+    <div class="solution-code-badge reveal reveal-delay-4">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1L1 4v6l6 3 6-3V4L7 1z" stroke="#7B61FF" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M5 7l2 2 3-3" stroke="#7B61FF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      CEC 440.34 Code Compliant
+    </div>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 4: THE NUMBERS (Economics)
+     ============================================= -->
+<section class="economics">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">The math is simple.</h2>
+  </div>
+
+  <div class="savings-comparison reveal reveal-delay-1">
+    <div class="savings-card before">
+      <div class="savings-card-label">Panel Upgrade</div>
+      <div class="savings-price">$2,400<span style="font-size:0.875rem;">+</span></div>
+      <div class="savings-desc">3+ days. Permits. Electrician<br>callbacks. Maybe a trench.</div>
+    </div>
+
+    <div class="savings-arrow">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M4 10h12M12 6l4 4-4 4" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <div class="savings-card after">
+      <div class="savings-card-label">SideCharge</div>
+      <div class="savings-price">$1,000</div>
+      <div class="savings-desc">Same day. One visit.<br>One invoice. Done.</div>
+    </div>
+  </div>
+
+  <div class="stats-grid reveal reveal-delay-2">
+    <div class="stat-cell">
+      <div class="stat-value teal">Same Day</div>
+      <div class="stat-label">Install timeline</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-value amber">14-26%</div>
+      <div class="stat-label">CA homes with panels at capacity and central AC</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-value violet">CEC 440.34</div>
+      <div class="stat-label">Code compliant</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-value green">$0/mo</div>
+      <div class="stat-label">Connectivity cost</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 5: NATURAL FIT (24-Hour Timeline)
+     ============================================= -->
+<section class="natural-fit">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">They were never going to<br>fight over it.</h2>
+    <p class="reveal reveal-delay-1" style="font-size:0.9375rem; color:rgba(184,228,233,0.65); max-width:320px; margin: 0 auto var(--space-lg);">Your AC runs about 2 hours a day, mostly in the afternoon. Your car charges about 2 hours a day, mostly overnight.</p>
+  </div>
+
+  <div class="timeline-container reveal reveal-delay-2">
+    <!-- 24-hour bar. Each hour = 100/24 = 4.167% width -->
+    <div class="timeline-bar">
+      <!-- AC block: 1pm-3pm (hours 13-15) = left 54.17%, width 8.33% -->
+      <div class="timeline-block hvac" style="left:54.17%; width:8.33%;">
+        <span class="timeline-block-label">AC</span>
+      </div>
+      <!-- AC block: 4pm-5pm (hours 16-17) = left 66.67%, width 4.17% -->
+      <div class="timeline-block hvac" style="left:66.67%; width:4.17%;">
+      </div>
+      <!-- EV block: 11pm-1am (hours 23-25/1) wraps: left 95.83%, width 4.17% + left 0%, width 4.17% -->
+      <div class="timeline-block ev" style="left:0%; width:8.33%;">
+        <span class="timeline-block-label">EV</span>
+      </div>
+      <div class="timeline-block ev" style="left:91.67%; width:8.33%;">
+        <span class="timeline-block-label">EV</span>
+      </div>
+    </div>
+
+    <div class="timeline-hours">
+      <span class="timeline-hour">12a</span>
+      <span class="timeline-hour">6a</span>
+      <span class="timeline-hour">12p</span>
+      <span class="timeline-hour">6p</span>
+      <span class="timeline-hour">12a</span>
+    </div>
+
+    <div class="timeline-legend">
+      <div class="tl-legend-item">
+        <div class="tl-legend-dot amber"></div>
+        AC (~2 hrs)
+      </div>
+      <div class="tl-legend-item">
+        <div class="tl-legend-dot teal"></div>
+        EV Charging (~2 hrs)
+      </div>
+    </div>
+  </div>
+
+  <div class="content-width" style="text-align:center;">
+    <p class="timeline-caption reveal reveal-delay-3">Your AC and your car share the same circuit through SideCharge -- but they naturally use it at opposite ends of the day. The interlock is a safety net for the rare overlap, not a compromise.</p>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 6: CONNECTED BY RADIO
+     ============================================= -->
+<section class="radio-section">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">And it connects over radio.<br>No WiFi required.</h2>
+  </div>
+
+  <div class="radio-diagram reveal reveal-delay-1">
+    <svg class="radio-svg" viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Garage/home -->
+      <rect x="20" y="80" width="80" height="60" rx="6" fill="rgba(10,126,140,0.08)" stroke="rgba(10,126,140,0.2)" stroke-width="1.5"/>
+      <!-- Roof -->
+      <path d="M 15 80 L 60 50 L 105 80" stroke="rgba(10,126,140,0.2)" stroke-width="1.5" fill="none"/>
+      <!-- SideCharge device inside -->
+      <rect x="44" y="98" width="32" height="20" rx="4" fill="rgba(10,126,140,0.2)" stroke="var(--sc-teal)" stroke-width="1"/>
+      <text x="60" y="112" text-anchor="middle" font-family="'Space Grotesk', sans-serif" font-size="6" font-weight="700" fill="var(--sc-teal-light)">SC</text>
+
+      <!-- Signal arcs from device -->
+      <path d="M 95 100 C 105 85, 115 80, 125 75" stroke="var(--sc-violet)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.5" stroke-linecap="round">
+        <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2s" repeatCount="indefinite"/>
+      </path>
+      <path d="M 95 108 C 110 100, 120 95, 130 88" stroke="var(--sc-violet)" stroke-width="1" stroke-dasharray="3 3" opacity="0.3" stroke-linecap="round">
+        <animate attributeName="opacity" values="0.1;0.4;0.1" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+      </path>
+      <path d="M 95 116 C 108 112, 120 108, 135 100" stroke="var(--sc-violet)" stroke-width="1" stroke-dasharray="3 3" opacity="0.3" stroke-linecap="round">
+        <animate attributeName="opacity" values="0.1;0.4;0.1" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+      </path>
+
+      <!-- LoRa label -->
+      <text x="130" y="122" font-family="'JetBrains Mono', monospace" font-size="7" fill="var(--sc-violet)" opacity="0.6" letter-spacing="0.06em">LoRa 915MHz</text>
+
+      <!-- Neighbor's house with Echo -->
+      <rect x="160" y="60" width="80" height="60" rx="6" fill="rgba(245,166,35,0.06)" stroke="rgba(245,166,35,0.15)" stroke-width="1.5"/>
+      <path d="M 155 60 L 200 30 L 245 60" stroke="rgba(245,166,35,0.15)" stroke-width="1.5" fill="none"/>
+      <!-- Echo device -->
+      <circle cx="200" cy="90" r="10" fill="rgba(245,166,35,0.1)" stroke="var(--sc-amber)" stroke-width="1"/>
+      <circle cx="200" cy="90" r="3" fill="var(--sc-amber)" opacity="0.6"/>
+      <text x="200" y="108" text-anchor="middle" font-family="'Inter', sans-serif" font-size="6" fill="rgba(245,166,35,0.6)">Echo</text>
+
+      <!-- Cloud arrow -->
+      <path d="M 240 80 L 270 65" stroke="rgba(46,204,113,0.3)" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M 266 62 L 270 65 L 266 68" stroke="rgba(46,204,113,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+      <!-- Cloud -->
+      <path d="M 270 50 a15 15 0 0 1 28 0 a12 12 0 0 1 0 22 h-28 a12 12 0 0 1 0-22" fill="rgba(46,204,113,0.08)" stroke="rgba(46,204,113,0.2)" stroke-width="1.5"/>
+      <text x="284" y="66" text-anchor="middle" font-family="'Inter', sans-serif" font-size="6" fill="rgba(46,204,113,0.5)">AWS</text>
+
+      <!-- Labels -->
+      <text x="60" y="155" text-anchor="middle" font-family="'Inter', sans-serif" font-size="8" fill="rgba(255,255,255,0.35)">Your garage</text>
+      <text x="200" y="135" text-anchor="middle" font-family="'Inter', sans-serif" font-size="8" fill="rgba(255,255,255,0.35)">Neighbor's house</text>
+
+      <!-- Distance annotation -->
+      <line x1="60" y1="170" x2="200" y2="170" stroke="rgba(255,255,255,0.1)" stroke-width="1" stroke-dasharray="4 4"/>
+      <text x="130" y="183" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" fill="rgba(255,255,255,0.25)">up to 800m</text>
+    </svg>
+  </div>
+
+  <div class="content-width" style="text-align:center;">
+    <p class="radio-caption reveal reveal-delay-2">Amazon Sidewalk's free LoRa network covers 90%+ of the US. No router setup. No cellular plan. No monthly fees. It just connects -- through walls, across yards, and into your dashboard.</p>
+
+    <div class="radio-stats reveal reveal-delay-3">
+      <div class="radio-stat">
+        <div class="radio-stat-value" style="color:var(--sc-teal-light);">90%+</div>
+        <div class="radio-stat-label">US coverage</div>
+      </div>
+      <div class="radio-stat">
+        <div class="radio-stat-value" style="color:var(--sc-violet);">800m</div>
+        <div class="radio-stat-label">Range per hop</div>
+      </div>
+      <div class="radio-stat">
+        <div class="radio-stat-value" style="color:var(--sc-amber);">$0</div>
+        <div class="radio-stat-label">Monthly fee</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 7: SMART OVER TIME
+     ============================================= -->
+<section class="smart-section">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">The interlock that<br>gets smarter over time.</h2>
+    <p class="reveal reveal-delay-1" style="font-size:0.9375rem; color:rgba(184,228,233,0.65); max-width:320px; margin:0 auto;">The circuit interlock is day one. Once connected to the cloud, SideCharge keeps learning.</p>
+  </div>
+
+  <div class="smart-features">
+    <div class="smart-card">
+      <div class="smart-icon amber">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="11" cy="11" r="8" stroke="#F5A623" stroke-width="1.5"/>
+          <path d="M11 7v4l3 2" stroke="#F5A623" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="smart-text">
+        <h3>Time-of-Use Rates</h3>
+        <p>Charges at midnight rates, not 5pm rates. Your wallet notices.</p>
+      </div>
+    </div>
+
+    <div class="smart-card">
+      <div class="smart-icon green">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M3 11l3-7h10l3 7" stroke="#2ECC71" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M3 11v6a2 2 0 002 2h12a2 2 0 002-2v-6" stroke="#2ECC71" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M9 15h4" stroke="#2ECC71" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="smart-text">
+        <h3>Demand Response</h3>
+        <p>One device, two controllable loads. Utilities get a charger added without increasing peak demand.</p>
+      </div>
+    </div>
+
+    <div class="smart-card">
+      <div class="smart-icon teal">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M11 2v2M11 18v2M2 11h2M18 11h2" stroke="#0A7E8C" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="11" cy="11" r="4" stroke="#0A7E8C" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <div class="smart-text">
+        <h3>Grid Carbon</h3>
+        <p>Checks grid carbon intensity every 5 minutes. Charges on wind, not gas.</p>
+      </div>
+    </div>
+
+    <div class="smart-card">
+      <div class="smart-icon violet">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M12 2L5 13h6l-1 7 7-11h-6l1-7z" stroke="#7B61FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="smart-text">
+        <h3>OTA in 15 Seconds</h3>
+        <p>Delta firmware updates over LoRa radio. 4 KB app. Gets smarter while you sleep.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 8: WHAT YOU SEE (Dashboard)
+     ============================================= -->
+<section class="dashboard-section">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">What you see</h2>
+  </div>
+
+  <div class="dashboard-mock reveal reveal-delay-1">
+    <!-- Dashboard header -->
+    <div class="dash-header">
+      <div class="dash-brand">SideCharge</div>
+      <div class="dash-signal">
+        <div class="dash-signal-bars">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        LoRa
+      </div>
+    </div>
+
+    <!-- Circuit status card — PRIMARY -->
+    <div class="circuit-card">
+      <div class="circuit-header">
+        <div class="circuit-label">Circuit Status</div>
+        <div class="circuit-interlock-badge">
+          <div class="circuit-interlock-dot"></div>
+          INTERLOCK OK
+        </div>
+      </div>
+
+      <div class="circuit-loads">
+        <div class="circuit-load-row">
+          <div class="circuit-load-name">
+            <div class="circuit-load-dot idle"></div>
+            AC
+          </div>
+          <div class="circuit-load-status idle">Idle</div>
+        </div>
+        <div class="circuit-load-row" style="border-top: 1px solid rgba(255,255,255,0.04); padding-top: var(--space-sm);">
+          <div class="circuit-load-name">
+            <div class="circuit-load-dot active"></div>
+            Charger
+          </div>
+          <div class="circuit-load-status active">Active</div>
+        </div>
+      </div>
+
+      <div class="circuit-kw">7.2 <span>kW</span></div>
+
+      <!-- Mini timeline for today's sharing -->
+      <div style="font-size:0.6875rem; color:var(--sc-slate); margin-bottom:var(--space-sm); text-transform:uppercase; letter-spacing:0.06em;">Today's sharing</div>
+      <div class="circuit-timeline-mini">
+        <div class="ct-block ev" style="flex:2;"><span class="ct-label">EV</span></div>
+        <div class="ct-block empty" style="flex:4;"></div>
+        <div class="ct-block hvac" style="flex:2;"><span class="ct-label">AC</span></div>
+        <div class="ct-block empty" style="flex:2;"></div>
+        <div class="ct-block ev" style="flex:2;"><span class="ct-label">EV</span></div>
+      </div>
+    </div>
+
+    <!-- Savings card -->
+    <div class="dash-savings-card">
+      <div class="dash-savings-icon">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+          <path d="M10 2v16M14 6H8a3 3 0 000 6h4a3 3 0 010 6H6" stroke="#2ECC71" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="dash-savings-info">
+        <div class="dash-savings-label">Panel upgrade avoided</div>
+        <div class="dash-savings-value">$2,400+</div>
+      </div>
+    </div>
+
+    <!-- Network card (small, ambient) -->
+    <div class="dash-network-card">
+      <div class="dash-network-info">
+        <div class="dash-network-dot"></div>
+        Sidewalk LoRa: Connected
+      </div>
+      <div class="dash-network-time">12s ago</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 9: WHO IT'S FOR
+     ============================================= -->
+<section class="audience-section">
+  <div class="content-width" style="text-align:center;">
+    <h2 class="reveal">Built for everyone<br>who hits the wall.</h2>
+  </div>
+
+  <div class="audience-cards">
+    <!-- Electricians -->
+    <div class="audience-card">
+      <div class="audience-card-header">
+        <div class="audience-icon amber">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94L6.73 20.2a2 2 0 01-2.83-2.83l6.73-6.73A6 6 0 017.7 2.7l3.77 3.77" stroke="#F5A623" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="audience-card-title">Electricians</div>
+      </div>
+      <div class="audience-card-body">Same-day installs. No callback. No permit delays. CEC 440.34 compliant. One device, one visit, one invoice.</div>
+    </div>
+
+    <!-- Homeowners -->
+    <div class="audience-card">
+      <div class="audience-card-header">
+        <div class="audience-icon teal">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V10.5z" stroke="#0A7E8C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9 21V12h6v9" stroke="#0A7E8C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="audience-card-title">Homeowners</div>
+      </div>
+      <div class="audience-card-body">Level 2 charging without touching your panel. Works with your existing AC circuit. $1,000 instead of $2,400+.</div>
+    </div>
+
+    <!-- Utilities -->
+    <div class="audience-card">
+      <div class="audience-card-header">
+        <div class="audience-icon violet">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="#7B61FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="audience-card-title">Utilities</div>
+      </div>
+      <div class="audience-card-body">Add chargers without increasing peak demand. Defer transformer upgrades. Two controllable loads per device for demand response.</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =============================================
+     SECTION 10: FOOTER
+     ============================================= -->
+<section class="footer-section">
+  <div class="content-width" style="text-align:center;">
+    <div class="footer-rule"></div>
+
+    <p class="footer-summary reveal">
+      Your home already has the circuit. SideCharge just lets your car use it too. A code-compliant circuit interlock that shares your AC circuit with a Level 2 EV charger -- connected over a free neighborhood radio network, getting smarter over time, with no panel upgrade, no WiFi, and no monthly fees.
+    </p>
+
+    <div class="reveal reveal-delay-1">
+      <div class="footer-brand">SideCharge</div>
+      <div class="footer-tagline">Level 2 charging. No panel upgrade.</div>
+    </div>
+
+    <div class="footer-meta">Eta Works. Built on Amazon Sidewalk. Connected by LoRa. Made with care.</div>
+  </div>
+</section>
+
+
+<script>
+(function() {
+  'use strict';
+
+  // ========================================
+  // Intersection Observer for scroll reveal
+  // ========================================
+  var revealElements = document.querySelectorAll('.reveal');
+  var revealObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, {
+    threshold: 0.15,
+    rootMargin: '0px 0px -40px 0px'
+  });
+
+  revealElements.forEach(function(el) {
+    revealObserver.observe(el);
+  });
+
+
+  // ========================================
+  // Smart cards stagger reveal
+  // ========================================
+  var smartCards = document.querySelectorAll('.smart-card');
+  var smartObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var index = Array.from(smartCards).indexOf(entry.target);
+        entry.target.style.transitionDelay = (index * 0.12) + 's';
+        entry.target.classList.add('visible');
+      }
+    });
+  }, {
+    threshold: 0.1,
+    rootMargin: '0px 0px -20px 0px'
+  });
+
+  smartCards.forEach(function(card) {
+    smartObserver.observe(card);
+  });
+
+
+  // ========================================
+  // Audience cards stagger reveal
+  // ========================================
+  var audienceCards = document.querySelectorAll('.audience-card');
+  var audienceObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        var index = Array.from(audienceCards).indexOf(entry.target);
+        entry.target.style.transitionDelay = (index * 0.12) + 's';
+        entry.target.classList.add('visible');
+      }
+    });
+  }, {
+    threshold: 0.1,
+    rootMargin: '0px 0px -20px 0px'
+  });
+
+  audienceCards.forEach(function(card) {
+    audienceObserver.observe(card);
+  });
+
+
+  // ========================================
+  // Hero interlock toggle animation
+  // Cycles: EV active (3.5s) -> transition -> AC active (3.5s) -> transition
+  // ========================================
+  var heroInterlock = document.getElementById('heroInterlock');
+  var interlockState = 'ev';
+
+  function toggleHeroInterlock() {
+    interlockState = (interlockState === 'ev') ? 'hvac' : 'ev';
+    heroInterlock.setAttribute('data-state', interlockState);
+  }
+
+  setInterval(toggleHeroInterlock, 3500);
+
+
+  // ========================================
+  // Solution diagram interlock animation
+  // Same cycle as hero but independent timing
+  // ========================================
+  var solutionDiagram = document.getElementById('solutionDiagram');
+  var solutionState = 'ev';
+  var solutionActive = false;
+
+  var solutionObserver = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting && !solutionActive) {
+        solutionActive = true;
+        // Start the toggle loop when visible
+        setInterval(function() {
+          solutionState = (solutionState === 'ev') ? 'hvac' : 'ev';
+          solutionDiagram.setAttribute('data-state', solutionState);
+
+          // Update the status text labels
+          var acStatusText = solutionDiagram.querySelector('text:nth-of-type(6)');
+          var evStatusText = solutionDiagram.querySelector('text:nth-of-type(8)');
+          // The inline SVG text elements are trickier; we update via JS
+          var allTexts = solutionDiagram.querySelectorAll('text');
+          allTexts.forEach(function(t) {
+            if (t.textContent === 'Idle' || t.textContent === 'Active at 7.2 kW') {
+              // Find by position
+              var x = parseFloat(t.getAttribute('x'));
+              if (x === 80) {
+                // AC status
+                t.textContent = (solutionState === 'hvac') ? 'Active' : 'Idle';
+              } else if (x === 240) {
+                // EV status
+                t.textContent = (solutionState === 'ev') ? 'Active at 7.2 kW' : 'Idle';
+              }
+            }
+            // Handle already-changed states
+            if (t.textContent === 'Active') {
+              var xVal = parseFloat(t.getAttribute('x'));
+              if (xVal === 80) {
+                t.textContent = (solutionState === 'hvac') ? 'Active' : 'Idle';
+              }
+            }
+          });
+        }, 4000);
+      }
+    });
+  }, { threshold: 0.2 });
+
+  solutionObserver.observe(solutionDiagram);
+
+})();
+</script>
+
+</body>
+</html>

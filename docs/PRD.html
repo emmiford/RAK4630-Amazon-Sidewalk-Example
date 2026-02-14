@@ -1,0 +1,2884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SideCharge PRD v1.4 -- Product Requirements Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   CSS CUSTOM PROPERTIES (from brand guidelines)
+   ========================================================================== */
+:root {
+  --sc-teal: #0A7E8C;
+  --sc-teal-dark: #064E56;
+  --sc-teal-light: #B8E4E9;
+  --sc-amber: #F5A623;
+  --sc-violet: #7B61FF;
+  --sc-green: #2ECC71;
+  --sc-charcoal: #1A1A2E;
+  --sc-slate: #6B7280;
+  --sc-cloud: #F4F5F7;
+  --sc-white: #FFFFFF;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.2), 0 4px 12px rgba(0,0,0,0.1);
+  --shadow-elevated: 0 4px 12px rgba(0,0,0,0.25), 0 12px 32px rgba(0,0,0,0.15);
+
+  /* Document-specific */
+  --bg-primary: #1A1A2E;
+  --bg-card: #1E1E34;
+  --bg-card-hover: #22223A;
+  --bg-code: #0D0D1A;
+  --bg-table-row-alt: rgba(255,255,255,0.02);
+  --bg-table-header: rgba(10,126,140,0.08);
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-card: rgba(255,255,255,0.08);
+  --text-primary: #E8E8EF;
+  --text-secondary: rgba(184,228,233,0.75);
+  --text-muted: #6B7280;
+  --sidebar-width: 280px;
+  --header-height: 72px;
+}
+
+/* ==========================================================================
+   RESET & BASE
+   ========================================================================== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-height) + 24px);
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+.doc-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(26,26,46,0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-xl);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.header-signal-motif {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.header-brand-name {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--sc-white);
+  letter-spacing: -0.02em;
+}
+
+.header-separator {
+  width: 1px;
+  height: 28px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.header-doc-title {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-nav-toggle {
+  display: none;
+  background: none;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  margin-left: auto;
+  transition: background 0.15s ease;
+}
+
+.mobile-nav-toggle:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+/* ==========================================================================
+   LAYOUT: SIDEBAR + MAIN
+   ========================================================================== */
+.doc-layout {
+  display: flex;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: calc(100vh - var(--header-height));
+}
+
+/* ==========================================================================
+   SIDEBAR (Table of Contents)
+   ========================================================================== */
+.doc-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  position: sticky;
+  top: var(--header-height);
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  padding: var(--space-xl) var(--space-lg);
+  border-right: 1px solid var(--border-subtle);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.doc-sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.doc-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.doc-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+}
+
+.toc-label {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-md);
+}
+
+.toc-list {
+  list-style: none;
+}
+
+.toc-list li {
+  margin-bottom: 2px;
+}
+
+.toc-list a {
+  display: block;
+  padding: 5px var(--space-sm);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background 0.15s ease;
+  line-height: 1.4;
+}
+
+.toc-list a:hover {
+  color: var(--sc-teal-light);
+  background: rgba(10,126,140,0.06);
+}
+
+.toc-list a.active {
+  color: var(--sc-teal-light);
+  background: rgba(10,126,140,0.1);
+}
+
+.toc-list .toc-h3 {
+  padding-left: calc(var(--space-sm) + var(--space-md));
+  font-size: 0.75rem;
+}
+
+.toc-list .toc-h4 {
+  padding-left: calc(var(--space-sm) + var(--space-md) + var(--space-md));
+  font-size: 0.6875rem;
+}
+
+.toc-section-number {
+  color: var(--sc-teal);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  margin-right: 4px;
+}
+
+/* ==========================================================================
+   MAIN CONTENT
+   ========================================================================== */
+.doc-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2xl) var(--space-2xl) var(--space-3xl);
+  max-width: 920px;
+}
+
+/* Document title block */
+.doc-title-block {
+  margin-bottom: var(--space-3xl);
+  padding-bottom: var(--space-2xl);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.doc-title {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--sc-white);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--space-lg);
+}
+
+.doc-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.doc-meta-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  font-size: 0.875rem;
+}
+
+.doc-meta-label {
+  color: var(--text-muted);
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.doc-meta-value {
+  color: var(--text-secondary);
+}
+
+.doc-meta-value code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  background: rgba(10,126,140,0.1);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--sc-teal-light);
+}
+
+/* ==========================================================================
+   SECTION CARDS
+   ========================================================================== */
+.section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-2xl);
+  margin-bottom: var(--space-xl);
+  box-shadow: var(--shadow-card);
+}
+
+/* ==========================================================================
+   TYPOGRAPHY
+   ========================================================================== */
+h2.section-heading {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--sc-white);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+h2.section-heading .section-number {
+  color: var(--sc-teal);
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  margin-right: 8px;
+}
+
+h3.subsection-heading {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--sc-white);
+  line-height: 1.3;
+  margin-top: var(--space-2xl);
+  margin-bottom: var(--space-md);
+}
+
+h3.subsection-heading:first-child {
+  margin-top: 0;
+}
+
+h4.sub-subsection-heading {
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  color: var(--sc-teal-light);
+  line-height: 1.3;
+  margin-top: var(--space-xl);
+  margin-bottom: var(--space-md);
+}
+
+p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--space-md);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+em {
+  font-style: italic;
+}
+
+ul, ol {
+  color: var(--text-secondary);
+  padding-left: var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+ul:last-child, ol:last-child {
+  margin-bottom: 0;
+}
+
+li {
+  margin-bottom: var(--space-sm);
+  line-height: 1.6;
+}
+
+li strong {
+  color: var(--text-primary);
+}
+
+/* Inline code */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: rgba(10,126,140,0.1);
+  color: var(--sc-teal-light);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* Code blocks */
+pre {
+  background: var(--bg-code);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-md) var(--space-lg);
+  overflow-x: auto;
+  margin-bottom: var(--space-md);
+}
+
+pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.8125rem;
+  color: var(--sc-teal-light);
+  line-height: 1.6;
+}
+
+/* ==========================================================================
+   TABLES
+   ========================================================================== */
+.table-wrap {
+  overflow-x: auto;
+  margin-bottom: var(--space-lg);
+  border-radius: var(--radius-sm);
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+thead th {
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--sc-teal-light);
+  text-align: left;
+  padding: var(--space-md) var(--space-md);
+  background: var(--bg-table-header);
+  border-bottom: 2px solid rgba(10,126,140,0.2);
+  border-left: 3px solid var(--sc-teal);
+  white-space: nowrap;
+}
+
+thead th:first-child {
+  border-top-left-radius: var(--radius-sm);
+}
+
+thead th:last-child {
+  border-top-right-radius: var(--radius-sm);
+}
+
+thead th + th {
+  border-left: none;
+}
+
+/* Only the first th gets the teal left border */
+thead th:not(:first-child) {
+  border-left: 1px solid rgba(255,255,255,0.04);
+}
+
+tbody td {
+  padding: var(--space-sm) var(--space-md);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--bg-table-row-alt);
+}
+
+tbody tr:hover {
+  background: rgba(10,126,140,0.04);
+  transition: background 0.15s ease;
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius-sm);
+}
+
+tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius-sm);
+}
+
+/* Technical values in tables */
+td code {
+  font-size: 0.8em;
+}
+
+.mono-cell {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: var(--sc-teal-light);
+}
+
+/* ==========================================================================
+   STATUS BADGES
+   ========================================================================== */
+.badge {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+.badge-implemented {
+  background: rgba(46,204,113,0.15);
+  color: #2ECC71;
+  border: 1px solid rgba(46,204,113,0.25);
+}
+
+.badge-not-started {
+  background: rgba(107,114,128,0.15);
+  color: #9CA3AF;
+  border: 1px solid rgba(107,114,128,0.25);
+}
+
+.badge-na {
+  background: rgba(255,255,255,0.05);
+  color: #6B7280;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.badge-with-detail {
+  background: rgba(46,204,113,0.15);
+  color: #2ECC71;
+  border: 1px solid rgba(46,204,113,0.25);
+}
+
+.badge-designed {
+  background: rgba(245,166,35,0.15);
+  color: #F5A623;
+  border: 1px solid rgba(245,166,35,0.25);
+}
+
+/* ==========================================================================
+   NOTE / CALLOUT BLOCKS
+   ========================================================================== */
+.callout {
+  border-radius: var(--radius-sm);
+  padding: var(--space-md) var(--space-lg);
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-md);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.callout p {
+  font-size: 0.875rem;
+}
+
+.callout-notes {
+  border-left: 3px solid var(--sc-violet);
+  background: rgba(123,97,255,0.04);
+}
+
+.callout-warning {
+  border-left: 3px solid var(--sc-amber);
+  background: rgba(245,166,35,0.04);
+}
+
+.callout-label {
+  font-family: var(--font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-sm);
+}
+
+.callout-notes .callout-label {
+  color: var(--sc-violet);
+}
+
+.callout-warning .callout-label {
+  color: var(--sc-amber);
+}
+
+/* ==========================================================================
+   KNOWN GAPS TABLE (amber treatment)
+   ========================================================================== */
+.gaps-table thead th {
+  border-left-color: var(--sc-amber);
+  background: rgba(245,166,35,0.06);
+  color: var(--sc-amber);
+}
+
+.gaps-table thead th:not(:first-child) {
+  border-left: 1px solid rgba(255,255,255,0.04);
+}
+
+.gaps-table tbody tr:hover {
+  background: rgba(245,166,35,0.03);
+}
+
+/* ==========================================================================
+   HORIZONTAL RULE
+   ========================================================================== */
+.section-divider {
+  border: none;
+  height: 1px;
+  background: var(--border-subtle);
+  margin: var(--space-xl) 0;
+}
+
+/* ==========================================================================
+   SCOPE LISTS
+   ========================================================================== */
+.scope-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.scope-list li {
+  padding-left: var(--space-lg);
+  position: relative;
+  margin-bottom: var(--space-sm);
+}
+
+.scope-list.in-scope li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sc-green);
+  opacity: 0.7;
+}
+
+.scope-list.out-scope li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sc-slate);
+  opacity: 0.5;
+}
+
+.scope-list.next-scope li::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sc-teal);
+  opacity: 0.7;
+}
+
+/* ==========================================================================
+   MARKET CONTEXT (narrative section styling)
+   ========================================================================== */
+.market-narrative {
+  margin-bottom: var(--space-lg);
+}
+
+.market-narrative .callout {
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+.doc-footer {
+  border-top: 1px solid var(--border-subtle);
+  padding: var(--space-2xl) var(--space-2xl);
+  text-align: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.footer-rule {
+  width: 40px;
+  height: 2px;
+  background: var(--sc-teal);
+  border-radius: 1px;
+  margin: 0 auto var(--space-lg);
+}
+
+.footer-brand {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--sc-white);
+  margin-bottom: var(--space-xs);
+}
+
+.footer-tagline {
+  font-size: 0.8125rem;
+  color: var(--sc-teal);
+  font-style: italic;
+  margin-bottom: var(--space-md);
+}
+
+.footer-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ==========================================================================
+   MOBILE / RESPONSIVE
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .doc-sidebar {
+    display: none;
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    width: 100%;
+    height: calc(100vh - var(--header-height));
+    z-index: 90;
+    background: rgba(26,26,46,0.98);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-right: none;
+    padding: var(--space-lg);
+  }
+
+  .doc-sidebar.open {
+    display: block;
+  }
+
+  .mobile-nav-toggle {
+    display: block;
+  }
+
+  .doc-main {
+    padding: var(--space-lg) var(--space-lg) var(--space-2xl);
+  }
+
+  .section-card {
+    padding: var(--space-lg);
+  }
+}
+
+@media (max-width: 640px) {
+  .doc-header {
+    padding: 0 var(--space-md);
+  }
+
+  .doc-title {
+    font-size: 1.75rem;
+  }
+
+  h2.section-heading {
+    font-size: 1.375rem;
+  }
+
+  h3.subsection-heading {
+    font-size: 1.125rem;
+  }
+
+  .doc-main {
+    padding: var(--space-md) var(--space-md) var(--space-xl);
+  }
+
+  .section-card {
+    padding: var(--space-md);
+    border-radius: var(--radius-sm);
+  }
+
+  .doc-meta-item {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .header-doc-title {
+    display: none;
+  }
+
+  .header-separator {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   PRINT STYLES
+   ========================================================================== */
+@media print {
+  :root {
+    --bg-primary: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --bg-code: #F4F5F7;
+    --bg-table-row-alt: #FAFAFA;
+    --bg-table-header: #F0F0F0;
+    --border-subtle: #E0E0E0;
+    --border-card: #E0E0E0;
+    --text-primary: #1A1A2E;
+    --text-secondary: #3A3A4E;
+    --text-muted: #6B7280;
+  }
+
+  body {
+    background: #FFFFFF;
+    color: #1A1A2E;
+    font-size: 11pt;
+  }
+
+  .doc-header {
+    position: static;
+    background: #FFFFFF;
+    border-bottom: 2px solid #0A7E8C;
+    backdrop-filter: none;
+  }
+
+  .doc-sidebar {
+    display: none !important;
+  }
+
+  .mobile-nav-toggle {
+    display: none !important;
+  }
+
+  .doc-main {
+    padding: 0;
+    max-width: 100%;
+  }
+
+  .section-card {
+    box-shadow: none;
+    border: 1px solid #E0E0E0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .badge-implemented {
+    background: #E8F5E9;
+    color: #1B5E20;
+    border-color: #A5D6A7;
+  }
+
+  .badge-not-started {
+    background: #F5F5F5;
+    color: #424242;
+    border-color: #BDBDBD;
+  }
+
+  .badge-designed {
+    background: #FFF8E1;
+    color: #E65100;
+    border-color: #FFE0B2;
+  }
+
+  code {
+    background: #F0F0F0;
+    color: #064E56;
+  }
+
+  pre {
+    background: #F4F5F7;
+    border-color: #E0E0E0;
+  }
+
+  pre code {
+    color: #064E56;
+  }
+
+  h2.section-heading {
+    color: #1A1A2E;
+  }
+
+  h2.section-heading .section-number {
+    color: #0A7E8C;
+  }
+
+  h3.subsection-heading {
+    color: #1A1A2E;
+  }
+
+  h4.sub-subsection-heading {
+    color: #0A7E8C;
+  }
+
+  thead th {
+    color: #064E56;
+    background: #F0F0F0;
+    border-left-color: #0A7E8C;
+  }
+
+  .callout-notes {
+    border-left-color: #7B61FF;
+    background: #F5F3FF;
+  }
+
+  .callout-warning {
+    border-left-color: #F5A623;
+    background: #FFF8E1;
+  }
+
+  a {
+    color: #0A7E8C;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="doc-header">
+  <div class="header-inner">
+    <a class="header-brand" href="#">
+      <svg class="header-signal-motif" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="18" cy="18" r="3.5" fill="#F5A623"/>
+        <path d="M18 10.5a7.5 7.5 0 00-7.5 7.5" stroke="#0A7E8C" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+        <path d="M18 7a11 11 0 00-11 11" stroke="#0A7E8C" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M18 3.5a14.5 14.5 0 00-14.5 14.5" stroke="#0A7E8C" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.35"/>
+        <path d="M18 10.5a7.5 7.5 0 017.5 7.5" stroke="#0A7E8C" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+        <path d="M18 7a11 11 0 0111 11" stroke="#0A7E8C" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M18 3.5a14.5 14.5 0 0114.5 14.5" stroke="#0A7E8C" stroke-width="1.2" stroke-linecap="round" fill="none" opacity="0.35"/>
+      </svg>
+      <span class="header-brand-name">SideCharge</span>
+    </a>
+    <div class="header-separator"></div>
+    <span class="header-doc-title">Product Requirements Document v1.4</span>
+    <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Toggle table of contents">Contents</button>
+  </div>
+</header>
+
+<div class="doc-layout">
+  <nav class="doc-sidebar" id="docSidebar" aria-label="Table of contents">
+    <div class="toc-label">On this page</div>
+    <ul class="toc-list" id="tocList">
+      <li><a href="#section-1"><span class="toc-section-number">1</span> Product Overview</a></li>
+      <li><a href="#section-1-1" class="toc-h3">1.1 Why SideCharge Exists</a></li>
+      <li><a href="#section-1-2" class="toc-h3">1.2 What SideCharge Does</a></li>
+      <li><a href="#section-1-3" class="toc-h3">1.3 Target Deployment</a></li>
+      <li><a href="#section-1-4" class="toc-h3">1.4 Who Uses It</a></li>
+      <li><a href="#section-2"><span class="toc-section-number">2</span> Device Requirements</a></li>
+      <li><a href="#section-2-0" class="toc-h3">2.0 Circuit Interlock</a></li>
+      <li><a href="#section-2-0-1" class="toc-h4">2.0.1 Interlock Logic</a></li>
+      <li><a href="#section-2-0-2" class="toc-h4">2.0.2 Cloud Override</a></li>
+      <li><a href="#section-2-0-6" class="toc-h4">2.0.6 Logging and Reporting</a></li>
+      <li><a href="#section-2-0-3" class="toc-h4">2.0.3 Hardware Interfaces</a></li>
+      <li><a href="#section-2-0-4" class="toc-h4">2.0.4 Isolation and Safety</a></li>
+      <li><a href="#section-2-0-5" class="toc-h4">2.0.5 Code Compliance</a></li>
+      <li><a href="#section-2-1" class="toc-h3">2.1 J1772 Pilot State Monitoring</a></li>
+      <li><a href="#section-2-2" class="toc-h3">2.2 Current Clamp Monitoring</a></li>
+      <li><a href="#section-2-3" class="toc-h3">2.3 Thermostat Input Monitoring</a></li>
+      <li><a href="#section-2-4" class="toc-h3">2.4 Charge Enable/Disable Output</a></li>
+      <li><a href="#section-2-5" class="toc-h3">2.5 LED Indicators — TO-DO</a></li>
+      <li><a href="#section-2-6" class="toc-h3">2.6 CLI Commands (Development and ...</a></li>
+      <li><a href="#section-3"><span class="toc-section-number">3</span> Connectivity Requirements</a></li>
+      <li><a href="#section-3-1" class="toc-h3">3.1 Sidewalk LoRa Link</a></li>
+      <li><a href="#section-3-1-1" class="toc-h4">3.1.1 Startup and Power Recovery</a></li>
+      <li><a href="#section-3-2" class="toc-h3">3.2 Uplink (Device to Cloud)</a></li>
+      <li><a href="#section-3-3" class="toc-h3">3.3 Downlink (Cloud to Device)</a></li>
+      <li><a href="#section-4"><span class="toc-section-number">4</span> Cloud Requirements</a></li>
+      <li><a href="#section-4-1" class="toc-h3">4.1 Payload Decode</a></li>
+      <li><a href="#section-4-2" class="toc-h3">4.2 OTA Firmware Update Pipeline (...</a></li>
+      <li><a href="#section-4-3" class="toc-h3">4.3 Device-Side OTA</a></li>
+      <li><a href="#section-4-4" class="toc-h3">4.4 Demand Response and Charge Sch...</a></li>
+      <li><a href="#section-4-5" class="toc-h3">4.5 Infrastructure as Code</a></li>
+      <li><a href="#section-5"><span class="toc-section-number">5</span> Operational Requirements</a></li>
+      <li><a href="#section-5-1" class="toc-h3">5.1 Firmware Update</a></li>
+      <li><a href="#section-5-2" class="toc-h3">5.2 Device Provisioning</a></li>
+      <li><a href="#section-5-3" class="toc-h3">5.3 Observability</a></li>
+      <li><a href="#section-5-3-1" class="toc-h4">5.3.1 Development and Testing (...</a></li>
+      <li><a href="#section-5-3-2" class="toc-h4">5.3.2 Production (Cloud-Only, N...</a></li>
+      <li><a href="#section-5-4" class="toc-h3">5.4 Testing</a></li>
+      <li><a href="#section-6"><span class="toc-section-number">6</span> Non-Functional Requirements</a></li>
+      <li><a href="#section-6-1" class="toc-h3">6.1 Power</a></li>
+      <li><a href="#section-6-2" class="toc-h3">6.2 Reliability</a></li>
+      <li><a href="#section-6-3" class="toc-h3">6.3 Security</a></li>
+      <li><a href="#section-6-3-1" class="toc-h4">6.3.1 What's Implemented</a></li>
+      <li><a href="#section-6-3-2" class="toc-h4">6.3.2 Threat Model: What Could ...</a></li>
+      <li><a href="#section-6-3-3" class="toc-h4">6.3.3 Security Gaps Summary</a></li>
+      <li><a href="#section-7"><span class="toc-section-number">7</span> Scope Boundaries</a></li>
+      <li><a href="#section-7-1" class="toc-h3">7.1 In Scope for v1.0</a></li>
+      <li><a href="#section-7-2" class="toc-h3">7.2 Out of Scope for v1.0</a></li>
+      <li><a href="#section-7-3" class="toc-h3">7.3 Where SideCharge Goes Next</a></li>
+      <li><a href="#section-8"><span class="toc-section-number">8</span> Known Gaps</a></li>
+      <li><a href="#section-9"><span class="toc-section-number">9</span> Requirement Traceability</a></li>
+    </ul>
+  </nav>
+
+  <main class="doc-main">
+    <div class="doc-title-block">
+      <h1 class="doc-title">SideCharge Product Requirements</h1>
+      <div class="doc-meta">
+        <div class="doc-meta-item">
+          <span class="doc-meta-label">Version</span>
+          <span class="doc-meta-value">v1.4</span>
+        </div>
+        <div class="doc-meta-item">
+          <span class="doc-meta-label">Status</span>
+          <span class="doc-meta-value">Active &mdash; market context in section 1, prose intros, security threat model, testing architecture</span>
+        </div>
+        <div class="doc-meta-item">
+          <span class="doc-meta-label">Hardware</span>
+          <span class="doc-meta-value">RAK4631 (<code>nRF52840</code> + Semtech <code>SX1262</code> LoRa)</span>
+        </div>
+        <div class="doc-meta-item">
+          <span class="doc-meta-label">Connectivity</span>
+          <span class="doc-meta-value">Amazon Sidewalk (LoRa 915MHz) &mdash; no WiFi, no cellular, no monthly fees</span>
+        </div>
+        <div class="doc-meta-item">
+          <span class="doc-meta-label">Cloud</span>
+          <span class="doc-meta-value">AWS (Lambda, DynamoDB, S3, IoT Wireless, EventBridge)</span>
+        </div>
+      </div>
+    </div>
+
+<h3 class="subsection-heading">Status Convention</h3>
+<p>Requirements use these status labels to distinguish software vs. hardware implementation:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Status</th>
+  <th>Meaning</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><code>IMPLEMENTED (SW)</code></td>
+  <td>Working in firmware/software on the dev prototype</td>
+</tr>
+<tr>
+  <td><code>IMPLEMENTED (HW)</code></td>
+  <td>Working in hardware on the dev prototype</td>
+</tr>
+<tr>
+  <td><code>IMPLEMENTED (SW+HW)</code></td>
+  <td>Working in both firmware and hardware</td>
+</tr>
+<tr>
+  <td><code>IMPLEMENTED</code></td>
+  <td>Platform/cloud — not a HW/SW distinction</td>
+</tr>
+<tr>
+  <td><code>DESIGNED</code></td>
+  <td>Design decided but not yet built or verified</td>
+</tr>
+<tr>
+  <td><code>TBD</code></td>
+  <td>Decision not yet made — requires testing or PM input</td>
+</tr>
+<tr>
+  <td><code>NOT STARTED</code></td>
+  <td>Not yet designed or implemented</td>
+</tr>
+<tr>
+  <td><code>N/A</code></td>
+  <td>Not applicable</td>
+</tr>
+</tbody></table></div>
+<h3 class="subsection-heading">Terminology</h3>
+<p>This document uses consistent terms:</p>
+<ul>
+<li><strong>AC</strong> (not "HVAC") when referring to the air conditioning compressor and its circuit. Heat pump support is a future goal, not current scope.</li>
+<li><strong>EV charger</strong> (not "EVSE") in user-facing context. "EVSE" appears only in J1772 technical sections.</li>
+<li><strong>Interlock</strong> — the hardware + software system that prevents simultaneous operation of AC and EV charger.</li>
+<h3 class="subsection-heading">Low-Voltage Design Principle</h3>
+</ul>
+<p>SideCharge touches only low-voltage control wires: 24VAC thermostat signals and the J1772 pilot signal (+/-12V). The single exception is one current clamp on the 240V charging circuit (read-only, no electrical connection). We do not switch, interrupt, or connect to 240V mains. This is a deliberate design choice: by staying entirely in the low-voltage domain, we expect to avoid UL testing at 220V.</p>
+
+<div class="section-card" id="section-1">
+<h2 class="section-heading"><span class="section-number">1.</span> Product Overview</h2>
+<h3 class="subsection-heading" id="section-1-1">1.1 Why SideCharge Exists</h3>
+<p>SideCharge exists because the electrical infrastructure in most American homes was not built for electric vehicles.</p>
+<p>A Level 2 EV charger draws 30-50A at 240V. Many homes don't have room in their electrical panel for a dedicated charger circuit &mdash; this is most common with 100A panels, but a 200A panel that already serves a hot tub, workshop, or other large loads can be just as constrained. Installing a charger in these homes typically requires a panel upgrade &mdash; $2,400+ in parts and labor, 3+ days of work, and often a utility service upgrade on top of that. This is the single largest barrier to residential EV adoption.</p>
+<p>The insight: in a typical home with central air conditioning, the AC compressor draws 30-50A &mdash; nearly identical to a Level 2 charger. But they rarely need to run at the same time. AC runs approximately 2 hours per day in summer, mostly during afternoon peak hours. EV charging runs approximately 2 hours per day, mostly overnight. An interlock that prevents simultaneous operation lets the charger share the AC circuit safely and legally.</p>
+<p><strong>The numbers</strong>:</p>
+<ul>
+<li>14-26% of California homes are addressable (panels at capacity with central A/C &mdash; mostly 100A, but not exclusively)</li>
+<li>17-33% in disadvantaged communities, where panel upgrade costs are a harder barrier</li>
+<li>Panel upgrade: $2,400+ and 3+ days. SideCharge target: ~$1,000 equipment and installation</li>
+<li>SCE offers $4,200 grants for 100A panel upgrades &mdash; SideCharge achieves the same outcome at a fraction of the cost</li>
+<li>NEC 220.60 (noncoincident loads) and NEC 220.70/Article 750 (energy management systems) explicitly allow interlocked and managed loads on shared circuits</li>
+</ul>
+<p><strong>Grid value</strong>: Every SideCharge installation adds a Level 2 charger without increasing peak demand on the distribution grid. No service upgrade, no transformer upgrade, no utility capital expenditure. Combined with the demand response layer (TOU + MOER), the device also provides load flexibility &mdash; the utility can shift both AC and EV loads in response to grid conditions.</p>
+<p><strong>Company</strong>: Eta Works, Inc. CEO Eric Smith.</p>
+<h3 class="subsection-heading" id="section-1-2">1.2 What SideCharge Does</h3>
+<p>SideCharge is a circuit interlock that enables same-day, code-compliant installation of a Level 2 EV charger in homes without enough room in their electrical panel for a dedicated charger circuit. It ensures the AC compressor and EV charger never draw power simultaneously &mdash; mutual exclusion enforced in hardware and software &mdash; so a 30-50A charger can share the existing AC circuit without a panel upgrade. This applies to any panel that's at capacity, whether it's a 100A panel or a 200A panel that's already loaded up with a hot tub and other large loads.</p>
+<p>The interlock is the product. Everything else is built on top of it.</p>
+<p>Connected via Amazon Sidewalk's free LoRa mesh network, SideCharge reads J1772 pilot state, charging current, and AC call signals, reporting them to the cloud in an 8-byte payload that fits within Sidewalk's 19-byte LoRa MTU. The cloud layer adds smart coordination: time-of-use pricing, real-time grid carbon intensity, and remote override &mdash; sending pause/allow commands back down over the same radio link.</p>
+<p>The entire application is a compact 4KB binary running on a split-image architecture. The platform handles Sidewalk, BLE, and OTA. The app handles everything EV charger and AC related. They update independently &mdash; and the app updates over the air in seconds, not hours, thanks to delta OTA.</p>
+<h3 class="subsection-heading" id="section-1-3">1.3 Target Deployment</h3>
+<p>Single-site residential installation in a home with central air conditioning and a panel that doesn't have room for a dedicated EV charger circuit. The SideCharge device sits at the junction of two systems:</p>
+<ul>
+<li><strong>Thermostat side</strong>: Intercepts the 24VAC call signal between the thermostat and the AC compressor contactor. The device is powered from the 24VAC transformer in the AC system &mdash; no separate power supply needed.</li>
+<li><strong>EV charger side</strong>: Monitors the J1772 pilot signal (1kHz, +/-12V square wave) from the Level 2 charger. A current clamp on the charging circuit measures real-time current delivery. To pause charging, the device spoofs J1772 signals rather than cutting power (see 2.0.1 for the asymmetric interlock mechanism).</li>
+</ul>
+<p>All connections are low-voltage control wires (24VAC thermostat, +/-12V J1772 pilot). The only contact with the 240V circuit is a read-only current clamp. See section 2.0.4 for isolation details.</p>
+<p>Physically, this is a small device that mounts near the AC air handler or in the EV charger enclosure &mdash; wherever the thermostat wiring and charger wiring are accessible to the installer.</p>
+<h3 class="subsection-heading" id="section-1-4">1.4 Who Uses It</h3>
+<ul>
+<li><strong>Homeowner</strong>: Passive &mdash; benefits from Level 2 charging capability and demand response without interaction. No user-facing app or dashboard in v1.0. The charger just works, and the AC always has priority.</li>
+<li><strong>Electrician / Installer</strong>: Wires the interlock between thermostat, AC compressor contactor, and EV charger. Verifies operation via a commissioning process (TBD &mdash; may be LED indicators, a phone-based tool, or cloud verification). Needs clear wiring diagrams and a commissioning checklist. This is who gets the product into homes.</li>
+<li><strong>Operator/Developer</strong>: Uses <code>ota_deploy.py</code> for firmware updates and AWS console/CLI for cloud monitoring. Note: USB serial is available during development but will not be accessible after the device leaves the factory &mdash; all post-deployment diagnostics happen via the cloud. This is who the rest of this document is written for.</li>
+<li><strong>Utilities (stakeholder)</strong>: Benefit from charger deployments that add no peak demand. Potential demand response participants via the cloud layer. SCE, PG&E, and similar IOUs are the policy and incentive partners &mdash; they do not interact with the device directly, but their rate structures and grid programs shape the cloud logic.</li>
+</ul>
+</div>
+
+<div class="section-card" id="section-2">
+<h2 class="section-heading"><span class="section-number">2.</span> Device Requirements</h2>
+<h3 class="subsection-heading" id="section-2-0">2.0 Circuit Interlock</h3>
+<p>This is the core function of SideCharge &mdash; the reason the product exists. The interlock guarantees that the AC compressor and EV charger never draw power at the same time, enabling a Level 2 charger installation on a panel that would otherwise require an expensive upgrade.</p>
+<h4 class="sub-subsection-heading" id="section-2-0-1">2.0.1 Interlock Logic</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Mutual exclusion: AC and EV charger loads never operate simultaneously</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW+HW)</span></td>
+</tr>
+<tr>
+  <td>AC priority: if thermostat calls for cooling, EV charging pauses</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW+HW)</span></td>
+</tr>
+<tr>
+  <td>EV lockout: if current is flowing to EV charger, thermostat signal to compressor is blocked</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW+HW)</span></td>
+</tr>
+<tr>
+  <td>"Charge Now" override button: user presses physical button to override AC priority and force-charge</td>
+  <td><span class="badge badge-not-started">TBD (replaces double-tap concept — see product decision log)</span></td>
+</tr>
+<tr>
+  <td>Transition delay: minimum 5-minute hold between load switches (compressor protection)</td>
+  <td><span class="badge badge-not-started">TBD (HW via capacitor or SW timer -- decision needed)</span></td>
+</tr>
+<tr>
+  <td>Default state on boot: AC enabled, EV charging allowed (no load active = safe)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW)</span></td>
+</tr>
+</tbody></table></div>
+<p><strong>Asymmetric interlock mechanism</strong>: SideCharge does not simply cut power to either load. The mechanism is asymmetric and protocol-aware:</p>
+<ul>
+<li><strong>To pause EV charging</strong> (when AC needs priority): The device presents ~900 ohm resistance on the EVSE side, making the charger see J1772 State B (connected, not ready). The charger stops supplying power gracefully.</li>
+<li><strong>To pause AC</strong> (when EV is charging): The device blocks the 24VAC thermostat call signal to the compressor contactor.</li>
+<li><strong>To pause EV charging from cloud/utility</strong>: On the car side, set the J1772 PWM duty cycle to 0%, telling the car that no current is available. <strong>This approach is not finalized</strong> &mdash; it needs testing with multiple car makes to verify behavior. See Oliver EXP-001.</li>
+</ul>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The interlock is implemented in both hardware and software &mdash; a deliberate redundancy choice. <strong>Decision: keep both layers active in production.</strong> The hardware circuit enforces mutual exclusion independently of the microcontroller, so basic interlock function works even if the firmware crashes. The software layer adds the smarts: cloud override, user override button, and logging. Both layers must be carefully coordinated to avoid fighting each other — e.g., the software timer and hardware RC time constant for the transition delay must be harmonized so they don't create oscillation or unexpected state. This coordination is a design task (see TASK-025).</p></div>
+<p>AC always wins by default &mdash; if the thermostat calls, charging pauses. The "Charge Now" override button (TBD) would let the user press a physical button on the device to signal "I need to charge now even if the AC wants to run." This replaces the earlier double-tap concept (disconnect/reconnect J1772 connector) — a physical button is more intuitive and doesn't require the user to go to the car. Open questions: button placement, momentary vs toggle, LED feedback on press, override duration, behavior when AC calls during override.</p>
+<p>The transition delay protects the AC compressor from short-cycling (rapid on/off damages the compressor). Residential compressors should not be cycled faster than every 5 minutes. This can be implemented in hardware (an RC time constant on the relay driver) or in software (a timer in the interlock logic). The choice affects reliability and complexity &mdash; hardware is simpler and fail-safe, software is more flexible. Decision needed.</p>
+<h4 class="sub-subsection-heading" id="section-2-0-2">2.0.2 Cloud Override</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Force-block EV charger via cloud downlink</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW)</span></td>
+</tr>
+<tr>
+  <td>Force-block AC via cloud downlink</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Override timeout: auto-release after configurable duration</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW, EV charger only)</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The cloud can currently force-pause EV charging via the existing charge control downlink (0x10). Force-blocking AC from the cloud is architecturally possible but not yet implemented &mdash; it requires careful consideration of comfort and safety. The auto-release timeout ensures that a lost cloud connection never permanently blocks charging.</p></div>
+<h4 class="sub-subsection-heading" id="section-2-0-6">2.0.6 Logging and Reporting</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Interlock state reported in uplink payload</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW)</span></td>
+</tr>
+<tr>
+  <td>Cloud override status reported in uplink payload</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (SW, EV charger only)</span></td>
+</tr>
+<tr>
+  <td>Interlock transition events logged to cloud (AC→EV, EV→AC, override)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>"Charge Now" button press events logged</td>
+  <td><span class="badge badge-not-started">TBD</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Logging is how the cloud knows what the interlock is doing. The current uplink payload includes interlock state, but detailed transition logging (timestamps, reasons, durations) is not yet implemented. This data is essential for demand response reporting, debugging, and demonstrating code compliance to inspectors.</p></div>
+<h4 class="sub-subsection-heading" id="section-2-0-3">2.0.3 Hardware Interfaces</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>24VAC power input from AC transformer (device power source)</td>
+  <td><span class="badge badge-not-started">NOT STARTED (USB-powered in v1.0)</span></td>
+</tr>
+<tr>
+  <td>Current clamp input: analog voltage proportional to EV charger current (AIN1)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>J1772 Cp pin monitoring: voltage level (car presence)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW+SW)</span></td>
+</tr>
+<tr>
+  <td>J1772 Cp pin monitoring: PWM duty cycle (allowed current)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Digital input: thermostat cooling request signal (GPIO P0.05, active high)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Digital input: thermostat heat request signal (GPIO P0.04, active high)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Output: block AC compressor (intercept thermostat signal)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Output: pause EV charging (spoof J1772 State B via ~900 ohm resistance)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Separate output for AC disable vs. EV charger disable</td>
+  <td><span class="badge badge-not-started">NEEDS VERIFICATION (see note)</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The 24VAC power supply is not yet implemented; the prototype runs on USB power via the RAK4631 USB-C port. The Cp duty cycle (which encodes the maximum allowed current per J1772) is not yet decoded &mdash; only the voltage level (car presence/state) is read. <strong>Action item</strong>: verify that the current hardware has two independent disable outputs for AC and EV charger, or if they share a GPIO. The EV charger disable does not use a simple relay cut &mdash; it spoofs J1772 signals (see 2.0.1 asymmetric mechanism).</p></div>
+<h4 class="sub-subsection-heading" id="section-2-0-4">2.0.4 Isolation and Safety</h4>
+<p>As stated in the design principles above: SideCharge only touches low-voltage control wires (24VAC thermostat, +/-12V J1772 pilot). The only contact with 240V is a read-only current clamp. We do not switch, interrupt, or connect to mains power.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Microcontroller isolated from 24VAC thermostat circuit</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Microcontroller isolated from J1772 pilot circuit (+/-12V)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Earth ground reference from EV charger enclosure</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>24VAC AC power galvanically isolated from 240VAC charging circuit</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Fail-safe: if microcontroller loses power, basic interlock still functions</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (HW)</span></td>
+</tr>
+<tr>
+  <td>Fail-safe: if microcontroller loses power, cloud override and "Charge Now" button do NOT function</td>
+  <td><span class="badge badge-na">BY DESIGN</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Isolation means there is no direct electrical connection between the microcontroller and the circuits it monitors/controls. Signals cross the isolation barrier via optocouplers (an LED shines on a photodetector across a gap &mdash; light carries the signal, not electricity) or magnetic couplers (transformer-based). This protects the low-voltage microcontroller from surges or faults on the thermostat or J1772 circuits.</p></div>
+<p>The isolation is implemented in the current prototype hardware. The fail-safe behavior is intentionally asymmetric: if the microcontroller loses power, the hardware interlock continues to prevent simultaneous AC and EV charger operation (this is the basic safety guarantee). However, cloud override commands and the "Charge Now" button override will not function without the microcontroller &mdash; only the fundamental mutual exclusion is preserved.</p>
+<p>Because we stay entirely in the low-voltage domain (no mains switching), we expect this design to fall outside the scope of UL testing at 220V. This is a key part of the product strategy &mdash; keeping the device simple and certifiable.</p>
+<h4 class="sub-subsection-heading" id="section-2-0-5">2.0.5 Code Compliance</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>NEC 220.60 (Noncoincident Loads): interlocked loads calculated using only the larger</td>
+  <td><span class="badge badge-designed">DESIGNED (not formally verified)</span></td>
+</tr>
+<tr>
+  <td>NEC 220.70 / Article 750 (Energy Management Systems): automatic load management for EV</td>
+  <td><span class="badge badge-designed">DESIGNED (not formally verified)</span></td>
+</tr>
+<tr>
+  <td>NEC 440.34 exception: reduced circuit sizing for interlocked AC compressor circuits</td>
+  <td><span class="badge badge-designed">DESIGNED (not formally verified)</span></td>
+</tr>
+<tr>
+  <td>Colorado electrical code compliance</td>
+  <td><span class="badge badge-designed">DESIGNED (not formally verified)</span></td>
+</tr>
+<tr>
+  <td>Compatible with heat pump systems (reversing valve, defrost cycle)</td>
+  <td><span class="badge badge-not-started">NOT STARTED (future goal)</span></td>
+</tr>
+<tr>
+  <td>Compatible with Level 2 J1772 chargers</td>
+  <td><span class="badge badge-not-started">NOT STARTED (tested with simulated signals only)</span></td>
+</tr>
+<tr>
+  <td>Interlock documentation sufficient for inspector sign-off</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>UL listing (or equivalent safety certification)</td>
+  <td><span class="badge badge-not-started">NOT STARTED (future -- required for production)</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Three NEC sections are directly relevant to the SideCharge interlock:</p></div>
+<ul>
+<li><strong>NEC 220.60 (Noncoincident Loads)</strong> — When two loads are interlocked so they cannot operate simultaneously, the load calculation uses only the larger of the two, not the sum. This is the fundamental code basis for sharing a circuit between AC compressor and EV charger.</li>
+<li><strong>NEC 220.70 / Article 750 (Energy Management Systems)</strong> — Added in the 2023 NEC cycle, this section specifically addresses automated load management systems for EV charging. It provides a code path for devices that dynamically manage EV charging load based on other circuit demands.</li>
+<li><strong>NEC 440.34 exception</strong> — Allows motor-driven air conditioning equipment to share circuits with other loads when interlocked to prevent simultaneous operation, with reduced conductor and overcurrent protection sizing.</li>
+</ul>
+<p>We are targeting NEC and Colorado code compliance. However, no formal code compliance review has been conducted, no AHJ (Authority Having Jurisdiction) has evaluated the design, and no inspector has signed off on an installation. UL listing will eventually be required for production deployment &mdash; but because the device operates entirely in the low-voltage domain, the certification path should be simpler than a device that switches mains power. Heat pump compatibility is a future goal, not current scope &mdash; v1.0 targets standard AC compressor systems only.</p>
+<h3 class="subsection-heading" id="section-2-1">2.1 J1772 Pilot State Monitoring</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Read J1772 pilot voltage via ADC (AIN0, 12-bit, 0-3.6V range)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Classify into states A through F using voltage thresholds</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>State A: >2600 mV (not connected)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>State B: 1850-2600 mV (connected, not ready)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>State C: 1100-1850 mV (charging)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>State D: 350-1100 mV (charging with ventilation required)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>State E: <350 mV (error &mdash; short circuit)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>State F: no pilot signal (EVSE error)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Poll interval: 500ms</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Transmit on state change only (not every poll)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Simulation mode for testing (states A-D, 10s duration)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Voltage thresholds are hardcoded from datasheet values &mdash; no field calibration against physical J1772 hardware has been done yet. See Oliver REC-002 for recommended validation. The thresholds work, but they have only been tested against simulated signals.</p></div>
+<h3 class="subsection-heading" id="section-2-2">2.2 Current Clamp Monitoring</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Read current clamp voltage via ADC (AIN1, 12-bit)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Linear scaling: 0-3.3V = 0-30A (0-30,000 mA)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (needs rescaling)</span></td>
+</tr>
+<tr>
+  <td>Scale to minimum 48A range</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Consider 80A range for high-power chargers (e.g., Ford Charge Station Pro)</td>
+  <td><span class="badge badge-not-started">TBD</span></td>
+</tr>
+<tr>
+  <td>Transmit on change detection</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The current scaling factor (0-30A) is too low. Most Level 2 chargers draw up to 48A (a 60A circuit at 80% continuous), and the Ford Charge Station Pro draws up to 80A. The ADC range needs to be rescaled to at least 0-48A, and we should evaluate whether 0-80A is the right ceiling to avoid needing another hardware change later. This is a clamp selection + resistor divider change &mdash; the ADC and firmware are straightforward to update. No field calibration procedure exists yet &mdash; the scaling factor is a straight line from 0V to 3.3V. Real clamps have nonlinearities at the extremes.</p></div>
+<h3 class="subsection-heading" id="section-2-3">2.3 Thermostat Input Monitoring</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Read cool call signal (GPIO P0.05, active high, pull-down)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Read heat call signal (GPIO P0.04, active high, pull-down)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (monitored but not used for interlock in v1.0)</span></td>
+</tr>
+<tr>
+  <td>Pack as 2-bit flag field in uplink payload</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Transmit on change detection</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The cool call signal is the primary interlock trigger in v1.0 &mdash; a rising edge on the cool call pauses EV charging if active. The heat call GPIO is wired and monitored (the bit is reported in the uplink payload), but it does not trigger the interlock in v1.0. Heat pump support is a future goal: heat pumps use the same compressor for both heating and cooling, so expanding the interlock to the heat call signal is a natural extension. For now, only the call for cold matters.</p></div>
+<p>The interlock logic for the cool call can be implemented entirely in hardware (the thermostat signal routes through a circuit that physically blocks the compressor contactor when EV current is flowing, and vice versa). The software layer provides redundancy and adds cloud override / "Charge Now" button / logging on top of the hardware interlock. Both layers stay active in production (decided) — see 2.0.1 notes for coordination considerations.</p>
+<h3 class="subsection-heading" id="section-2-4">2.4 Charge Enable/Disable Output</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>GPIO output for charge relay (P0.06, active high)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Allow/pause via cloud downlink command (0x10)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Auto-resume timer (configurable duration in minutes)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Default state on boot</td>
+  <td><span class="badge badge-not-started">TBD (currently: charging allowed -- needs PM decision)</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The auto-resume timer is a safety net: if the cloud goes silent, charging resumes after the configured timeout. In the interlock context, this relay also serves as the EVSE disable output until separate GPIOs are assigned (see 2.0.3).</p></div>
+<p>The default-on-boot behavior needs a PM decision. Currently the relay defaults to "allow" &mdash; the system never prevents charging unless explicitly told to. But with the interlock, the correct boot state may depend on whether the AC compressor is running at that moment (i.e., the device should read the thermostat call signal before deciding). This is an open question.</p>
+<p>Shell commands for manual charge control (<code>app evse allow</code>, <code>app evse pause</code>) are available during development &mdash; see section 2.6 (CLI Commands).</p>
+<h3 class="subsection-heading" id="section-2-5">2.5 LED Indicators — TO-DO</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>LED control via app_leds module</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>LED state matrix (which LED states map to which device/interlock conditions)</td>
+  <td><span class="badge badge-not-started">TBD — needs PM decision</span></td>
+</tr>
+<tr>
+  <td>Status indication: Sidewalk connected</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (basic)</span></td>
+</tr>
+<tr>
+  <td>Status indication: EV charger state (charging, paused, not connected)</td>
+  <td><span class="badge badge-not-started">TBD</span></td>
+</tr>
+<tr>
+  <td>Status indication: AC priority active (interlock engaged)</td>
+  <td><span class="badge badge-not-started">TBD</span></td>
+</tr>
+<tr>
+  <td>Status indication: error conditions</td>
+  <td><span class="badge badge-not-started">TBD</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The LED hardware and software control path works &mdash; the <code>app_leds</code> module can set any LED state. What is missing is the decision of *what the LEDs should communicate*. A state matrix is needed that maps every combination of device state (Sidewalk connected/disconnected, EV charger state A/B/C, AC call active/inactive, interlock engaged, cloud override active, OTA in progress, error) to specific LED patterns (color, blink rate, solid/off). This is a PM/UX decision &mdash; the installer needs to verify correct operation during commissioning, and the homeowner may want a quick visual "everything is fine" indicator. Task needed.</p></div>
+<h3 class="subsection-heading" id="section-2-6">2.6 CLI Commands (Development and Testing Only)</h3>
+<p>The shell is the primary diagnostic interface during development. Every sensor reading, every Sidewalk state, every OTA phase is queryable from the serial console via USB CDC ACM at 115200 baud. <strong>USB serial will not be available after the device leaves the factory</strong> &mdash; production devices will be sealed with no USB access. All post-deployment diagnostics must happen via the cloud (AWS monitoring, DynamoDB event history). Whether any form of local diagnostics survives into production (e.g., via BLE or a debug header) is TBD.</p>
+<p>All commands below are development/testing tools. They are not part of the product's user interface.</p>
+<h4 class="sub-subsection-heading" id="sidewalk-commands">Sidewalk Commands</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Command</th>
+  <th>Description</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><code>sid status</code></td>
+  <td>Show Sidewalk connection state, active link type (BLE/LoRa), and init status</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>sid mfg</code></td>
+  <td>Show MFG store version and provisioned device ID</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>sid link <mask></code></td>
+  <td>Switch active Sidewalk link type (1=BLE, 2=LoRa, 3=auto)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+</tbody></table></div>
+<h4 class="sub-subsection-heading" id="ota-commands">OTA Commands</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Command</th>
+  <th>Description</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><code>sid ota status</code></td>
+  <td>Show OTA state machine phase (IDLE, RECEIVING, VALIDATING, APPLYING, COMPLETE)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>sid ota abort</code></td>
+  <td>Cancel an in-progress OTA session</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>sid ota report</code></td>
+  <td>Send an OTA status uplink (for debugging cloud-side session state)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>sid ota delta_test</code></td>
+  <td>Run a local delta validation test (CRC check against primary)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+</tbody></table></div>
+<h4 class="sub-subsection-heading" id="evse-charge-control-commands">EVSE / Charge Control Commands</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Command</th>
+  <th>Description</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><code>app evse status</code></td>
+  <td>Show J1772 pilot state, pilot voltage (mV), charging current (mA), and charge control state (allowed/paused)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>app evse a</code></td>
+  <td>Simulate J1772 State A (not connected) for 10 seconds</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>app evse b</code></td>
+  <td>Simulate J1772 State B (connected, not ready) for 10 seconds</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>app evse c</code></td>
+  <td>Simulate J1772 State C (charging) for 10 seconds</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>app evse d</code></td>
+  <td>Simulate J1772 State D (charging with ventilation) for 10 seconds</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>app evse allow</code></td>
+  <td>Manually enable EV charging (sets charge relay to allow)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td><code>app evse pause</code></td>
+  <td>Manually pause EV charging (sets charge relay to block)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+</tbody></table></div>
+<h4 class="sub-subsection-heading" id="thermostat-commands">Thermostat Commands</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Command</th>
+  <th>Description</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><code>app hvac status</code></td>
+  <td>Show thermostat heat and cool call flags (active/inactive)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+</tbody></table></div>
+<h4 class="sub-subsection-heading" id="uplink-commands">Uplink Commands</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Command</th>
+  <th>Description</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td><code>app sid send</code></td>
+  <td>Manually trigger an uplink with the current sensor payload</td>
+  <td>IMPLEMENTED</td>
+</tr>
+</tbody></table></div>
+</div>
+
+<div class="section-card" id="section-3">
+<h2 class="section-heading"><span class="section-number">3.</span> Connectivity Requirements</h2>
+<h3 class="subsection-heading" id="section-3-1">3.1 Sidewalk LoRa Link</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Amazon Sidewalk LoRa 915MHz via SX1262</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>BLE registration (first boot only &mdash; pairs with nearby Sidewalk gateway)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>LoRa data link on subsequent boots</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>TCXO patch for RAK4631 radio stability</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The SX1262 is a Semtech LoRa radio transceiver &mdash; the chip on the RAK4631 that handles all 915MHz wireless communication. LoRa (Long Range) is a spread-spectrum modulation that trades data rate for range: it can reach hundreds of meters through walls and buildings, which is why it works for a device buried in a garage or utility closet.</p></div>
+<p>BLE (Bluetooth Low Energy) is used only once: on the very first boot, the device uses BLE to register with a nearby Amazon Sidewalk gateway (typically an Echo or Ring device). This one-time registration establishes the device's identity and negotiates session keys. After that, the device never uses BLE again &mdash; all data goes over LoRa.</p>
+<p>The TCXO (Temperature-Compensated Crystal Oscillator) patch was necessary because the RAK4631's default crystal drifts enough with temperature to cause LoRa packet errors. The TCXO provides a more stable frequency reference for the SX1262 radio, ensuring reliable communication across operating temperatures.</p>
+<p>Link mask switching (<code>sid link <mask></code>) for testing is available via the CLI &mdash; see section 2.6.</p>
+<h4 class="sub-subsection-heading" id="section-3-1-1">3.1.1 Startup and Power Recovery</h4>
+<p>On every boot (including power loss recovery), the platform performs these checks before starting normal operation:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Check</th>
+  <th>Action on Failure</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>MFG key health check (detect missing/empty credentials at 0xFF000)</td>
+  <td>Log error, continue with degraded operation (no Sidewalk)</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td>Sidewalk session key presence (settings partition)</td>
+  <td>Trigger BLE registration if no keys found</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td>OTA recovery metadata check (0xCFF00)</td>
+  <td>Resume interrupted flash copy if metadata present</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td>App callback table magic check (0x90000)</td>
+  <td>Skip app initialization if no valid app found</td>
+  <td>IMPLEMENTED</td>
+</tr>
+</tbody></table></div>
+<p>The MFG key health check is particularly important: if the MFG partition is empty or corrupted (e.g., after a chip erase without re-provisioning), the device cannot authenticate with Amazon Sidewalk. The boot log will show the error, but the device will not crash &mdash; it continues running without connectivity.</p>
+<h3 class="subsection-heading" id="section-3-2">3.2 Uplink (Device to Cloud)</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Raw 8-byte payload: <code>[0xE5, ver, J1772, volt_lo, volt_hi, curr_lo, curr_hi, thermo]</code></td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Transmit on sensor state change</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>60-second heartbeat (transmit even if no change)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (testing only -- production interval TBD)</span></td>
+</tr>
+<tr>
+  <td>100ms minimum TX rate limiter</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Fits within 19-byte Sidewalk LoRa MTU</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Eight bytes. That is the entire uplink payload &mdash; firmware version, charger state, voltage, current, and thermostat flags. It fits well within the 19-byte LoRa MTU with room to spare.</p></div>
+<p>The 60-second heartbeat is a development/testing convenience that confirms the device is alive even when no sensors are changing. In production, this interval will likely be much longer (minutes or hours) to conserve LoRa airtime &mdash; the device only truly needs to transmit when something changes or when the cloud needs a liveness check.</p>
+<p>The 100ms minimum TX rate limiter prevents the device from flooding the LoRa link when multiple sensors change in rapid succession (e.g., J1772 state change + current change within milliseconds). Without this limiter, a burst of uplinks could saturate the Sidewalk queue and cause dropped messages. The limiter coalesces rapid changes into a single uplink after a 100ms quiet period.</p>
+<h3 class="subsection-heading" id="section-3-3">3.3 Downlink (Cloud to Device)</h3>
+<p>Downlinks are precious over LoRa &mdash; 19 bytes max, and the Sidewalk network determines delivery timing (the device cannot request a downlink; it receives them when the network has one queued). All downlink commands fit well within the 19-byte MTU.</p>
+<h4 class="sub-subsection-heading" id="charge-control-0x10">Charge Control (0x10)</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Byte</th>
+  <th>Field</th>
+  <th>Values</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>0</td>
+  <td>Command type</td>
+  <td><code>0x10</code></td>
+</tr>
+<tr>
+  <td>1</td>
+  <td>Allowed</td>
+  <td><code>0x01</code> = allow charging, <code>0x00</code> = pause charging</td>
+</tr>
+<tr>
+  <td>2-3</td>
+  <td>Reserved</td>
+  <td><code>0x00 0x00</code></td>
+</tr>
+</tbody></table></div>
+<p>When the cloud sends <code>[0x10, 0x00, 0x00, 0x00]</code>, the device pauses EV charging by engaging the charge relay (or spoofing J1772 State B &mdash; see 2.0.1). When it sends <code>[0x10, 0x01, 0x00, 0x00]</code>, charging is allowed to resume. The auto-resume timer (section 2.4) provides a safety net if the cloud goes silent after pausing.</p>
+<h4 class="sub-subsection-heading" id="ota-commands-0x20">OTA Commands (0x20)</h4>
+<p>OTA firmware updates use command type <code>0x20</code> with subcommands. For full details on the OTA pipeline, see sections 4.2 (cloud-side) and 4.3 (device-side).</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Subcommand</th>
+  <th>Direction</th>
+  <th>Format</th>
+  <th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>START (<code>0x01</code>)</td>
+  <td>Cloud → Device</td>
+  <td><code>[0x20, 0x01, version, total_size(2B), total_chunks(2B), crc32(4B), flags, delta_count(2B), delta_list(nB)]</code></td>
+  <td>Begin OTA session with target version, image size, CRC, and (in delta mode) list of changed chunk indices</td>
+</tr>
+<tr>
+  <td>CHUNK (<code>0x02</code>)</td>
+  <td>Cloud → Device</td>
+  <td><code>[0x20, 0x02, chunk_idx(2B), data(15B)]</code></td>
+  <td>Deliver one 15-byte chunk of firmware data</td>
+</tr>
+<tr>
+  <td>ABORT (<code>0x03</code>)</td>
+  <td>Cloud → Device</td>
+  <td><code>[0x20, 0x03]</code></td>
+  <td>Cancel the current OTA session</td>
+</tr>
+<tr>
+  <td>ACK (<code>0x81</code>)</td>
+  <td>Device → Cloud</td>
+  <td><code>[0x20, 0x81, status, next_chunk(2B)]</code></td>
+  <td>Acknowledge a chunk or report error; includes next expected chunk index</td>
+</tr>
+<tr>
+  <td>COMPLETE (<code>0x82</code>)</td>
+  <td>Device → Cloud</td>
+  <td><code>[0x20, 0x82, status, crc32(4B)]</code></td>
+  <td>Report successful validation; includes verified CRC</td>
+</tr>
+<tr>
+  <td>STATUS (<code>0x83</code>)</td>
+  <td>Device → Cloud</td>
+  <td><code>[0x20, 0x83, phase, chunks_received(2B)]</code></td>
+  <td>Report current OTA state machine phase and progress</td>
+</tr>
+</tbody></table></div>
+<h4 class="sub-subsection-heading" id="unknown-commands">Unknown Commands</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Unknown command type logging (graceful reject)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<p>Unknown command types are logged and discarded &mdash; the device does not crash on unrecognized downlinks.</p>
+</div>
+
+<div class="section-card" id="section-4">
+<h2 class="section-heading"><span class="section-number">4.</span> Cloud Requirements</h2>
+<h3 class="subsection-heading" id="section-4-1">4.1 Payload Decode</h3>
+<p>The decode Lambda is the entry point for all device-to-cloud data. Every uplink from the device arrives as a raw byte payload via Amazon Sidewalk's IoT Wireless destination. The Lambda decodes these bytes into structured fields (J1772 state, voltage, current, thermostat flags), stores them in DynamoDB as timestamped events, and — for OTA-related messages — routes ACKs to the OTA sender Lambda to continue the firmware update flow.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Lambda decodes raw 8-byte EVSE payload</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Decoded events stored in DynamoDB (device_id + timestamp)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>TTL expiration on DynamoDB records</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Backward compatibility: payload version field (byte 1) enables format evolution</td>
+  <td><span class="badge badge-designed">DESIGNED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The payload format is identified by byte 0 (<code>0xE5</code> for EVSE telemetry) and versioned by byte 1. If we ever change the payload format, the decode Lambda must continue to handle older versions — devices in the field may not all update at the same time. The version byte gives us a clean path to evolve the format without breaking existing deployments.</p></div>
+<h3 class="subsection-heading" id="section-4-2">4.2 OTA Firmware Update Pipeline (Cloud Side)</h3>
+<p>The OTA pipeline lets us push firmware updates to the device over LoRa without physical access. Here's how it works: a developer uploads a new app binary to S3, which triggers the OTA sender Lambda. The Lambda compares the new binary against a stored baseline (the firmware currently running on the device), identifies which 15-byte chunks have changed, and sends only those chunks as Sidewalk downlinks. The device acknowledges each chunk — and when the decode Lambda (section 4.1) sees an OTA ACK in the uplink stream, it invokes the OTA sender to send the next chunk. An EventBridge timer retries if a chunk goes unacknowledged for 30 seconds, and the whole session aborts after 5 failed retries.</p>
+<p>For a typical one-function code change, this means 2-3 chunks over LoRa — delivered in about 15 seconds. Full-image mode (all ~276 chunks, ~69 minutes) exists as a fallback when there's no baseline to diff against.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>S3 upload triggers OTA sender Lambda</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>OTA ACK detection in decode Lambda triggers OTA sender</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Chunk delivery: 15-byte data + 4-byte header = 19-byte MTU</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Delta mode: compare against S3 baseline, send only changed chunks</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Full mode: send all chunks (fallback)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Session state tracked in DynamoDB (sentinel key timestamp=-1)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>EventBridge retry timer (1-minute interval)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Stale session detection (30s threshold)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Max 5 retries before abort</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>CloudWatch alarms for Lambda errors and missing invocations</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Deploy CLI: <code>ota_deploy.py baseline/deploy/preview/status/abort</code></td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<h3 class="subsection-heading" id="section-4-3">4.3 Device-Side OTA</h3>
+<p>On the device, incoming OTA chunks are written to a staging area in flash — a separate region from the running application. The device tracks which chunks it has received (via a bitfield), and only after all chunks arrive does it validate the complete image with a CRC32 checksum. If the CRC passes, the device sends a COMPLETE uplink to the cloud, waits 15 seconds for it to transmit over LoRa, then copies the new firmware from staging to the primary app partition and reboots. The entire process is designed so that the device cannot be bricked: if power is lost during the flash copy, recovery metadata survives and the next boot resumes the copy from where it left off.</p>
+<p>In delta mode, the device receives only the chunks that differ from what's already in the primary partition. It reconstructs the full image by merging the new chunks (in staging) with the unchanged chunks (still in primary), then validates the merged result with CRC32 before applying.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>OTA state machine: IDLE -> RECEIVING -> VALIDATING -> APPLYING -> reboot</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>CRC32 validation on complete image</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Flash staging area at 0xD0000 (148KB)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Delta mode: bitfield tracking of received chunks</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Delta mode: merged CRC validation (staging + primary)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Deferred apply (15s delay for COMPLETE uplink to transmit)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Recovery metadata at 0xCFF00 (survives power loss during apply)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Boot recovery: resume interrupted flash copy</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Duplicate/stale START rejection (CRC match = already applied)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Pre-apply hook: stop app callbacks before flash copy</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<h3 class="subsection-heading" id="section-4-4">4.4 Demand Response and Charge Scheduling</h3>
+<p>The scheduler checks two signals: Xcel Colorado's time-of-use peak window (weekdays 5-9 PM MT) and WattTime's Marginal Operating Emissions Rate (MOER) for the PSCO region. If either says "not now," charging pauses. The scheduler runs on a configurable EventBridge timer and sends charge control downlinks to the device via Sidewalk IoT Wireless. It tracks its own state in DynamoDB to avoid sending duplicate commands — if the last command was "pause" and the decision is still "pause," no downlink is sent.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>EventBridge-triggered Lambda (configurable rate)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Xcel Colorado TOU peak detection (weekdays 5-9 PM MT)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>WattTime MOER grid signal for PSCO region</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Decision: pause if TOU peak OR MOER > threshold</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>State deduplication: skip downlink if command unchanged</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>DynamoDB state tracking (sentinel key timestamp=0)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Audit log: every command sent logged with real timestamp</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Send charge control downlink via IoT Wireless</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>MOER threshold configurable (env var, default 70%)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The 70% MOER threshold is a starting point &mdash; it has not been validated against real PSCO data yet. A threshold too low over-curtails charging; too high provides little grid benefit. See Oliver REC-004 / TASK-012 for the planned calibration work.</p></div>
+<h3 class="subsection-heading" id="section-4-5">4.5 Infrastructure as Code</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>All AWS resources defined in Terraform</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>IAM roles with least-privilege policies</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>CloudWatch log groups with 14-day retention</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>S3 bucket for firmware binaries</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>DynamoDB with PAY_PER_REQUEST billing</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Every AWS resource is Terraform-managed. No clicking around in the console, no <code>aws lambda update-function-code</code> shortcuts. The infrastructure is the code.</p></div>
+</div>
+
+<div class="section-card" id="section-5">
+<h2 class="section-heading"><span class="section-number">5.</span> Operational Requirements</h2>
+<h3 class="subsection-heading" id="section-5-1">5.1 Firmware Update</h3>
+<p>SideCharge uses a split-image firmware architecture with two independent binaries sharing the same flash chip:</p>
+<ul>
+<li><strong>Platform</strong> (576KB at 0x00000): The generic runtime — Zephyr RTOS, Amazon Sidewalk BLE and LoRa stacks, OTA engine, shell, and hardware drivers. This is the "operating system" of the device. It knows nothing about EV charging, thermostats, or interlock logic. The platform is large, stable, and rarely changes. It can only be updated via a physical USB programmer (pyOCD) — which means it can be flashed during development and at the factory, but <strong>never after the device is deployed</strong>.</li>
+<li><strong>App</strong> (4KB at 0x90000): All the EVSE and interlock domain logic — sensor reading, change detection, payload formatting, charge control, shell commands. This is tiny, changes frequently, and is <strong>OTA-updatable over LoRa</strong>. A typical delta update takes 2-3 chunks and completes in ~15 seconds.</li>
+</ul>
+<p>The key implication: once a device leaves the factory, the only firmware that can be changed is the app. The platform is frozen. This means platform bugs require a physical recall, while app bugs can be patched remotely in seconds.</p>
+<p>During development and factory provisioning, all firmware is flashed via USB (pyOCD). After deployment, everything happens over the air via Amazon Sidewalk LoRa.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>App-only OTA over Sidewalk LoRa (no physical access needed)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Platform update requires physical programmer (pyOCD)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Delta OTA for fast incremental updates (~seconds)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Full OTA fallback (~69 minutes)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Recovery from power loss during apply</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>OTA recovery runbook / operator documentation</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The missing recovery runbook (TASK-008) is a real gap: if an OTA goes wrong, the operator currently needs tribal knowledge to diagnose it.</p></div>
+<h3 class="subsection-heading" id="section-5-2">5.2 Device Provisioning</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Sidewalk credentials in MFG partition (0xFF000)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td><code>credentials.example/</code> template directory</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Flash script for all partitions (<code>flash.sh all</code>)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Provisioning documentation (step-by-step workflow)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Provisioning works, but the knowledge of how to do it lives in one person's head and in MEMORY.md. TASK-011 exists to fix that.</p></div>
+<h3 class="subsection-heading" id="section-5-3">5.3 Observability</h3>
+<p>Observability requirements split into two distinct contexts: development/testing (USB available) and production (cloud-only, no physical access).</p>
+<h4 class="sub-subsection-heading" id="section-5-3-1">5.3.1 Development and Testing (USB Serial Available)</h4>
+<p>During development, the USB serial console provides full real-time visibility into device state. See section 2.6 for the complete CLI command reference.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Shell diagnostics over USB serial (see section 2.6 CLI Commands)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Sidewalk init status tracking (7 states, shell-queryable)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>MFG key health check at boot</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>All sensor values queryable via shell</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>OTA state machine queryable via shell</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+</tbody></table></div>
+<h4 class="sub-subsection-heading" id="section-5-3-2">5.3.2 Production (Cloud-Only, No Physical Access)</h4>
+<p>Once deployed, the device has no USB port, no serial console, and no local interface. All observability comes through the cloud — what the device reports in its 8-byte uplink payload, and what the Lambdas log. This is a significantly narrower view than development, and it needs to be more robust.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>CloudWatch Lambda logs (14-day retention)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>CloudWatch alarms for OTA sender errors and stalls</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Cloud-side OTA status monitoring (<code>ota_deploy.py status</code>)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>DynamoDB event history (queryable per device)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Device heartbeat (detects liveness via periodic uplinks)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (interval TBD for production)</span></td>
+</tr>
+<tr>
+  <td>Dashboard or alerting for device offline detection</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Remote device state query (request status uplink on demand)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>OTA failure alerting (notify operator when OTA stalls or aborts)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Interlock state change logging (cloud-side, from uplink payload)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The production observability story is thin. Today, if a deployed device stops reporting, nobody gets notified until someone manually checks DynamoDB. The heartbeat confirms liveness, but there's no alerting when it stops. We also cannot remotely query the device — we can only wait for the next uplink. For a safety-critical interlock device, this gap needs attention: at minimum, an offline alert (CloudWatch alarm on missing heartbeats) and an operator notification channel (SNS or similar). See TASK-029.</p></div>
+<h3 class="subsection-heading" id="section-5-4">5.4 Testing</h3>
+<h4 class="sub-subsection-heading" id="testing-architecture">Testing Architecture</h4>
+<p>SideCharge uses a three-layer testing pyramid: host-side C unit tests for device firmware, pytest for cloud Lambdas, and serial integration tests for on-device verification.</p>
+<p><strong>Grenning Dual-Target Pattern (C unit tests)</strong>: The key architectural insight is that the app layer talks to the platform exclusively through a <code>struct platform_api</code> of function pointers (see <code>include/platform_api.h</code>). On the device, these point to real Zephyr/Sidewalk implementations. On the host (macOS/Linux), they point to mock implementations (<code>mock_platform_api.c</code>) that simulate ADC readings, GPIO states, flash memory (RAM-backed), and Sidewalk send calls. The same app source files compile and run on both targets with zero <code>#ifdef</code>s — only the platform implementation changes.</p>
+<p>This means every app-layer function (sensor reading, charge control decisions, payload encoding, shell command dispatch, OTA state machine) can be tested on the developer's laptop in milliseconds, without hardware.</p>
+<p><strong>Mock infrastructure</strong>: Mocks are hand-written and checked into git (<code>tests/mocks/</code>). They include a full set of Zephyr header stubs (<code>kernel.h</code>, <code>device.h</code>, <code>logging/log.h</code>, <code>drivers/flash.h</code>, <code>sys/reboot.h</code>, <code>sys/crc.h</code>) and platform-level mocks with controllable state globals (<code>mock_adc_values[]</code>, <code>mock_gpio_values[]</code>, <code>mock_uptime_ms</code>, <code>mock_last_send_buf[]</code>). Tests manipulate these globals directly to set up scenarios and verify behavior.</p>
+<p><strong>Python Lambda tests</strong>: Each Lambda has its own test file using pytest and <code>unittest.mock</code>. The <code>conftest.py</code> patches <code>boto3</code> and <code>sidewalk_utils</code> at module import time (before the Lambda code loads) to prevent any real AWS calls. Tests verify payload decoding, OTA state machine transitions, retry logic, and charge scheduling decisions.</p>
+<h4 class="sub-subsection-heading" id="test-coverage">Test Coverage</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Layer</th>
+  <th>Framework</th>
+  <th>Tests</th>
+  <th>What's Covered</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>C unit tests (app layer)</td>
+  <td>Unity + CMake</td>
+  <td>90</td>
+  <td>J1772 state machine, voltage thresholds, charge control, thermostat inputs, payload encoding, downlink parsing, shell commands</td>
+</tr>
+<tr>
+  <td>C unit tests (platform)</td>
+  <td>Unity + CMake</td>
+  <td>~33</td>
+  <td>OTA state machine, chunk receive, delta bitmap, CRC validation, MFG key health, flash recovery</td>
+</tr>
+<tr>
+  <td>Python Lambda tests</td>
+  <td>pytest</td>
+  <td>94</td>
+  <td>Decode Lambda (18), charge scheduler (19), OTA sender (27), OTA deploy CLI (16), Lambda chain integration (14)</td>
+</tr>
+<tr>
+  <td>Serial integration</td>
+  <td>pytest + serial</td>
+  <td>7</td>
+  <td>Live device shell commands, state simulation, charge control</td>
+</tr>
+<tr>
+  <td>CI/CD</td>
+  <td>GitHub Actions</td>
+  <td>--</td>
+  <td>Lint (cppcheck), C tests (CMake + Grenning), Python tests (pytest + ruff)</td>
+</tr>
+</tbody></table></div>
+<h4 class="sub-subsection-heading" id="test-runner-commands">Test Runner Commands</h4>
+<pre><code># C unit tests (CMake — recommended):
+cmake -S rak-sid/tests -B tests/build &amp;&amp; cmake --build tests/build &amp;&amp; ctest --test-dir tests/build --output-on-failure
+
+# C unit tests (Grenning legacy Makefile):
+make -C rak-sid/app/rak4631_evse_monitor/tests/ clean test
+
+# Python Lambda tests:
+python3 -m pytest rak-sid/aws/tests/ -v
+
+# Serial integration (requires device on /dev/tty.usbmodem101):
+pytest rak-sid/tests/integration/test_shell.py --serial-port /dev/tty.usbmodem101 -v</code></pre>
+<h4 class="sub-subsection-heading" id="gaps">Gaps</h4>
+<div class="table-wrap"><table class="gaps-table">
+<thead><tr>
+  <th>Gap</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Charge scheduler Lambda tests</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (19 tests)</span></td>
+</tr>
+<tr>
+  <td>Decode Lambda tests</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (18 tests)</span></td>
+</tr>
+<tr>
+  <td>OTA recovery path tests (safety-critical)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>CI/CD pipeline running on push/PR</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED (`.github/workflows/ci.yml`)</span></td>
+</tr>
+<tr>
+  <td>E2E test plan (device -> cloud -> device round-trip)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Field reliability testing across RF conditions</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Interlock logic integration tests (HW+SW combined)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The honest summary: the code that exists is well-tested. The code that matters most for safety (OTA recovery, interlock hardware integration) is not. The CI pipeline runs all lint, C, and Python tests on push to main or feature branches, but there's no automated way to test the device-cloud round-trip or the physical interlock behavior.</p></div>
+</div>
+
+<div class="section-card" id="section-6">
+<h2 class="section-heading"><span class="section-number">6.</span> Non-Functional Requirements</h2>
+<h3 class="subsection-heading" id="section-6-1">6.1 Power</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>USB-powered (not battery)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>24VAC-powered from AC system transformer (production target)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>No specific power budget target</td>
+  <td><span class="badge badge-na">N/A</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>SideCharge v1.0 is USB-powered via the RAK4631 USB-C port. The production design will draw power from the AC system's 24VAC transformer &mdash; the same source that powers the thermostat &mdash; eliminating the need for a separate power supply or outlet in the installation location. A small AC-DC converter (24VAC to 3.3VDC) is the only additional component required. Battery optimization is not a concern for a hardwired device.</p></div>
+<h3 class="subsection-heading" id="section-6-2">6.2 Reliability</h3>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>OTA recovery from power loss during apply</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Lost ACK recovery via cloud retry timer</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Stale session detection and abort</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Heartbeat for liveness detection (60s)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>Quantified reliability targets (uptime %, delivery rate)</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Field-tested under real LoRa conditions</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>The system has multiple recovery mechanisms &mdash; OTA power-loss recovery, cloud-side retries, stale session cleanup, and a 60-second heartbeat. What it does not have yet is quantified reliability targets or field data from real LoRa conditions. The device has been tested on a desk 20 feet from a gateway, not in a detached garage 200 meters away through two walls.</p></div>
+<h3 class="subsection-heading" id="section-6-3">6.3 Security</h3>
+<h4 class="sub-subsection-heading" id="section-6-3-1">6.3.1 What's Implemented</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Requirement</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Sidewalk protocol encryption (built-in)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>MFG credentials in dedicated flash partition</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>HUK for PSA crypto key derivation</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>MFG key health check (detect empty/missing keys)</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>OTA image CRC32 validation</td>
+  <td><span class="badge badge-implemented">IMPLEMENTED</span></td>
+</tr>
+<tr>
+  <td>OTA image cryptographic signing</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Credential rotation procedure</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Rate limiting on cloud-to-device commands</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+<tr>
+  <td>Fleet-wide command throttling</td>
+  <td><span class="badge badge-not-started">NOT STARTED</span></td>
+</tr>
+</tbody></table></div>
+<div class="callout callout-notes"><div class="callout-label">Notes</div><p>Sidewalk provides transport-layer encryption, and PSA crypto handles on-device key derivation from the hardware unique key. OTA images are validated by CRC32 only &mdash; no cryptographic signature. A compromised S3 bucket or Lambda could push malicious firmware. ED25519 signing keys are already in the MFG store, waiting to be used.</p></div>
+<h4 class="sub-subsection-heading" id="section-6-3-2">6.3.2 Threat Model: What Could Go Wrong</h4>
+<p>SideCharge controls two high-power loads (30-50A each). A compromised device or cloud doesn't just leak data &mdash; it switches physical loads on and off. The failure modes are more serious than a typical IoT device:</p>
+<p><strong>Double-load on a single breaker</strong>: If the interlock fails (both loads enabled simultaneously), the circuit draws 60-100A through a 30-50A breaker. The breaker trips. This is the designed safety net &mdash; the breaker is the last line of defense. But frequent breaker trips damage the breaker itself, and a breaker that fails to trip is a fire hazard. The hardware interlock (section 2.0.1) prevents this even if the software is compromised, because mutual exclusion is enforced in the circuit itself. <strong>A software-only interlock is not acceptable for production.</strong></p>
+<p><strong>Fleet-wide coordinated load switching</strong>: This is the utility-scale risk. If an attacker compromises the cloud layer (Lambda, IoT Wireless, or the Sidewalk network itself), they could send simultaneous pause or allow commands to every SideCharge device in a service area. Thousands of AC compressors or EV chargers turning on or off at the same instant creates a massive demand spike or drop on the distribution grid. This is not hypothetical &mdash; grid operators specifically model "cold load pickup" scenarios where thousands of AC units restart simultaneously after a power outage. A compromised fleet could trigger this artificially.</p>
+<p>Mitigations needed:</p>
+<ul>
+<li><strong>Rate limiting</strong>: The cloud should not be able to send commands to a device faster than once per N minutes. The device should enforce this locally, ignoring rapid command changes.</li>
+<li><strong>Fleet throttling</strong>: Any cloud command that would affect more than N devices should be staggered over a time window (e.g., randomized 0-10 minute delay per device).</li>
+<li><strong>Command authentication</strong>: Cloud commands should be signed, not just encrypted in transit. The device should reject commands that don't carry a valid signature.</li>
+<li><strong>Anomaly detection</strong>: CloudWatch alarms for unusual command patterns (e.g., >100 commands in 1 minute, or the same command sent to all devices simultaneously).</li>
+</ul>
+<p><strong>Malicious firmware via OTA</strong>: A compromised S3 bucket or Lambda could push firmware that disables the interlock, reports false sensor data, or bricks the device. CRC32 validation only confirms the image isn't corrupted &mdash; it does not confirm the image is authentic. ED25519 signing is the fix, and the keys are already provisioned in the MFG store.</p>
+<p><strong>Physical access</strong>: After factory sealing, the device has no USB port and no debug headers. Physical tampering requires opening the enclosure. This is adequate for residential deployment but should be documented in the installation guide (tamper-evident sealing, mounting location guidance).</p>
+<h4 class="sub-subsection-heading" id="section-6-3-3">6.3.3 Security Gaps Summary</h4>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Risk</th>
+  <th>Severity</th>
+  <th>Mitigation</th>
+  <th>Status</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>Malicious OTA firmware</td>
+  <td>High</td>
+  <td>ED25519 image signing</td>
+  <td>NOT STARTED</td>
+</tr>
+<tr>
+  <td>Fleet-wide coordinated command</td>
+  <td>High</td>
+  <td>Rate limiting + fleet throttling + staggered delays</td>
+  <td>NOT STARTED</td>
+</tr>
+<tr>
+  <td>Cloud compromise → load switching</td>
+  <td>High</td>
+  <td>Command authentication (signed downlinks)</td>
+  <td>NOT STARTED</td>
+</tr>
+<tr>
+  <td>Double-load (interlock bypass)</td>
+  <td>Critical</td>
+  <td>Hardware interlock (circuit-level mutual exclusion)</td>
+  <td>IMPLEMENTED (HW)</td>
+</tr>
+<tr>
+  <td>Credential theft from flash</td>
+  <td>Medium</td>
+  <td>HUK encryption + PSA key derivation</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td>Man-in-the-middle</td>
+  <td>Low</td>
+  <td>Sidewalk transport encryption</td>
+  <td>IMPLEMENTED</td>
+</tr>
+<tr>
+  <td>Physical tampering</td>
+  <td>Low</td>
+  <td>Sealed enclosure, no debug ports post-factory</td>
+  <td>DESIGNED</td>
+</tr>
+</tbody></table></div>
+</div>
+
+<div class="section-card" id="section-7">
+<h2 class="section-heading"><span class="section-number">7.</span> Scope Boundaries</h2>
+<h3 class="subsection-heading" id="section-7-1">7.1 In Scope for v1.0</h3>
+<ul>
+<li><strong>Circuit interlock</strong>: mutual exclusion of AC and EV charger loads, AC priority, cloud override (EV charger)</li>
+<li>Single-device, single-site deployment</li>
+<li>J1772 monitoring, current sensing, thermostat inputs</li>
+<li>Charge control via Sidewalk downlink</li>
+<li>Demand response (TOU + WattTime MOER)</li>
+<li>App-only OTA over LoRa with delta mode</li>
+<li>CLI diagnostics over USB (development/testing only &mdash; see section 2.6)</li>
+<li>AWS cloud infrastructure (Terraform-managed)</li>
+<li>Host-side unit tests</li>
+</ul>
+<h3 class="subsection-heading" id="section-7-2">7.2 Out of Scope for v1.0</h3>
+<ul>
+<li>Multi-device fleet management</li>
+<li>User-facing mobile app or web dashboard</li>
+<li>Battery-powered operation</li>
+<li>BLE-only mode (LoRa is the primary link)</li>
+<li>OTA image cryptographic signing</li>
+<li>On-device data logging (the device is stateless; the cloud stores everything)</li>
+<li>OCPP (Open Charge Point Protocol) integration</li>
+<li>Solar/battery storage integration</li>
+<li>Multi-tariff or multi-utility TOU schedules (Xcel Colorado only)</li>
+</ul>
+<h3 class="subsection-heading" id="section-7-3">7.3 Where SideCharge Goes Next</h3>
+<p>These are the natural extensions once v1.0 is proven in the field:</p>
+<ul>
+<li><strong>PCB production</strong>: Move from protoboard to a manufactured PCB with proper isolation, 24VAC power supply, dual relay outputs, and current transducer interface</li>
+<li><strong>Multi-unit manufacturing</strong>: BOM, assembly, and test procedures for producing devices beyond one-off prototypes</li>
+<li><strong>UL/safety certification</strong>: Required for any product that switches AC control signals and interfaces with EV charger equipment</li>
+<li>Fleet provisioning and management tooling for multi-device deployments</li>
+<li>Real-time monitoring dashboard (DynamoDB -> API Gateway -> frontend)</li>
+<li>OTA image signing with ED25519 (the keys are already in the MFG store, waiting)</li>
+<li>Battery-powered variant with sleep modes and a longer heartbeat interval</li>
+<li>Additional utility TOU schedules beyond Xcel Colorado</li>
+<li>OCPP gateway for commercial EVSE integration</li>
+</ul>
+</div>
+
+<div class="section-card" id="section-8">
+<h2 class="section-heading"><span class="section-number">8.</span> Known Gaps</h2>
+<p>We name our limitations. This table is the honest accounting of what is missing or unvalidated.</p>
+<div class="table-wrap"><table class="gaps-table">
+<thead><tr>
+  <th>Gap</th>
+  <th>Impact</th>
+  <th>Backlog Task</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>No PRD existed until this document</td>
+  <td>Scope ambiguity for agents and contributors</td>
+  <td>TASK-014 (this document)</td>
+</tr>
+<tr>
+  <td>Interlock hardware not yet on PCB</td>
+  <td>Protoboard only &mdash; no isolation, no 24VAC power, single relay</td>
+  <td>TASK-019</td>
+</tr>
+<tr>
+  <td>No UL or safety certification</td>
+  <td>Cannot deploy to customer homes without third-party safety certification</td>
+  <td>Future</td>
+</tr>
+<tr>
+  <td>Code compliance (NEC 220.60, 220.70, 440.34) not formally verified</td>
+  <td>No AHJ review, no inspector sign-off on the interlock design</td>
+  <td>Future</td>
+</tr>
+<tr>
+  <td>No AC cloud override</td>
+  <td>Cloud can pause charging but cannot force-block AC compressor</td>
+  <td>TASK-020</td>
+</tr>
+<tr>
+  <td>No compressor short-cycle protection</td>
+  <td>Rapid interlock switching could damage AC compressor (need 5-min minimum cycle)</td>
+  <td>TASK-021</td>
+</tr>
+<tr>
+  <td>Cp duty cycle not decoded</td>
+  <td>Pilot voltage is read but PWM duty cycle (allowed current) is not measured</td>
+  <td>TASK-022</td>
+</tr>
+<tr>
+  <td>Car-side interlock mechanism not validated</td>
+  <td>PWM 0% approach needs testing with multiple car makes &mdash; see Oliver EXP-001</td>
+  <td>TASK-023</td>
+</tr>
+<tr>
+  <td>No production commissioning process</td>
+  <td>Installer verification method TBD (LED, phone tool, or cloud) &mdash; PM decision needed</td>
+  <td>TASK-024</td>
+</tr>
+<tr>
+  <td>Transition delay implementation not decided</td>
+  <td>Hardware (capacitor) vs software (timer) &mdash; affects reliability and flexibility</td>
+  <td>TASK-025</td>
+</tr>
+<tr>
+  <td>~~Charge scheduler Lambda has no tests~~</td>
+  <td>~~RESOLVED~~ — 19 tests implemented</td>
+  <td>TASK-004 (done)</td>
+</tr>
+<tr>
+  <td>~~Decode Lambda has no tests~~</td>
+  <td>~~RESOLVED~~ — 18 tests implemented</td>
+  <td>TASK-006 (done)</td>
+</tr>
+<tr>
+  <td>OTA recovery path has no tests</td>
+  <td>Safety-critical code untested</td>
+  <td>TASK-005</td>
+</tr>
+<tr>
+  <td>MOER threshold (70%) unvalidated</td>
+  <td>May over-curtail or under-curtail charging</td>
+  <td>TASK-012</td>
+</tr>
+<tr>
+  <td>OTA not field-tested under real RF conditions</td>
+  <td>Risk of failure at range, through walls</td>
+  <td>TASK-013</td>
+</tr>
+<tr>
+  <td>No CI/CD pipeline</td>
+  <td>Manual test discipline required &mdash; and humans forget</td>
+  <td>TASK-009, TASK-010</td>
+</tr>
+<tr>
+  <td>No provisioning documentation</td>
+  <td>Bus factor risk &mdash; one person knows the process</td>
+  <td>TASK-011</td>
+</tr>
+<tr>
+  <td>No OTA recovery runbook</td>
+  <td>Operator cannot diagnose OTA failures without tribal knowledge</td>
+  <td>TASK-008</td>
+</tr>
+<tr>
+  <td>No architecture documentation</td>
+  <td>SDK divergence decisions are undocumented</td>
+  <td>TASK-016</td>
+</tr>
+<tr>
+  <td>Dead sid_demo_parser code (~1,600 lines)</td>
+  <td>Source of confusion, minor binary bloat</td>
+  <td>TASK-015</td>
+</tr>
+<tr>
+  <td>Legacy demo app in tree</td>
+  <td>Source of confusion for new contributors</td>
+  <td>TASK-017</td>
+</tr>
+<tr>
+  <td>No OTA image signing</td>
+  <td>Compromised S3 bucket could push malicious firmware</td>
+  <td>Future (out of v1.0 scope)</td>
+</tr>
+<tr>
+  <td>No device offline alerting</td>
+  <td>Silent failures go undetected indefinitely</td>
+  <td>Future</td>
+</tr>
+<tr>
+  <td>J1772 thresholds not hardware-calibrated</td>
+  <td>Possible state misclassification with real chargers</td>
+  <td>Oliver REC-002</td>
+</tr>
+<tr>
+  <td>Current clamp scaling too low (0-30A)</td>
+  <td>Cannot measure full charger range (48A+); Ford Charge Station Pro draws 80A</td>
+  <td>TASK-026</td>
+</tr>
+<tr>
+  <td>LED state matrix not defined</td>
+  <td>Installer cannot verify correct operation; homeowner has no visual status</td>
+  <td>TASK-027</td>
+</tr>
+<tr>
+  <td>Boot default behavior not decided</td>
+  <td>Should charging be allowed on boot, or should device read thermostat state first?</td>
+  <td>TASK-028</td>
+</tr>
+<tr>
+  <td>Production observability too thin</td>
+  <td>No offline alerting, no remote query, no interlock state change logging</td>
+  <td>TASK-029</td>
+</tr>
+<tr>
+  <td>No fleet-wide command throttling</td>
+  <td>Compromised cloud could coordinate simultaneous load switching across all devices</td>
+  <td>TASK-030</td>
+</tr>
+<tr>
+  <td>No OTA image signing</td>
+  <td>CRC32 only — compromised S3 could push malicious firmware</td>
+  <td>TASK-031</td>
+</tr>
+<tr>
+  <td>No cloud command authentication</td>
+  <td>Downlinks are encrypted in transit but not signed — no per-command authenticity</td>
+  <td>TASK-032</td>
+</tr>
+</tbody></table></div>
+</div>
+
+<div class="section-card" id="section-9">
+<h2 class="section-heading"><span class="section-number">9.</span> Requirement Traceability</h2>
+<p>Every backlog task maps to a gap in this PRD:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+  <th>Task</th>
+  <th>PRD Section</th>
+  <th>Requirement</th>
+</tr></thead>
+<tbody>
+<tr>
+  <td>TASK-003</td>
+  <td>1.0 (Overview)</td>
+  <td>Architecture documentation for new devs</td>
+</tr>
+<tr>
+  <td>TASK-004</td>
+  <td>5.4 (Testing)</td>
+  <td>Charge scheduler Lambda tests</td>
+</tr>
+<tr>
+  <td>TASK-005</td>
+  <td>5.4 (Testing)</td>
+  <td>OTA recovery path tests</td>
+</tr>
+<tr>
+  <td>TASK-006</td>
+  <td>5.4 (Testing)</td>
+  <td>Decode Lambda tests</td>
+</tr>
+<tr>
+  <td>TASK-007</td>
+  <td>5.4 (Testing)</td>
+  <td>E2E test plan</td>
+</tr>
+<tr>
+  <td>TASK-008</td>
+  <td>5.1 (Firmware Update)</td>
+  <td>OTA recovery runbook</td>
+</tr>
+<tr>
+  <td>TASK-009</td>
+  <td>5.4 (Testing)</td>
+  <td>CI/CD for C unit tests</td>
+</tr>
+<tr>
+  <td>TASK-010</td>
+  <td>5.4 (Testing)</td>
+  <td>CI/CD for Lambda tests</td>
+</tr>
+<tr>
+  <td>TASK-011</td>
+  <td>5.2 (Provisioning)</td>
+  <td>Provisioning documentation</td>
+</tr>
+<tr>
+  <td>TASK-012</td>
+  <td>4.4 (Demand Response)</td>
+  <td>MOER threshold validation</td>
+</tr>
+<tr>
+  <td>TASK-013</td>
+  <td>6.2 (Reliability)</td>
+  <td>OTA field reliability testing</td>
+</tr>
+<tr>
+  <td>TASK-015</td>
+  <td>-- (Cleanup)</td>
+  <td>Dead code removal</td>
+</tr>
+<tr>
+  <td>TASK-016</td>
+  <td>3.1 / 5.3 (SDK/Observability)</td>
+  <td>Architecture decisions documentation</td>
+</tr>
+<tr>
+  <td>TASK-017</td>
+  <td>-- (Cleanup)</td>
+  <td>Legacy app removal</td>
+</tr>
+<tr>
+  <td>TASK-019</td>
+  <td>2.0 (Circuit Interlock)</td>
+  <td>Interlock PCB design and fabrication</td>
+</tr>
+<tr>
+  <td>TASK-020</td>
+  <td>2.0.2 (Cloud Override)</td>
+  <td>AC cloud override implementation</td>
+</tr>
+<tr>
+  <td>TASK-021</td>
+  <td>2.0.1 (Interlock Logic)</td>
+  <td>Compressor short-cycle protection</td>
+</tr>
+<tr>
+  <td>TASK-022</td>
+  <td>2.0.3 (Hardware Interfaces)</td>
+  <td>J1772 Cp duty cycle measurement</td>
+</tr>
+<tr>
+  <td>TASK-023</td>
+  <td>2.0.1 (Interlock Logic)</td>
+  <td>Car-side interlock mechanism validation (Oliver EXP-001)</td>
+</tr>
+<tr>
+  <td>TASK-024</td>
+  <td>1.3 (Who Uses It)</td>
+  <td>Production commissioning process definition</td>
+</tr>
+<tr>
+  <td>TASK-025</td>
+  <td>2.0.1 (Interlock Logic)</td>
+  <td>Transition delay implementation decision (HW vs SW)</td>
+</tr>
+<tr>
+  <td>TASK-026</td>
+  <td>2.2 (Current Clamp)</td>
+  <td>Rescale current clamp to 48A minimum (consider 80A)</td>
+</tr>
+<tr>
+  <td>TASK-027</td>
+  <td>2.5 (LED Indicators)</td>
+  <td>Define LED state matrix for all device conditions</td>
+</tr>
+<tr>
+  <td>TASK-028</td>
+  <td>2.4 (Charge Enable/Disable)</td>
+  <td>Decide boot default behavior (allow vs. read-then-decide)</td>
+</tr>
+<tr>
+  <td>TASK-029</td>
+  <td>5.3.2 (Production Observability)</td>
+  <td>Offline alerting, remote query, interlock state logging</td>
+</tr>
+<tr>
+  <td>TASK-030</td>
+  <td>6.3.2 (Security Threats)</td>
+  <td>Fleet-wide command throttling and staggered delays</td>
+</tr>
+<tr>
+  <td>TASK-031</td>
+  <td>6.3.1 (Security)</td>
+  <td>OTA image ED25519 signing</td>
+</tr>
+<tr>
+  <td>TASK-032</td>
+  <td>6.3.2 (Security Threats)</td>
+  <td>Cloud command authentication (signed downlinks)</td>
+</tr>
+</tbody></table></div>
+</div>
+
+
+  </main>
+</div>
+
+<footer class="doc-footer">
+  <div class="footer-rule"></div>
+  <div class="footer-brand">SideCharge</div>
+  <div class="footer-tagline">Level 2 charging. No panel upgrade.</div>
+  <div class="footer-meta">
+    Product Requirements Document v1.4<br>
+    Eta Works, Inc. &mdash; February 2026<br>
+    Generated from PRD.md
+  </div>
+</footer>
+
+<script>
+(function() {
+  var toggle = document.getElementById('mobileNavToggle');
+  var sidebar = document.getElementById('docSidebar');
+  if (toggle && sidebar) {
+    toggle.addEventListener('click', function() {
+      sidebar.classList.toggle('open');
+      toggle.textContent = sidebar.classList.contains('open') ? 'Close' : 'Contents';
+    });
+    sidebar.addEventListener('click', function(e) {
+      if (e.target.tagName === 'A') {
+        sidebar.classList.remove('open');
+        toggle.textContent = 'Contents';
+      }
+    });
+  }
+  var tocLinks = document.querySelectorAll('#tocList a');
+  var sections = [];
+  tocLinks.forEach(function(link) {
+    var href = link.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      var target = document.getElementById(href.substring(1));
+      if (target) sections.push({ el: target, link: link });
+    }
+  });
+  function updateActiveSection() {
+    var scrollPos = window.scrollY + 120;
+    var current = null;
+    for (var i = sections.length - 1; i >= 0; i--) {
+      if (sections[i].el.offsetTop <= scrollPos) { current = sections[i]; break; }
+    }
+    tocLinks.forEach(function(link) { link.classList.remove('active'); });
+    if (current) current.link.classList.add('active');
+  }
+  var ticking = false;
+  window.addEventListener('scroll', function() {
+    if (!ticking) {
+      requestAnimationFrame(function() { updateActiveSection(); ticking = false; });
+      ticking = true;
+    }
+  });
+  updateActiveSection();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SideCharge Project Plan</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+  :root {
+    --sc-teal: #0A7E8C;
+    --sc-teal-dark: #064E56;
+    --sc-teal-light: #B8E4E9;
+    --sc-amber: #F5A623;
+    --sc-violet: #7B61FF;
+    --sc-green: #2ECC71;
+    --sc-charcoal: #1A1A2E;
+    --sc-slate: #6B7280;
+    --sc-cloud: #F4F5F7;
+    --sc-white: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--sc-charcoal);
+    background: var(--sc-cloud);
+    padding: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  h1 {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--sc-teal-dark);
+    margin: 0 0 8px 0;
+    line-height: 1.2;
+    border-bottom: 3px solid var(--sc-teal);
+    padding-bottom: 12px;
+  }
+
+  h2 {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--sc-teal-dark);
+    margin: 48px 0 16px 0;
+    padding: 12px 16px;
+    background: var(--sc-teal);
+    color: white;
+    border-radius: 8px;
+  }
+
+  h3 {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--sc-teal-dark);
+    margin: 32px 0 12px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--sc-teal-light);
+  }
+
+  h4 {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--sc-charcoal);
+    margin: 24px 0 8px 0;
+  }
+
+  h5 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--sc-slate);
+    margin: 16px 0 6px 0;
+  }
+
+  p { margin: 0 0 12px 0; }
+
+  ul, ol {
+    margin: 0 0 16px 0;
+    padding-left: 24px;
+  }
+
+  li { margin-bottom: 4px; }
+
+  li ul { margin-top: 4px; margin-bottom: 4px; }
+
+  /* Checkbox styling */
+  li { list-style: none; position: relative; padding-left: 4px; }
+  ul { padding-left: 20px; }
+
+  strong { color: var(--sc-charcoal); }
+
+  code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.85em;
+    background: var(--sc-teal-light);
+    color: var(--sc-teal-dark);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  pre {
+    background: var(--sc-charcoal);
+    color: var(--sc-teal-light);
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 0 0 16px 0;
+    font-size: 0.85em;
+  }
+
+  pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 20px 0;
+    font-size: 0.9em;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(26,26,46,0.08);
+  }
+
+  thead { background: var(--sc-teal-dark); color: white; }
+  th {
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid #E5E7EB; }
+  tr:nth-child(even) { background: rgba(184,228,233,0.15); }
+  tr:hover { background: rgba(10,126,140,0.08); }
+
+  blockquote {
+    border-left: 4px solid var(--sc-amber);
+    background: #FFF7E6;
+    padding: 12px 16px;
+    margin: 0 0 16px 0;
+    border-radius: 0 8px 8px 0;
+    color: var(--sc-charcoal);
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid #E5E7EB;
+    margin: 32px 0;
+  }
+
+  /* Status badges */
+  .container li:has(> strong:first-child) { margin-bottom: 6px; }
+
+  /* Scrollable TOC */
+  .toc { 
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 32px;
+  }
+
+  a { color: var(--sc-teal); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Print */
+  @media print {
+    body { background: white; font-size: 12px; }
+    .container { max-width: 100%; padding: 0; }
+    h2 { break-before: page; }
+  }
+
+  /* Sticky nav */
+  .top-bar {
+    position: sticky;
+    top: 0;
+    background: var(--sc-teal-dark);
+    color: white;
+    padding: 10px 24px;
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .top-bar a { color: var(--sc-teal-light); font-weight: 500; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <span>SideCharge Project Plan</span>
+  <span><a href="#">Back to top</a></span>
+</div>
+<div class="container">
+<h1 id="sidecharge-project-plan">SideCharge Project Plan</h1>
+<p><strong>Author</strong>: Malcolm (Senior Project Manager, Eta Works)
+<strong>Created</strong>: 2026-02-12
+<strong>Source</strong>: PRD v1.4, task list (2026-02-11), known issues, architecture doc, ADR-001
+<strong>Purpose</strong>: Master project plan from current state to production deployment</p>
+<hr />
+<h2 id="how-to-read-this-plan">How to Read This Plan</h2>
+<ul>
+<li><strong>[x]</strong> = Task is IMPLEMENTED and verified</li>
+<li><strong>[ ]</strong> = Task is NOT YET DONE (designed, not started, or TBD)</li>
+<li><strong>Status tags</strong>: <code>IMPLEMENTED</code>, <code>DESIGNED</code>, <code>NOT STARTED</code>, <code>TBD</code>, <code>PARTIAL</code></li>
+<li><strong>Type tags</strong>: <code>HW</code> = hardware, <code>SW</code> = firmware/software, <code>CLOUD</code> = AWS/Lambda, <code>DOC</code> = documentation</li>
+<li><strong>Complexity</strong>: S (1-2 days), M (3-5 days), L (1-2 weeks), XL (2-4 weeks)</li>
+<li><strong>Dependencies</strong> are noted inline as <code>Depends: [task reference]</code></li>
+</ul>
+<hr />
+<h2 id="epic-1-circuit-interlock-core">Epic 1: Circuit Interlock Core</h2>
+<p>The core product function. The interlock guarantees AC and EV charger never draw simultaneously, enabling a Level 2 charger on a shared circuit without a panel upgrade. This covers PRD sections 2.0.x.</p>
+<h3 id="milestone-11-hardware-interlock-mutual-exclusion">Milestone 1.1: Hardware Interlock (Mutual Exclusion)</h3>
+<h4 id="feature-111-hardware-enforced-mutual-exclusion">Feature 1.1.1: Hardware-Enforced Mutual Exclusion</h4>
+<ul>
+<li><strong>Story</strong>: As a homeowner, I want the interlock to prevent AC and EV charger from running at the same time even if the microcontroller crashes, so that the circuit breaker never trips under normal operation. <strong>(L)</strong></li>
+<li>[x] Task: Implement hardware circuit that physically blocks simultaneous operation independent of MCU — <code>HW</code> — IMPLEMENTED (SW+HW)</li>
+<li>[x] Task: Implement AC priority logic — thermostat call pauses EV charging — <code>HW+SW</code> — IMPLEMENTED (SW+HW)</li>
+<li>[x] Task: Implement EV lockout — current flowing to EV blocks thermostat signal to compressor — <code>HW+SW</code> — IMPLEMENTED (SW+HW)</li>
+<li>[x] Task: Verify fail-safe behavior when MCU loses power (HW interlock still active) — <code>HW</code> — IMPLEMENTED (HW)</li>
+</ul>
+<h4 id="feature-112-asymmetric-interlock-mechanism">Feature 1.1.2: Asymmetric Interlock Mechanism</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to use protocol-aware methods to pause each load (J1772 spoofing for EV, signal blocking for AC), so that pausing is graceful and charger-safe. <strong>(M)</strong></li>
+<li>[x] Task: Implement local interlock EV pause — present ~900 ohm resistance for J1772 State B — <code>HW+SW</code> — IMPLEMENTED (SW+HW)</li>
+<li>[ ] Task: Implement cloud/utility override EV pause — set J1772 PWM duty cycle to 0% — <code>SW</code> — NOT STARTED — Depends: EXP-001 (car make testing). PRD 2.0.1 notes this is not finalized.</li>
+<li>[x] Task: Implement AC pause — block 24VAC thermostat call signal to compressor contactor — <code>HW</code> — IMPLEMENTED (HW)</li>
+</ul>
+<h4 id="feature-113-isolation-and-safety">Feature 1.1.3: Isolation and Safety</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want the device to be galvanically isolated from all high-voltage circuits, so that a fault on one circuit cannot propagate to others. <strong>(M)</strong></li>
+<li>[x] Task: Isolate MCU from 24VAC thermostat circuit (optocouplers) — <code>HW</code> — IMPLEMENTED (HW)</li>
+<li>[x] Task: Isolate MCU from J1772 pilot circuit (+/-12V) — <code>HW</code> — IMPLEMENTED (HW)</li>
+<li>[x] Task: Establish earth ground reference from EV charger enclosure — <code>HW</code> — IMPLEMENTED (HW)</li>
+<li>[x] Task: Galvanic isolation between 24VAC AC power and 240VAC charging circuit — <code>HW</code> — IMPLEMENTED (HW)</li>
+</ul>
+<h3 id="milestone-12-software-interlock-layer">Milestone 1.2: Software Interlock Layer</h3>
+<h4 id="feature-121-boot-and-power-recovery-behavior">Feature 1.2.1: Boot and Power Recovery Behavior</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to read the thermostat state before enabling EV charging on every boot, so that the software never contradicts the hardware interlock. <strong>(M)</strong></li>
+<li>[ ] Task: Read cool_call GPIO before setting charge enable in <code>charge_control_init()</code> — <code>SW</code> — NOT STARTED — File: <code>charge_control.c</code></li>
+<li>[ ] Task: Change <code>platform_gpio_init()</code> from <code>GPIO_OUTPUT_ACTIVE</code> to <code>GPIO_OUTPUT_INACTIVE</code> — <code>SW</code> — NOT STARTED — File: <code>platform_api_impl.c</code></li>
+<li>[ ] Task: Add charge_control state to uplink payload — <code>SW</code> — NOT STARTED — File: <code>app_tx.c</code></li>
+<li>[ ] Task: Log boot decision at INF level — <code>SW</code> — NOT STARTED — File: <code>charge_control.c</code></li>
+<li>[ ] Task: Verify all edge cases: unconnected GPIOs, power cycle during AC call, power cycle during EV charging, power cycle during Charge Now override, power cycle during cloud override, watchdog reset — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-122-charge-now-override-button">Feature 1.2.2: "Charge Now" Override Button</h4>
+<ul>
+<li><strong>Story</strong>: As a homeowner, I want to press a physical button to temporarily override AC priority and force-charge my EV, so that I can top up for an urgent trip. <strong>(M)</strong></li>
+<li>[ ] Task: Implement momentary push button handler — single press = activate 30-min override — <code>SW+HW</code> — DESIGNED — Duration: 30 min (current recommendation, not finalized per PRD 2.0.1.1)</li>
+<li>[ ] Task: Implement long press (3 seconds) = cancel override early — <code>SW</code> — DESIGNED</li>
+<li>[ ] Task: Implement thermal comfort safeguard — auto-cancel if AC demands continuously for 30 min — <code>SW</code> — DESIGNED</li>
+<li>[ ] Task: Override state is RAM-only — power cycle clears it — <code>SW</code> — DESIGNED</li>
+<li>[ ] Task: Report override activation/cancellation in next uplink — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Long press (10 seconds) = activate BLE diagnostics beacon — <code>SW</code> — DESIGNED — Depends: BLE diagnostics (Epic 9)</li>
+</ul>
+<h4 id="feature-123-cloud-override-ev-charger">Feature 1.2.3: Cloud Override (EV Charger)</h4>
+<ul>
+<li><strong>Story</strong>: As a cloud operator, I want to remotely pause or allow EV charging with a configurable timeout, so that the cloud can implement demand response without permanently blocking charging. <strong>(S)</strong></li>
+<li>[x] Task: Implement force-block EV charger via cloud downlink command 0x10 — <code>SW</code> — IMPLEMENTED (SW)</li>
+<li>[x] Task: Implement auto-resume timer (configurable duration in minutes) — <code>SW</code> — IMPLEMENTED (SW)</li>
+<li>[ ] Task: Implement force-block AC via cloud downlink — <code>SW</code> — NOT STARTED — PRD 2.0.2: requires careful safety review before implementation</li>
+</ul>
+<h4 id="feature-124-interlock-logging-and-reporting">Feature 1.2.4: Interlock Logging and Reporting</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want interlock state transitions logged to the cloud with timestamps and reasons, so that I can demonstrate code compliance and debug issues. <strong>(M)</strong></li>
+<li>[x] Task: Include interlock state in uplink payload — <code>SW</code> — IMPLEMENTED (SW)</li>
+<li>[x] Task: Include cloud override status in uplink payload — <code>SW</code> — IMPLEMENTED (SW, EV only)</li>
+<li>[ ] Task: Log interlock transition events to cloud (AC-&gt;EV, EV-&gt;AC, override) with timestamps — <code>SW+CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Log "Charge Now" button press events — <code>SW</code> — TBD</li>
+</ul>
+<hr />
+<h2 id="epic-2-sensor-monitoring">Epic 2: Sensor &amp; Monitoring</h2>
+<p>All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clamp (2.2), thermostat inputs (2.3), and charge enable/disable output (2.4). Covers calibration, scaling, and field validation.</p>
+<h3 id="milestone-21-j1772-pilot-state-monitoring">Milestone 2.1: J1772 Pilot State Monitoring</h3>
+<h4 id="feature-211-pilot-voltage-classification">Feature 2.1.1: Pilot Voltage Classification</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to read the J1772 pilot voltage and classify it into states A-F, so that the interlock knows whether a car is connected and charging. <strong>(S)</strong></li>
+<li>[x] Task: Read J1772 pilot voltage via ADC (AIN0, 12-bit, 0-3.6V range) — <code>SW+HW</code> — IMPLEMENTED</li>
+<li>[x] Task: Classify into states A-F using voltage thresholds — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Implement all state ranges: A (&gt;2600mV), B (1850-2600), C (1100-1850), D (350-1100), E (&lt;350), F (no pilot) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Poll interval 500ms — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Transmit on state change only — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Simulation mode for testing (states A-D, 10s duration) — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-212-j1772-pwm-duty-cycle-decoding">Feature 2.1.2: J1772 PWM Duty Cycle Decoding</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to decode the J1772 PWM duty cycle, so that I know the maximum current the charger is offering and can report it to the cloud. <strong>(M)</strong></li>
+<li>[ ] Task: Implement Cp PWM duty cycle measurement on AIN0 (same pin as voltage, separate measurement) — <code>SW</code> — NOT STARTED — PRD ref: TASK-022 in known gaps</li>
+<li>[ ] Task: Map duty cycle to max allowed current per J1772 spec — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Include PWM duty cycle / max current in uplink payload (if payload space permits) — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-213-field-calibration-of-j1772-thresholds">Feature 2.1.3: Field Calibration of J1772 Thresholds</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want voltage thresholds validated against real J1772 hardware (not just simulated signals), so that state classification is reliable in production. <strong>(M)</strong></li>
+<li>[ ] Task: Test voltage thresholds with at least 3 different physical J1772 chargers — <code>HW</code> — NOT STARTED — PRD ref: Oliver REC-002</li>
+<li>[ ] Task: Test car-side interlock mechanism (PWM 0% approach) with multiple car makes — <code>HW</code> — NOT STARTED — PRD ref: Oliver EXP-001</li>
+<li>[ ] Task: Adjust thresholds if field data diverges from datasheet values — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-22-current-clamp-monitoring">Milestone 2.2: Current Clamp Monitoring</h3>
+<h4 id="feature-221-current-measurement-and-scaling">Feature 2.2.1: Current Measurement and Scaling</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to measure real-time EV charging current via the current clamp, so that I can report charging power and detect anomalies. <strong>(M)</strong></li>
+<li>[x] Task: Read current clamp voltage via ADC (AIN1, 12-bit) — <code>SW+HW</code> — IMPLEMENTED</li>
+<li>[x] Task: Linear scaling 0-3.3V = 0-30A (0-30,000 mA) — <code>SW</code> — IMPLEMENTED (needs rescaling)</li>
+<li>[x] Task: Transmit on change detection — <code>SW</code> — IMPLEMENTED</li>
+<li>[ ] Task: Rescale to minimum 48A range (60A circuit at 80% continuous) — <code>SW+HW</code> — NOT STARTED — PRD ref: TASK-026 in known gaps. Requires clamp selection + resistor divider change.</li>
+<li>[ ] Task: Evaluate 80A range for Ford Charge Station Pro support — <code>HW</code> — TBD</li>
+<li>[ ] Task: Develop field calibration procedure (real clamp nonlinearities at extremes) — <code>DOC+SW</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-23-thermostat-input-monitoring">Milestone 2.3: Thermostat Input Monitoring</h3>
+<h4 id="feature-231-thermostat-signal-reading">Feature 2.3.1: Thermostat Signal Reading</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to read both cool and heat call signals from the thermostat, so that the interlock can detect when the AC compressor needs to run. <strong>(S)</strong></li>
+<li>[x] Task: Read cool call signal (GPIO P0.05, active high, pull-down) — <code>SW+HW</code> — IMPLEMENTED</li>
+<li>[x] Task: Read heat call signal (GPIO P0.04, active high, pull-down) — <code>SW+HW</code> — IMPLEMENTED (monitored, not used for interlock in v1.0)</li>
+<li>[x] Task: Pack as 2-bit flag field in uplink payload — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Transmit on change detection — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<h3 id="milestone-24-charge-enabledisable-output">Milestone 2.4: Charge Enable/Disable Output</h3>
+<h4 id="feature-241-charge-relay-control">Feature 2.4.1: Charge Relay Control</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to control the charge enable GPIO to allow or pause EV charging, so that interlock decisions are enforced electrically. <strong>(S)</strong></li>
+<li>[x] Task: GPIO output for charge relay (P0.06, active high) — <code>SW+HW</code> — IMPLEMENTED</li>
+<li>[x] Task: Allow/pause via cloud downlink command 0x10 — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Auto-resume timer (configurable duration in minutes) — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<hr />
+<h2 id="epic-3-connectivity-cloud">Epic 3: Connectivity &amp; Cloud</h2>
+<p>Amazon Sidewalk integration, uplink/downlink messaging, payload encoding, AWS backend (Lambda, DynamoDB, S3), and error handling. Covers PRD sections 3.x and 4.x.</p>
+<h3 id="milestone-31-sidewalk-lora-link">Milestone 3.1: Sidewalk LoRa Link</h3>
+<h4 id="feature-311-sidewalk-connectivity">Feature 3.1.1: Sidewalk Connectivity</h4>
+<ul>
+<li><strong>Story</strong>: As a device, I want to connect to Amazon Sidewalk via LoRa 915MHz, so that I can send telemetry and receive commands without WiFi, cellular, or monthly fees. <strong>(S)</strong></li>
+<li>[x] Task: Amazon Sidewalk LoRa 915MHz via SX1262 — <code>SW+HW</code> — IMPLEMENTED</li>
+<li>[x] Task: BLE registration (first boot only) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: LoRa data link on subsequent boots — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: TCXO patch for RAK4631 radio stability — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: MFG key health check at boot (detect missing/empty credentials) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Sidewalk session key presence check (trigger BLE registration if needed) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Unknown command type logging (graceful reject) — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-312-reconnection-and-error-handling">Feature 3.1.2: Reconnection and Error Handling</h4>
+<ul>
+<li><strong>Story</strong>: As a device, I want to handle connectivity loss gracefully and continue local interlock operation, so that a network outage never disables the safety function. <strong>(M)</strong></li>
+<li>[x] Task: Sidewalk init status tracking (7 states, shell-queryable) — <code>SW</code> — IMPLEMENTED</li>
+<li>[ ] Task: Implement reconnection strategy after extended Sidewalk disconnect — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Define behavior when Sidewalk not ready 10+ minutes after boot (error state for LED) — <code>SW</code> — DESIGNED (LED matrix section 2.5.1)</li>
+</ul>
+<h3 id="milestone-32-uplink-device-to-cloud">Milestone 3.2: Uplink (Device to Cloud)</h3>
+<h4 id="feature-321-telemetry-payload">Feature 3.2.1: Telemetry Payload</h4>
+<ul>
+<li><strong>Story</strong>: As a cloud system, I want to receive structured 12-byte payloads with timestamps from the device, so that I can reconstruct a timeline of interlock events. <strong>(M)</strong></li>
+<li>[x] Task: Implement 8-byte EVSE payload (magic, version, J1772 state, voltage, current, thermostat flags) — <code>SW</code> — IMPLEMENTED</li>
+<li>[ ] Task: Expand payload to 12 bytes — add 4-byte SideCharge epoch timestamp — <code>SW</code> — NOT STARTED — PRD ref: TASK-035</li>
+<li>[ ] Task: Add charge_control state (bit 2) and Charge Now flag (bit 3) to thermostat flags byte — <code>SW</code> — NOT STARTED — PRD ref: TASK-035</li>
+<li>[ ] Task: Bump payload version to 0x07 — <code>SW</code> — NOT STARTED</li>
+<li>[x] Task: Transmit on sensor state change — <code>SW</code> — IMPLEMENTED</li>
+<li>[ ] Task: Implement 15-minute heartbeat (currently 60s testing interval) — <code>SW</code> — NOT STARTED</li>
+<li>[x] Task: 100ms minimum TX rate limiter — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Verify fits within 19-byte Sidewalk LoRa MTU (12 bytes = 7 spare) — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-322-device-side-event-buffer">Feature 3.2.2: Device-Side Event Buffer</h4>
+<ul>
+<li><strong>Story</strong>: As a device, I want to buffer timestamped state snapshots in a ring buffer, so that transient state changes are not lost when LoRa drops a message. <strong>(M)</strong></li>
+<li>[ ] Task: Implement ring buffer of 12-byte timestamped state snapshots in RAM (50 entries = 600 bytes from 8KB budget) — <code>SW</code> — NOT STARTED — PRD ref: TASK-034</li>
+<li>[ ] Task: On each uplink, send most recent state snapshot — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Trim buffer entries at or before cloud ACK watermark timestamp — <code>SW</code> — NOT STARTED — Depends: TIME_SYNC downlink (Feature 3.3.1)</li>
+<li>[ ] Task: Ring buffer wraps and overwrites oldest entries when full — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-33-downlink-cloud-to-device">Milestone 3.3: Downlink (Cloud to Device)</h3>
+<h4 id="feature-331-time_sync-command-0x30">Feature 3.3.1: TIME_SYNC Command (0x30)</h4>
+<ul>
+<li><strong>Story</strong>: As a device, I want to receive wall-clock time from the cloud, so that I can timestamp my uplink payloads with real time. <strong>(M)</strong></li>
+<li>[ ] Task: Implement TIME_SYNC downlink command (0x30) parsing — <code>SW</code> — NOT STARTED — PRD ref: TASK-033</li>
+<li>[ ] Task: Implement device-side time tracking (sync_time + uptime offset) — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Implement cloud-side auto-sync on first uplink after boot (decode Lambda detects timestamp=0) — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Implement periodic drift correction (daily TIME_SYNC) — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Include ACK watermark in TIME_SYNC for event buffer trimming — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-332-charge-control-downlink-0x10">Feature 3.3.2: Charge Control Downlink (0x10)</h4>
+<ul>
+<li><strong>Story</strong>: As a cloud system, I want to send charge control commands to the device, so that the demand response scheduler can pause or allow charging remotely. <strong>(S)</strong></li>
+<li>[x] Task: Implement 0x10 charge control downlink parsing (allow/pause) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Implement auto-resume timer as safety net — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<h3 id="milestone-34-cloud-payload-processing">Milestone 3.4: Cloud Payload Processing</h3>
+<h4 id="feature-341-decode-lambda">Feature 3.4.1: Decode Lambda</h4>
+<ul>
+<li><strong>Story</strong>: As a cloud system, I want to decode raw device payloads into structured events in DynamoDB, so that all telemetry is queryable and actionable. <strong>(S)</strong></li>
+<li>[x] Task: Lambda decodes raw 8-byte EVSE payload — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Decoded events stored in DynamoDB (device_id + timestamp) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: TTL expiration on DynamoDB records — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Backward compatibility via payload version field (byte 1) — <code>CLOUD</code> — DESIGNED</li>
+<li>[ ] Task: Update decode Lambda to handle v0x07 12-byte payload with timestamp — <code>CLOUD</code> — NOT STARTED — Depends: Feature 3.2.1 (payload expansion)</li>
+<li>[ ] Task: Update decode Lambda to update device registry <code>last_seen</code> and <code>app_version</code> — <code>CLOUD</code> — NOT STARTED — Depends: Epic 9, Feature 9.2.1</li>
+</ul>
+<h4 id="feature-342-demand-response-and-charge-scheduling">Feature 3.4.2: Demand Response and Charge Scheduling</h4>
+<ul>
+<li><strong>Story</strong>: As a cloud system, I want to automatically pause EV charging during peak electricity hours and high grid carbon periods, so that charging shifts to off-peak, low-carbon windows. <strong>(S)</strong></li>
+<li>[x] Task: EventBridge-triggered Lambda (configurable rate) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Xcel Colorado TOU peak detection (weekdays 5-9 PM MT) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: WattTime MOER grid signal for PSCO region — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Decision logic: pause if TOU peak OR MOER &gt; threshold — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: State deduplication: skip downlink if command unchanged — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: DynamoDB state tracking (sentinel key) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Audit log: every command logged with real timestamp — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Send charge control downlink via IoT Wireless — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: MOER threshold configurable (env var, default 70%) — <code>CLOUD</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-343-infrastructure-as-code">Feature 3.4.3: Infrastructure as Code</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want all AWS resources defined in Terraform, so that the infrastructure is reproducible and auditable. <strong>(S)</strong></li>
+<li>[x] Task: All AWS resources defined in Terraform — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: IAM roles with least-privilege policies — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: CloudWatch log groups with 14-day retention — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: S3 bucket for firmware binaries — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: DynamoDB with PAY_PER_REQUEST billing — <code>CLOUD</code> — IMPLEMENTED</li>
+</ul>
+<hr />
+<h2 id="epic-4-ota-firmware">Epic 4: OTA &amp; Firmware</h2>
+<p>Split-image architecture, delta OTA, recovery, staging partition, deploy tooling, and the stale flash fix. Covers PRD sections 4.2, 4.3, 5.1, and known issue KI-003.</p>
+<h3 id="milestone-41-split-image-architecture">Milestone 4.1: Split-Image Architecture</h3>
+<h4 id="feature-411-platformapp-separation">Feature 4.1.1: Platform/App Separation</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want the platform and app to be independently compiled and linked, so that the app can be OTA-updated without reflashing the entire firmware. <strong>(S)</strong></li>
+<li>[x] Task: Platform at 0x00000 (576KB) — Zephyr RTOS + Sidewalk + OTA engine — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: App at 0x90000 (256KB) — EVSE domain logic (~4KB) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Versioned function pointer tables at fixed addresses (platform_api at 0x8FF00, app_callbacks at 0x90000) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Magic word and version validation at boot — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: API version mismatch is a hard stop (ADR-001) — <code>SW</code> — IMPLEMENTED — <code>docs/adr/001-version-mismatch-hard-stop.md</code></li>
+</ul>
+<h4 id="feature-412-platform-api-contract">Feature 4.1.2: Platform API Contract</h4>
+<ul>
+<li><strong>Story</strong>: As an app developer, I want a stable, well-documented API contract with the platform, so that I can develop and test the app without the platform. <strong>(S)</strong></li>
+<li>[x] Task: 22 platform function pointers (Sidewalk, Hardware, System, Timer, Logging, Shell, Memory, MFG) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: 7 app callback pointers (init, on_ready, on_msg_received, on_msg_sent, on_send_error, on_timer, on_shell_cmd) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Mock platform API for host-side testing (mock_platform_api.c) — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<h3 id="milestone-42-ota-pipeline-cloud-side">Milestone 4.2: OTA Pipeline (Cloud Side)</h3>
+<h4 id="feature-421-ota-sender-lambda">Feature 4.2.1: OTA Sender Lambda</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want to push firmware updates to deployed devices over LoRa, so that I can patch bugs without physical access. <strong>(S)</strong></li>
+<li>[x] Task: S3 upload triggers OTA sender Lambda — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: OTA ACK detection in decode Lambda triggers OTA sender — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Chunk delivery: 15-byte data + 4-byte header = 19-byte MTU — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Delta mode: compare against S3 baseline, send only changed chunks — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Full mode: send all chunks (fallback) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Session state tracked in DynamoDB (sentinel key timestamp=-1) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: EventBridge retry timer (1-minute interval) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Stale session detection (30s threshold) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Max 5 retries before abort — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: CloudWatch alarms for Lambda errors and missing invocations — <code>CLOUD</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-422-deploy-cli">Feature 4.2.2: Deploy CLI</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want a CLI tool to manage OTA deployments (baseline, deploy, preview, status, abort), so that firmware updates are predictable and controllable. <strong>(S)</strong></li>
+<li>[x] Task: <code>ota_deploy.py baseline/deploy/preview/status/abort</code> — <code>CLOUD</code> — IMPLEMENTED</li>
+</ul>
+<h3 id="milestone-43-ota-pipeline-device-side">Milestone 4.3: OTA Pipeline (Device Side)</h3>
+<h4 id="feature-431-ota-state-machine">Feature 4.3.1: OTA State Machine</h4>
+<ul>
+<li><strong>Story</strong>: As a device, I want to receive firmware chunks, validate the image, and safely apply it with power-loss recovery, so that OTA updates never brick the device. <strong>(S)</strong></li>
+<li>[x] Task: OTA state machine: IDLE -&gt; RECEIVING -&gt; VALIDATING -&gt; APPLYING -&gt; reboot — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: CRC32 validation on complete image — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Flash staging area at 0xD0000 (148KB) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Delta mode: bitfield tracking of received chunks — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Delta mode: merged CRC validation (staging + primary) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Deferred apply (15s delay for COMPLETE uplink to transmit) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Recovery metadata at 0xCFF00 (survives power loss during apply) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Boot recovery: resume interrupted flash copy — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Duplicate/stale START rejection (CRC match = already applied) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Pre-apply hook: stop app callbacks before flash copy — <code>SW</code> — IMPLEMENTED</li>
+</ul>
+<h3 id="milestone-44-ota-bug-fixes-and-reliability">Milestone 4.4: OTA Bug Fixes and Reliability</h3>
+<h4 id="feature-441-stale-flash-data-fix-ki-003">Feature 4.4.1: Stale Flash Data Fix (KI-003)</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want OTA delta baselines to accurately reflect the running firmware, so that delta updates send the minimum number of chunks. <strong>(M)</strong></li>
+<li>[ ] Task: <code>flash.sh app</code> erases 0x90000-0xCEFFF before writing app hex — <code>SW</code> — NOT STARTED — TASK-022 (plan drafted, not approved)</li>
+<li>[ ] Task: OTA apply (full, delta, recovery) erases pages beyond new image up to metadata boundary — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: <code>ota_deploy.py baseline</code> warns if dump is significantly larger than app.bin — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Host-side tests cover stale page erase after apply — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Manual verification: flash large app -&gt; flash small app -&gt; dump partition -&gt; stale bytes are 0xFF — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-442-ota-image-signing-security">Feature 4.4.2: OTA Image Signing (Security)</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want OTA images cryptographically signed with ED25519, so that a compromised S3 bucket cannot push malicious firmware. <strong>(L)</strong></li>
+<li>[ ] Task: Implement ED25519 signature generation in <code>ota_deploy.py</code> — <code>CLOUD</code> — NOT STARTED — PRD ref: TASK-031. Keys already in MFG store.</li>
+<li>[ ] Task: Implement ED25519 signature verification on device before apply — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Reject unsigned or badly-signed images with clear error — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Document signing key management and rotation — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<hr />
+<h2 id="epic-5-smart-energy-layer">Epic 5: Smart Energy Layer</h2>
+<p>Time-of-use pricing, MOER/grid carbon, demand response, coordinated scheduling, and per-device utility configuration. The "gets smarter over time" promise. Covers PRD sections 4.4, 6.4.1.</p>
+<h3 id="milestone-51-core-demand-response-implemented">Milestone 5.1: Core Demand Response (Implemented)</h3>
+<h4 id="feature-511-tou-moer-scheduling">Feature 5.1.1: TOU + MOER Scheduling</h4>
+<ul>
+<li><strong>Story</strong>: As a homeowner, I want my EV to charge automatically during cheap, clean-grid hours, so that I save money and reduce carbon emissions. <strong>(S)</strong></li>
+<li>[x] Task: Xcel Colorado TOU peak detection (weekdays 5-9 PM MT) — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: WattTime MOER grid signal for PSCO region — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Decision: pause if TOU peak OR MOER &gt; 70% threshold — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: MOER threshold validated (keep 70% for PSCO) — <code>CLOUD</code> — IMPLEMENTED (TASK-012)</li>
+</ul>
+<h3 id="milestone-52-multi-utility-support">Milestone 5.2: Multi-Utility Support</h3>
+<h4 id="feature-521-per-device-utility-identification">Feature 5.2.1: Per-Device Utility Identification</h4>
+<ul>
+<li><strong>Story</strong>: As a system, I want to look up each device's utility and rate schedule, so that the charge scheduler applies the correct TOU windows for any utility territory. <strong>(L)</strong></li>
+<li>[ ] Task: Collect meter number during commissioning (installer enters it) — <code>DOC+CLOUD</code> — NOT STARTED — PRD ref: TASK-037</li>
+<li>[ ] Task: Store meter number in device registry — <code>CLOUD</code> — NOT STARTED — Depends: Device Registry (Epic 9, Feature 9.2.1)</li>
+<li>[ ] Task: Implement meter number -&gt; utility -&gt; TOU schedule lookup — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Update charge scheduler Lambda to use per-device utility config instead of hardcoded Xcel — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Handle multiple residential TOU plans within same utility (e.g., Xcel R, RE-TOU, S-EV) — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-53-advanced-grid-signals">Milestone 5.3: Advanced Grid Signals</h3>
+<h4 id="feature-531-watttime-historical-analysis">Feature 5.3.1: WattTime Historical Analysis</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want to calibrate the MOER threshold using historical data, so that the threshold neither over-curtails nor under-curtails charging. <strong>(M)</strong></li>
+<li>[ ] Task: Upgrade WattTime to paid tier for historical data access — <code>CLOUD</code> — NOT STARTED (free tier only provides current value)</li>
+<li>[ ] Task: Run full distribution analysis of MOER for PSCO region — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Simulate threshold comparison and recommend optimal threshold — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-532-coordinated-fleet-scheduling">Feature 5.3.2: Coordinated Fleet Scheduling</h4>
+<ul>
+<li><strong>Story</strong>: As a utility partner, I want SideCharge to shift both AC and EV loads in response to grid conditions, so that the distribution grid sees flexible demand from each installation. <strong>(XL)</strong></li>
+<li>[ ] Task: Design fleet-wide scheduling logic (stagger commands across devices) — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Implement command staggering (randomized 0-10 min delay per device) — <code>CLOUD</code> — NOT STARTED — Depends: Device Registry, Fleet management</li>
+<li>[ ] Task: Implement rate limiting on cloud-to-device commands (max once per N minutes) — <code>SW+CLOUD</code> — NOT STARTED — PRD ref: TASK-030</li>
+<li>[ ] Task: Device-side enforcement: ignore rapid command changes — <code>SW</code> — NOT STARTED</li>
+</ul>
+<hr />
+<h2 id="epic-6-production-readiness">Epic 6: Production Readiness</h2>
+<p>PCB design, 2-LED system, enclosure, BOM, manufacturing, 24VAC power supply, and UL certification path. The bridge from prototype to product.</p>
+<h3 id="milestone-61-production-pcb-design-task-019">Milestone 6.1: Production PCB Design (TASK-019)</h3>
+<h4 id="feature-611-pcb-design-and-fabrication">Feature 6.1.1: PCB Design and Fabrication</h4>
+<ul>
+<li><strong>Story</strong>: As a manufacturer, I want a production PCB with proper isolation, dual relay outputs, current transducer interface, and 24VAC power supply, so that we can produce devices beyond one-off prototypes. <strong>(XL)</strong></li>
+<li>[ ] Task: Design schematic — all interfaces from PRD 2.0.3 (4 inputs, 2 outputs, 1 power) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Include 24VAC to 3.3VDC AC-DC converter (replace USB power) — <code>HW</code> — NOT STARTED — PRD 6.1</li>
+<li>[ ] Task: Include 2 LEDs (green + blue) per PRD 2.5.2 production LED matrix — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Include "Charge Now" momentary push button — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Include current clamp interface scaled to 48A minimum (evaluate 80A) — <code>HW</code> — NOT STARTED — Depends: Feature 2.2.1 scaling decision</li>
+<li>[ ] Task: Include proper isolation barriers (optocouplers, magnetic couplers) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Route PCB layout — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Generate BOM (bill of materials) — <code>HW+DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Prototype PCB fabrication and assembly — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Verify all hardware interfaces on production PCB — <code>HW</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-612-24vac-power-supply">Feature 6.1.2: 24VAC Power Supply</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want the device powered from the AC system's 24VAC transformer, so that no separate power supply or outlet is needed at the installation location. <strong>(M)</strong></li>
+<li>[ ] Task: Select and validate AC-DC converter module (24VAC -&gt; 3.3VDC) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Verify power budget: RAK4631 + peripherals within 24VAC transformer capacity — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test power rail stability under LoRa TX current spikes — <code>HW</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-62-led-system">Milestone 6.2: LED System</h3>
+<h4 id="feature-621-priority-based-blink-state-machine">Feature 6.2.1: Priority-Based Blink State Machine</h4>
+<ul>
+<li><strong>Story</strong>: As a homeowner, I want a single-glance LED indication of device health, so that I know everything is working without any interaction. <strong>(M)</strong></li>
+<li>[x] Task: LED control via app_leds module — <code>SW</code> — IMPLEMENTED</li>
+<li>[ ] Task: Implement priority-based blink state machine (highest active state wins) — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Implement prototype single-LED patterns per PRD 2.5.1 matrix (8 states) — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Implement "Charge Now" button press acknowledgment (3 rapid blinks) — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Implement commissioning mode auto-exit on first successful uplink — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Implement error state entry criteria enforcement — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Report LED state in uplink payload (cloud-side diagnostics) — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-622-production-dual-led-system">Feature 6.2.2: Production Dual-LED System</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want two LEDs (green for health, blue for interlock), so that I can diagnose device status at a glance during commissioning. <strong>(M)</strong></li>
+<li>[ ] Task: Implement production dual-LED patterns per PRD 2.5.2 matrix — <code>SW</code> — NOT STARTED — Depends: TASK-019 PCB with 2 LEDs</li>
+<li>[ ] Task: Implement combined reading patterns (green solid + blue solid = charging, etc.) — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Implement dual-LED "Charge Now" button feedback (both LEDs flash 3 times) — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-63-enclosure-and-physical-design">Milestone 6.3: Enclosure and Physical Design</h3>
+<h4 id="feature-631-device-enclosure">Feature 6.3.1: Device Enclosure</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want a sealed enclosure that mounts near the junction box, so that the device is protected and tamper-evident. <strong>(L)</strong></li>
+<li>[ ] Task: Design enclosure (mountable below EV charger, access to wiring) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Include sealed USB port (no access post-factory) — <code>HW</code> — NOT STARTED — PRD 6.3.2</li>
+<li>[ ] Task: Include LED light pipes / windows for green and blue LEDs — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Include "Charge Now" button on enclosure exterior — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Include device ID label (SC-XXXXXXXX) printed on enclosure — <code>HW+DOC</code> — NOT STARTED — PRD 4.6</li>
+<li>[ ] Task: Tamper-evident sealing (noted in installation guide) — <code>HW+DOC</code> — DESIGNED</li>
+</ul>
+<h3 id="milestone-64-manufacturing">Milestone 6.4: Manufacturing</h3>
+<h4 id="feature-641-production-bom-and-assembly">Feature 6.4.1: Production BOM and Assembly</h4>
+<ul>
+<li><strong>Story</strong>: As a manufacturer, I want a complete BOM, assembly instructions, and test procedures, so that devices can be produced consistently beyond prototypes. <strong>(XL)</strong></li>
+<li>[ ] Task: Finalize BOM with component sourcing and costing — <code>HW+DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Develop factory assembly procedure — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Develop factory test procedure (verify all GPIOs, ADC channels, LoRa TX, LED function) — <code>DOC+SW</code> — NOT STARTED</li>
+<li>[ ] Task: Develop factory provisioning workflow (MFG credentials -&gt; platform -&gt; app flash sequence) — <code>DOC</code> — NOT STARTED — Depends: TASK-011 provisioning docs</li>
+<li>[ ] Task: Calculate target unit cost (goal: ~$1,000 equipment + installation) — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<hr />
+<h2 id="epic-7-code-compliance-certification">Epic 7: Code Compliance &amp; Certification</h2>
+<p>NEC 220.60, NEC 220.70/Article 750, NEC 440.34, Colorado code, AHJ approval, inspector documentation, UL listing. The regulatory path to legal installation.</p>
+<h3 id="milestone-71-nec-code-compliance">Milestone 7.1: NEC Code Compliance</h3>
+<h4 id="feature-711-nec-22060-noncoincident-loads">Feature 7.1.1: NEC 220.60 — Noncoincident Loads</h4>
+<ul>
+<li><strong>Story</strong>: As an electrician, I want to demonstrate to an inspector that the SideCharge interlock satisfies NEC 220.60, so that the installation passes code review. <strong>(L)</strong></li>
+<li>[ ] Task: Prepare formal documentation showing interlock prevents simultaneous operation — <code>DOC</code> — DESIGNED (not formally verified)</li>
+<li>[ ] Task: Create load calculation worksheet showing only larger load used per 220.60 — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Obtain AHJ review of interlock design for NEC 220.60 compliance — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-712-nec-22070-article-750-energy-management-systems">Feature 7.1.2: NEC 220.70 / Article 750 — Energy Management Systems</h4>
+<ul>
+<li><strong>Story</strong>: As an electrician, I want documentation proving SideCharge qualifies as an energy management system under NEC 220.70/Article 750, so that the installation is code-compliant under the 2023 NEC. <strong>(L)</strong></li>
+<li>[ ] Task: Prepare compliance documentation for NEC 220.70 / Article 750 (automated load management for EV) — <code>DOC</code> — DESIGNED (not formally verified)</li>
+<li>[ ] Task: Document dynamic load management capabilities (cloud override, TOU scheduling) — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Obtain AHJ review for Article 750 compliance — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-713-nec-44034-exception-interlocked-ac-circuits">Feature 7.1.3: NEC 440.34 Exception — Interlocked AC Circuits</h4>
+<ul>
+<li><strong>Story</strong>: As an electrician, I want to use the NEC 440.34 exception to reduce conductor and overcurrent protection sizing for the interlocked AC circuit, so that installation costs are minimized. <strong>(M)</strong></li>
+<li>[ ] Task: Prepare compliance documentation for NEC 440.34 exception — <code>DOC</code> — DESIGNED (not formally verified)</li>
+<li>[ ] Task: Create conductor sizing table for typical installation scenarios (40A, 50A circuits) — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-72-colorado-code-compliance">Milestone 7.2: Colorado Code Compliance</h3>
+<h4 id="feature-721-state-specific-requirements">Feature 7.2.1: State-Specific Requirements</h4>
+<ul>
+<li><strong>Story</strong>: As an installer operating in Colorado, I want confirmation that SideCharge installations comply with Colorado electrical code amendments, so that permits are approved. <strong>(M)</strong></li>
+<li>[ ] Task: Review Colorado-specific amendments to NEC for EV charger installations — <code>DOC</code> — NOT STARTED — DESIGNED (not formally verified)</li>
+<li>[ ] Task: Verify compatibility with local AHJ requirements in target service areas — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-73-ul-listing-and-safety-certification">Milestone 7.3: UL Listing and Safety Certification</h3>
+<h4 id="feature-731-ul-certification-path">Feature 7.3.1: UL Certification Path</h4>
+<ul>
+<li><strong>Story</strong>: As a company, I want to obtain UL listing (or equivalent NRTL certification), so that the product can legally be sold and installed through the electrician channel. <strong>(XL)</strong></li>
+<li>[ ] Task: Identify applicable UL standard(s) for low-voltage control device — <code>DOC</code> — NOT STARTED — PRD notes: because device stays in low-voltage domain, certification path should be simpler than mains-switching devices</li>
+<li>[ ] Task: Engage NRTL (Nationally Recognized Testing Laboratory) — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Prepare product samples and documentation for UL evaluation — <code>HW+DOC</code> — NOT STARTED — Depends: Production PCB (Milestone 6.1)</li>
+<li>[ ] Task: Budget and timeline for UL certification process — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Address any UL findings and iterate on design — <code>HW</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-732-heat-pump-compatibility-future">Feature 7.3.2: Heat Pump Compatibility (Future)</h4>
+<ul>
+<li><strong>Story</strong>: As a product, I want to be compatible with heat pump systems (reversing valve, defrost cycle), so that the addressable market expands beyond AC-only homes. <strong>(L)</strong></li>
+<li>[ ] Task: Research heat pump interlock requirements (reversing valve, defrost cycle timing) — <code>DOC+HW</code> — NOT STARTED — PRD 2.0.5: Future goal, not v1.0 scope</li>
+<li>[ ] Task: Design heat call interlock logic (heat pumps use same compressor for heating and cooling) — <code>SW</code> — NOT STARTED</li>
+</ul>
+<hr />
+<h2 id="epic-8-installer-experience">Epic 8: Installer Experience</h2>
+<p>Commissioning sequence, LED patterns, installation guide, wiring diagrams, printed checklist, electrician training materials. The installer is the primary buyer.</p>
+<h3 id="milestone-81-commissioning-process">Milestone 8.1: Commissioning Process</h3>
+<h4 id="feature-811-led-based-commissioning-sequence">Feature 8.1.1: LED-Based Commissioning Sequence</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want a clear LED sequence that tells me the device is wired correctly, connected to Sidewalk, and the interlock is working, so that I can verify the installation in under 5 minutes. <strong>(M)</strong></li>
+<li>[ ] Task: Implement commissioning mode — 1Hz flash until first successful Sidewalk uplink (or 5 min timeout) — <code>SW</code> — NOT STARTED — Depends: Feature 6.2.1 (LED state machine)</li>
+<li>[ ] Task: Document commissioning sequence steps for installer (PRD 2.5.1 has the 6-step sequence) — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Define commissioning failure modes and installer actions (LED stays on 1Hz &gt; 5 min = check gateway proximity) — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-812-production-commissioning-process">Feature 8.1.2: Production Commissioning Process</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want a defined commissioning process that does not require a phone app or cloud access, so that I can verify the installation with just the device and a printed checklist. <strong>(M)</strong></li>
+<li>[ ] Task: Define production commissioning process (LED-based, no phone/cloud required) — <code>DOC</code> — NOT STARTED — PRD ref: TASK-024 in known gaps (PM decision needed)</li>
+<li>[ ] Task: Define commissioning data collection (device ID, installer name, install address, meter number) — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Decide how commissioning data enters the cloud (manual entry? photo of label? phone tool?) — <code>DOC</code> — TBD</li>
+</ul>
+<h3 id="milestone-82-installation-documentation">Milestone 8.2: Installation Documentation</h3>
+<h4 id="feature-821-installation-guide">Feature 8.2.1: Installation Guide</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want a printed installation guide with step-by-step instructions and wiring diagrams, so that any licensed electrician can install SideCharge correctly. <strong>(L)</strong></li>
+<li>[ ] Task: Write step-by-step installation guide — <code>DOC</code> — NOT STARTED — PRD 1.4: deliverable of TASK-019 PCB design</li>
+<li>[ ] Task: Create wiring diagrams for typical installations (40A circuit, 50A circuit) — <code>DOC+HW</code> — NOT STARTED</li>
+<li>[ ] Task: Create terminal specification sheet — <code>DOC+HW</code> — NOT STARTED</li>
+<li>[ ] Task: Document branch circuit modification procedure (junction box, conductor runs, conduit) — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Document NEC compliance requirements installer must verify (conductor gauge, breaker rating, etc.) — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-822-printed-commissioning-checklist">Feature 8.2.2: Printed Commissioning Checklist</h4>
+<ul>
+<li><strong>Story</strong>: As an installer, I want a printed checklist card included in the box, so that I can verify each step of the installation without consulting a manual. <strong>(S)</strong></li>
+<li>[ ] Task: Design printed commissioning checklist card — <code>DOC</code> — NOT STARTED — PRD 1.4: "A printed commissioning checklist card is included in the box"</li>
+<li>[ ] Task: Include: power verification, interlock response, connectivity, interlock under load — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-83-training-materials">Milestone 8.3: Training Materials</h3>
+<h4 id="feature-831-electrician-training">Feature 8.3.1: Electrician Training</h4>
+<ul>
+<li><strong>Story</strong>: As a company, I want training materials that explain SideCharge to electricians, so that they can sell and install the product confidently. <strong>(L)</strong></li>
+<li>[ ] Task: Create electrician training deck (what it does, how it works, NEC compliance, installation steps) — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Create FAQ document for common installer questions — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Create troubleshooting guide (LED patterns, common wiring mistakes, gateway issues) — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<hr />
+<h2 id="epic-9-cloud-dashboard-monitoring">Epic 9: Cloud Dashboard &amp; Monitoring</h2>
+<p>Operator dashboard, device fleet management, OTA deployment pipeline, alerting, analytics. Covers PRD sections 4.6, 5.3.</p>
+<h3 id="milestone-91-production-observability-tier-1-cloud-only">Milestone 9.1: Production Observability (Tier 1 — Cloud Only)</h3>
+<h4 id="feature-911-device-offline-detection">Feature 9.1.1: Device Offline Detection</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want to be alerted when a device stops reporting, so that silent failures are detected within hours, not days. <strong>(S)</strong></li>
+<li>[ ] Task: CloudWatch metric filter on DynamoDB writes per device_id — <code>CLOUD</code> — NOT STARTED — PRD 5.3.3 Tier 1</li>
+<li>[ ] Task: Alarm when no write for 2x heartbeat interval — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: SNS notification to operator — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-912-ota-failure-alerting">Feature 9.1.2: OTA Failure Alerting</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want to be notified when an OTA update stalls or aborts, so that I can intervene before the device is stuck in a bad state. <strong>(S)</strong></li>
+<li>[x] Task: CloudWatch alarms for OTA sender Lambda errors — <code>CLOUD</code> — IMPLEMENTED (partially)</li>
+<li>[ ] Task: Alarm on stalled OTA sessions (no ACK for &gt;5 min) — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: SNS notification with device ID and failure details — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-913-interlock-state-change-logging">Feature 9.1.3: Interlock State Change Logging</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want a dashboard showing interlock activations per day per device, so that I can verify the system is working and generate compliance reports. <strong>(M)</strong></li>
+<li>[ ] Task: Decode Lambda extracts cool_call transitions from uplink payload — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: CloudWatch metric filter for interlock state transitions — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Dashboard widget showing interlock activations per day — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-914-daily-health-digest">Feature 9.1.4: Daily Health Digest</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want a daily email summary of fleet health (devices online, firmware versions, error counts), so that I have a single daily checkpoint. <strong>(M)</strong></li>
+<li>[ ] Task: Implement scheduled Lambda that queries DynamoDB for all devices — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Check last-seen timestamp, firmware version, error counts per device — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Send summary email via SNS/SES — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-92-device-registry-and-fleet-management">Milestone 9.2: Device Registry and Fleet Management</h3>
+<h4 id="feature-921-device-registry">Feature 9.2.1: Device Registry</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want a persistent registry of all devices with owner, location, firmware version, and liveness, so that I can manage the fleet and support customers. <strong>(L)</strong></li>
+<li>[ ] Task: Create DynamoDB <code>sidecharge-device-registry</code> table (Terraform-managed) — <code>CLOUD</code> — NOT STARTED — PRD ref: TASK-036</li>
+<li>[ ] Task: Implement device ID generation: <code>SC-</code> + first 8 hex chars of SHA-256(sidewalk_uuid) — <code>CLOUD</code> — DESIGNED</li>
+<li>[ ] Task: Create GSI on <code>owner_email</code> for "my devices" lookup — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Create GSI on <code>status</code> for fleet health queries — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Implement status lifecycle: provisioned -&gt; installed -&gt; active -&gt; inactive / returned — <code>CLOUD</code> — DESIGNED</li>
+<li>[ ] Task: Populate registry at factory provisioning (device_id, sidewalk_id, provisioned_date) — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Populate registry at installation (owner, address, installer, meter number, install_date) — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Decode Lambda updates <code>last_seen</code> and <code>app_version</code> on every uplink — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-93-remote-diagnostics-tier-2">Milestone 9.3: Remote Diagnostics (Tier 2)</h3>
+<h4 id="feature-931-remote-status-query">Feature 9.3.1: Remote Status Query</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want to remotely request an on-demand status report from a device, so that I can diagnose issues without waiting for the next heartbeat. <strong>(M)</strong></li>
+<li>[ ] Task: Implement new downlink command (0x40?) that triggers immediate uplink with extended diagnostics — <code>SW+CLOUD</code> — NOT STARTED — PRD 5.3.3 Tier 2</li>
+<li>[ ] Task: Implement extended diagnostics payload (0xE6 magic?): firmware version, uptime, Sidewalk state, last error, interlock state, Charge Now active, boot count — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: CLI command for operator to trigger remote status query — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-94-ble-diagnostics-tier-3">Milestone 9.4: BLE Diagnostics (Tier 3)</h3>
+<h4 id="feature-941-ble-diagnostics-beacon">Feature 9.4.1: BLE Diagnostics Beacon</h4>
+<ul>
+<li><strong>Story</strong>: As an installer doing field service, I want to read device diagnostics via BLE on my phone, so that I can diagnose a device that is not connecting to the cloud. <strong>(M)</strong></li>
+<li>[ ] Task: On boot, advertise BLE beacon for 5 minutes with device ID, firmware version, Sidewalk state, interlock state, last error — <code>SW</code> — NOT STARTED — PRD 5.3.3 Tier 3</li>
+<li>[ ] Task: Long-press "Charge Now" button (10 seconds) activates BLE beacon for 5 minutes — <code>SW</code> — NOT STARTED — Depends: Feature 1.2.2 (button handler)</li>
+<li>[ ] Task: BLE auto-disable after timeout (prevent persistent BLE attack surface) — <code>SW</code> — NOT STARTED</li>
+</ul>
+<hr />
+<h2 id="epic-10-testing-validation">Epic 10: Testing &amp; Validation</h2>
+<p>Unit tests, integration tests, field testing with real J1772 hardware, load testing, security testing, OTA reliability testing. Covers PRD section 5.4.</p>
+<h3 id="milestone-101-host-side-unit-tests-c-firmware">Milestone 10.1: Host-Side Unit Tests (C Firmware)</h3>
+<h4 id="feature-1011-app-layer-tests">Feature 10.1.1: App Layer Tests</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want comprehensive host-side unit tests for all app-layer logic, so that I can catch regressions without hardware. <strong>(S)</strong></li>
+<li>[x] Task: Unity/CMake test framework setup — <code>SW</code> — IMPLEMENTED (90+ tests)</li>
+<li>[x] Task: J1772 state machine tests (voltage thresholds, state classification) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Charge control tests (allow/pause, auto-resume) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Thermostat input tests — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Payload encoding tests (uplink format) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Downlink parsing tests — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Shell command dispatch tests — 31 tests — <code>SW</code> — IMPLEMENTED (TASK-027)</li>
+<li>[x] Task: MFG key health check tests — 7 tests — <code>SW</code> — IMPLEMENTED (TASK-028)</li>
+</ul>
+<h4 id="feature-1012-platform-layer-tests">Feature 10.1.2: Platform Layer Tests</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want host-side tests for the OTA state machine, chunk receive, delta bitmap, and flash recovery, so that safety-critical OTA code is verified. <strong>(S)</strong></li>
+<li>[x] Task: OTA recovery path tests — 16 tests (mock flash, power-loss scenarios) — <code>SW</code> — IMPLEMENTED (TASK-005)</li>
+<li>[x] Task: OTA chunk receive and delta bitmap tests — 13 tests — <code>SW</code> — IMPLEMENTED (TASK-025)</li>
+</ul>
+<h4 id="feature-1013-boot-path-tests">Feature 10.1.3: Boot Path Tests</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want tests for <code>discover_app_image()</code> and the boot path, so that version mismatch, bad magic, and NULL app_cb are verified. <strong>(M)</strong></li>
+<li>[ ] Task: Test: valid magic + version -&gt; app callbacks invoked — <code>SW</code> — NOT STARTED — TASK-026</li>
+<li>[ ] Task: Test: wrong magic -&gt; app not loaded, platform boots standalone — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Test: wrong version -&gt; app not loaded (hard stop per ADR-001) — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Test: OTA message (cmd 0x20) routed to OTA engine, not app — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Test: non-OTA message routed to app_cb-&gt;on_msg_received — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Test: app_cb NULL -&gt; messages handled safely (no crash) — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Test: timer interval bounds (&lt; 100ms rejected, &gt; 300000ms rejected) — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-1014-grenning-legacy-tests">Feature 10.1.4: Grenning Legacy Tests</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want the original 32 Grenning dual-target tests maintained in CI, so that no regressions slip through during framework migration. <strong>(S)</strong></li>
+<li>[x] Task: Grenning test framework (32 tests, Makefile-based) — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Grenning tests added to CI — <code>SW</code> — IMPLEMENTED (TASK-018)</li>
+</ul>
+<h3 id="milestone-102-python-lambda-tests">Milestone 10.2: Python Lambda Tests</h3>
+<h4 id="feature-1021-lambda-test-coverage">Feature 10.2.1: Lambda Test Coverage</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want comprehensive pytest coverage of all Lambda functions, so that cloud logic is verified before deployment. <strong>(S)</strong></li>
+<li>[x] Task: Decode Lambda tests — 18 tests — <code>CLOUD</code> — IMPLEMENTED (TASK-006)</li>
+<li>[x] Task: Charge scheduler Lambda tests — 19 tests — <code>CLOUD</code> — IMPLEMENTED (TASK-004)</li>
+<li>[x] Task: OTA sender Lambda tests — 27 tests — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: OTA deploy CLI tests — 16 tests — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Lambda chain integration tests — 14 tests — <code>CLOUD</code> — IMPLEMENTED</li>
+<li>[x] Task: Python linting (ruff) in CI — <code>CLOUD</code> — IMPLEMENTED (TASK-010)</li>
+</ul>
+<h3 id="milestone-103-integration-and-e2e-tests">Milestone 10.3: Integration and E2E Tests</h3>
+<h4 id="feature-1031-serial-integration-tests">Feature 10.3.1: Serial Integration Tests</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want to run automated tests against a physical device via serial, so that shell commands and state simulation are verified on real hardware. <strong>(S)</strong></li>
+<li>[x] Task: Serial integration test framework (pytest + serial) — 7 tests — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: E2E runbook written (<code>tests/e2e/RUNBOOK.md</code>) — <code>DOC</code> — IMPLEMENTED (TASK-007)</li>
+<li>[x] Task: E2E runbook executed — 6/7 pass (OTA skipped) — <code>SW</code> — IMPLEMENTED (TASK-020)</li>
+</ul>
+<h4 id="feature-1032-device-to-cloud-round-trip-tests">Feature 10.3.2: Device-to-Cloud Round-Trip Tests</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want automated end-to-end tests covering the full uplink/downlink/OTA path, so that the entire system is validated as a unit. <strong>(L)</strong></li>
+<li>[ ] Task: Automate E2E uplink path test (device -&gt; Sidewalk -&gt; decode Lambda -&gt; DynamoDB) — <code>SW+CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Automate E2E downlink path test (charge control -&gt; IoT Wireless -&gt; device) — <code>SW+CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Automate E2E OTA path test (deploy -&gt; status -&gt; complete -&gt; reboot) — <code>SW+CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Automate recovery path test (power cycle during OTA apply) — <code>SW</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-104-field-testing">Milestone 10.4: Field Testing</h3>
+<h4 id="feature-1041-ota-field-reliability">Feature 10.4.1: OTA Field Reliability</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want OTA updates tested at various RF conditions (lab, indoor 10m, outdoor 50m, max range 200m+), so that I know the reliability envelope before deploying to customer homes. <strong>(L)</strong></li>
+<li>[x] Task: Write OTA field test plan — 4 conditions, 3 cycles each, go/no-go framework — <code>DOC</code> — IMPLEMENTED (TASK-013, partial)</li>
+<li>[ ] Task: Execute OTA field test — lab (~1m) — <code>HW</code> — NOT STARTED (requires physical field work)</li>
+<li>[ ] Task: Execute OTA field test — indoor (~10m) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Execute OTA field test — outdoor (~50m) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Execute OTA field test — max range (~200m+) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test power-cycle-during-apply in field conditions — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Document results and go/no-go recommendation — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-1042-j1772-hardware-validation">Feature 10.4.2: J1772 Hardware Validation</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want the J1772 pilot monitoring tested with real physical chargers and vehicles, so that state classification is reliable in production. <strong>(L)</strong></li>
+<li>[ ] Task: Test with at least 3 different Level 2 J1772 chargers — <code>HW</code> — NOT STARTED — PRD 2.0.5: "tested with simulated signals only"</li>
+<li>[ ] Task: Test with at least 3 different EV makes (verify pause/resume behavior) — <code>HW</code> — NOT STARTED — PRD ref: Oliver EXP-001</li>
+<li>[ ] Task: Validate current clamp readings against known reference meter — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Document charger compatibility matrix — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<h4 id="feature-1043-interlock-hardware-integration-tests">Feature 10.4.3: Interlock Hardware Integration Tests</h4>
+<ul>
+<li><strong>Story</strong>: As a safety engineer, I want the complete HW+SW interlock tested with real thermostat and charger hardware, so that mutual exclusion is verified under real conditions. <strong>(L)</strong></li>
+<li>[ ] Task: Test interlock with real thermostat (Nest, Ecobee, Honeywell) — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test AC priority: real thermostat call pauses real EV charger — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test EV lockout: real current flowing blocks real thermostat signal — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test "Charge Now" button with real loads — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test fail-safe: remove MCU power, verify HW interlock holds — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test power cycle during various interlock states — <code>HW</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-105-security-testing">Milestone 10.5: Security Testing</h3>
+<h4 id="feature-1051-security-validation">Feature 10.5.1: Security Validation</h4>
+<ul>
+<li><strong>Story</strong>: As a security engineer, I want the threat model validated through testing, so that production deployment does not introduce unacceptable risks. <strong>(L)</strong></li>
+<li>[ ] Task: Test: double-load scenario (both loads enabled) — verify breaker trips and HW interlock prevents — <code>HW</code> — NOT STARTED</li>
+<li>[ ] Task: Test: rapid cloud command injection — verify device rate-limiting — <code>SW+CLOUD</code> — NOT STARTED — Depends: Rate limiting implementation (Feature 5.3.2)</li>
+<li>[ ] Task: Test: malformed downlink handling — verify graceful rejection — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Test: OTA with tampered image (bad CRC, bad signature) — verify rejection — <code>SW</code> — NOT STARTED — Depends: OTA signing (Feature 4.4.2)</li>
+<li>[ ] Task: Verify no PII in CloudWatch logs — <code>CLOUD</code> — NOT STARTED — PRD 6.4.2: NOT VERIFIED</li>
+<li>[ ] Task: Review IAM permissions for least privilege — <code>CLOUD</code> — NOT STARTED</li>
+</ul>
+<h3 id="milestone-106-cicd-pipeline">Milestone 10.6: CI/CD Pipeline</h3>
+<h4 id="feature-1061-continuous-integration">Feature 10.6.1: Continuous Integration</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want all tests to run automatically on push and PR, so that regressions are caught before merge. <strong>(S)</strong></li>
+<li>[x] Task: GitHub Actions workflow (<code>.github/workflows/ci.yml</code>) — <code>CLOUD</code> — IMPLEMENTED (TASK-009)</li>
+<li>[x] Task: cppcheck static analysis in CI — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: CMake/ctest C unit tests in CI — <code>SW</code> — IMPLEMENTED</li>
+<li>[x] Task: Grenning Makefile C tests in CI — <code>SW</code> — IMPLEMENTED (TASK-018)</li>
+<li>[x] Task: Python pytest in CI — <code>CLOUD</code> — IMPLEMENTED (TASK-010)</li>
+<li>[x] Task: Python ruff linting in CI — <code>CLOUD</code> — IMPLEMENTED</li>
+</ul>
+<hr />
+<h2 id="epic-11-privacy-compliance-and-documentation">Epic 11: Privacy, Compliance, and Documentation</h2>
+<p>Data privacy, retention policies, CCPA compliance, and operator documentation. Covers PRD sections 6.4, 5.1, 5.2.</p>
+<h3 id="milestone-111-data-privacy">Milestone 11.1: Data Privacy</h3>
+<h4 id="feature-1111-privacy-policy-and-retention">Feature 11.1.1: Privacy Policy and Retention</h4>
+<ul>
+<li><strong>Story</strong>: As a company, I want a data privacy policy and retention rules, so that customer data is handled responsibly and we comply with state privacy laws. <strong>(M)</strong></li>
+<li>[ ] Task: Define data retention policy (how long raw telemetry is kept vs. aggregated stats) — <code>DOC</code> — NOT STARTED — PRD ref: TASK-038</li>
+<li>[ ] Task: Write customer-facing privacy policy document — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Implement DynamoDB TTL for raw telemetry records (per retention policy) — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Implement customer data deletion on device return/decommission — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: CCPA/state privacy law compliance review — <code>DOC</code> — NOT STARTED</li>
+<li>[ ] Task: Verify no PII in CloudWatch logs — <code>CLOUD</code> — NOT STARTED — PRD 6.4.2: NOT VERIFIED</li>
+</ul>
+<h3 id="milestone-112-operator-documentation">Milestone 11.2: Operator Documentation</h3>
+<h4 id="feature-1121-ota-recovery-runbook">Feature 11.2.1: OTA Recovery Runbook</h4>
+<ul>
+<li><strong>Story</strong>: As an operator, I want a runbook for diagnosing and recovering from OTA failures, so that I do not need tribal knowledge to fix a stuck device. <strong>(S)</strong></li>
+<li>[x] Task: OTA recovery runbook — 533-line document at <code>docs/ota-recovery.md</code> — <code>DOC</code> — IMPLEMENTED (TASK-008)</li>
+<li>[x] Task: OTA state machine diagram — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: Failure modes documented (power loss, CRC mismatch, magic failure, stale flash) — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: Manual recovery procedures — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: Full <code>ota_deploy.py</code> CLI reference — <code>DOC</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-1122-provisioning-documentation">Feature 11.2.2: Provisioning Documentation</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want step-by-step provisioning documentation, so that anyone can set up a new device without tribal knowledge. <strong>(S)</strong></li>
+<li>[x] Task: Provisioning guide at <code>docs/provisioning.md</code> — <code>DOC</code> — IMPLEMENTED (TASK-011)</li>
+<li>[x] Task: Credential generation, MFG partition build, flash sequence, first boot — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: AWS IoT Wireless registration — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: E2E verification steps — <code>DOC</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-1123-architecture-documentation">Feature 11.2.3: Architecture Documentation</h4>
+<ul>
+<li><strong>Story</strong>: As a developer, I want architecture documentation covering the split-image design, API contract, and SDK compliance, so that new contributors can understand the system. <strong>(S)</strong></li>
+<li>[x] Task: Architecture document at <code>docs/architecture.md</code> — <code>DOC</code> — IMPLEMENTED (TASK-016)</li>
+<li>[x] Task: Memory layout diagram — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: Platform API contract (22 functions, 7 callbacks) — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: SDK compliance table — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: OTA flow diagram — <code>DOC</code> — IMPLEMENTED</li>
+<li>[x] Task: Testing architecture — <code>DOC</code> — IMPLEMENTED</li>
+</ul>
+<h4 id="feature-1124-cloud-command-authentication-security-doc">Feature 11.2.4: Cloud Command Authentication (Security Doc)</h4>
+<ul>
+<li><strong>Story</strong>: As a security engineer, I want downlink commands to be signed (not just encrypted in transit), so that a compromised network cannot inject commands. <strong>(L)</strong></li>
+<li>[ ] Task: Design command authentication scheme (signed downlinks) — <code>DOC+SW+CLOUD</code> — NOT STARTED — PRD ref: TASK-032</li>
+<li>[ ] Task: Implement cloud-side command signing — <code>CLOUD</code> — NOT STARTED</li>
+<li>[ ] Task: Implement device-side signature verification on downlinks — <code>SW</code> — NOT STARTED</li>
+<li>[ ] Task: Document key management for command signing — <code>DOC</code> — NOT STARTED</li>
+</ul>
+<hr />
+<h2 id="cross-epic-dependencies">Cross-Epic Dependencies</h2>
+<p>The following dependencies span multiple epics and must be tracked carefully:</p>
+<table>
+<thead>
+<tr>
+<th>Dependency</th>
+<th>From</th>
+<th>To</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Production PCB (TASK-019)</td>
+<td>Epic 6 Milestone 6.1</td>
+<td>Epic 6 Feature 6.2.2, Epic 8 Feature 8.2.1</td>
+<td>Dual LEDs, enclosure, wiring diagrams all depend on PCB</td>
+</tr>
+<tr>
+<td>Device Registry</td>
+<td>Epic 9 Feature 9.2.1</td>
+<td>Epic 5 Feature 5.2.1, Epic 3 Feature 3.4.1</td>
+<td>Per-device utility config and decode Lambda updates depend on registry</td>
+</tr>
+<tr>
+<td>LED State Machine</td>
+<td>Epic 6 Feature 6.2.1</td>
+<td>Epic 8 Feature 8.1.1</td>
+<td>Commissioning sequence depends on LED patterns</td>
+</tr>
+<tr>
+<td>"Charge Now" Button</td>
+<td>Epic 1 Feature 1.2.2</td>
+<td>Epic 9 Feature 9.4.1</td>
+<td>BLE diagnostics activation depends on button handler</td>
+</tr>
+<tr>
+<td>TIME_SYNC Downlink</td>
+<td>Epic 3 Feature 3.3.1</td>
+<td>Epic 3 Feature 3.2.2</td>
+<td>Event buffer ACK trimming depends on TIME_SYNC</td>
+</tr>
+<tr>
+<td>OTA Signing</td>
+<td>Epic 4 Feature 4.4.2</td>
+<td>Epic 10 Feature 10.5.1</td>
+<td>Security testing of OTA depends on signing implementation</td>
+</tr>
+<tr>
+<td>Rate Limiting</td>
+<td>Epic 5 Feature 5.3.2</td>
+<td>Epic 10 Feature 10.5.1</td>
+<td>Security testing of command injection depends on rate limiting</td>
+</tr>
+<tr>
+<td>Current Clamp Scaling</td>
+<td>Epic 2 Feature 2.2.1</td>
+<td>Epic 6 Feature 6.1.1</td>
+<td>PCB clamp interface depends on scaling decision (48A vs 80A)</td>
+</tr>
+<tr>
+<td>Stale Flash Fix (KI-003)</td>
+<td>Epic 4 Feature 4.4.1</td>
+<td>All OTA operations</td>
+<td>Delta OTA reliability depends on clean baselines</td>
+</tr>
+<tr>
+<td>Boot Path Tests (TASK-026)</td>
+<td>Epic 10 Feature 10.1.3</td>
+<td>Blocked by TASK-024 (done)</td>
+<td>Version mismatch behavior defined, tests can proceed</td>
+</tr>
+<tr>
+<td>Merge to Main (TASK-001)</td>
+<td>All epics</td>
+<td>All new work should be based on merged <code>main</code></td>
+<td><code>feature/generic-platform</code> and <code>feature/testing-pyramid</code> need merge</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="priority-phases">Priority Phases</h2>
+<h3 id="phase-0-merge-and-stabilize-current-sprint">Phase 0: Merge and Stabilize (Current Sprint)</h3>
+<p><strong>Goal</strong>: Get all completed work onto <code>main</code>, fix the one open bug.
+1. TASK-001: Merge <code>feature/generic-platform</code> to main — <strong>P1</strong>
+2. Merge <code>feature/testing-pyramid</code> to main — <strong>P1</strong>
+3. TASK-022: Fix stale flash data (KI-003) — <strong>P1</strong>
+4. TASK-026: Boot path tests — <strong>P2</strong></p>
+<h3 id="phase-1-firmware-completeness-weeks-1-3">Phase 1: Firmware Completeness (Weeks 1-3)</h3>
+<p><strong>Goal</strong>: All firmware features designed in the PRD are implemented.
+1. Feature 1.2.1: Boot/power recovery behavior (read thermostat before charge enable)
+2. Feature 1.2.2: "Charge Now" override button
+3. Feature 6.2.1: Priority-based LED state machine (prototype single-LED)
+4. Feature 3.2.1: Expand uplink payload to 12 bytes with timestamp
+5. Feature 3.3.1: TIME_SYNC downlink command
+6. Feature 3.2.2: Device-side event buffer (ring buffer)
+7. Feature 2.1.2: J1772 PWM duty cycle decoding
+8. Feature 1.2.4: Interlock transition logging</p>
+<h3 id="phase-2-cloud-completeness-weeks-3-5">Phase 2: Cloud Completeness (Weeks 3-5)</h3>
+<p><strong>Goal</strong>: Cloud infrastructure supports production monitoring and fleet management.
+1. Feature 9.2.1: Device registry (DynamoDB table, Terraform)
+2. Feature 9.1.1: Device offline detection (CloudWatch alarms)
+3. Feature 9.1.2: OTA failure alerting
+4. Feature 9.1.3: Interlock state change logging
+5. Feature 9.1.4: Daily health digest
+6. Feature 3.4.1: Update decode Lambda for v0x07 payload</p>
+<h3 id="phase-3-field-validation-weeks-5-8">Phase 3: Field Validation (Weeks 5-8)</h3>
+<p><strong>Goal</strong>: System validated with real hardware, real LoRa conditions, real J1772 equipment.
+1. Feature 10.4.1: OTA field reliability testing
+2. Feature 10.4.2: J1772 hardware validation (3+ chargers, 3+ car makes)
+3. Feature 10.4.3: Interlock hardware integration tests
+4. Feature 2.1.3: Field calibration of J1772 thresholds
+5. Feature 2.2.1: Current clamp rescaling (48A minimum)</p>
+<h3 id="phase-4-production-hardware-weeks-8-16">Phase 4: Production Hardware (Weeks 8-16)</h3>
+<p><strong>Goal</strong>: Production PCB designed, fabricated, and verified.
+1. Feature 6.1.1: PCB design and fabrication
+2. Feature 6.1.2: 24VAC power supply
+3. Feature 6.2.2: Production dual-LED system
+4. Feature 6.3.1: Device enclosure
+5. Feature 6.4.1: Production BOM and assembly</p>
+<h3 id="phase-5-code-compliance-and-certification-weeks-12-24">Phase 5: Code Compliance and Certification (Weeks 12-24)</h3>
+<p><strong>Goal</strong>: NEC compliance documented, AHJ reviewed, UL path started.
+1. Feature 7.1.1: NEC 220.60 compliance documentation
+2. Feature 7.1.2: NEC 220.70 / Article 750 compliance documentation
+3. Feature 7.1.3: NEC 440.34 exception documentation
+4. Feature 7.2.1: Colorado code compliance review
+5. Feature 7.3.1: UL certification engagement (long lead time)</p>
+<h3 id="phase-6-installer-experience-and-launch-prep-weeks-16-24">Phase 6: Installer Experience and Launch Prep (Weeks 16-24)</h3>
+<p><strong>Goal</strong>: Installation documentation, training materials, and commissioning process ready.
+1. Feature 8.2.1: Installation guide with wiring diagrams
+2. Feature 8.2.2: Printed commissioning checklist
+3. Feature 8.1.1: LED-based commissioning sequence
+4. Feature 8.1.2: Production commissioning process
+5. Feature 8.3.1: Electrician training materials
+6. Feature 11.1.1: Privacy policy and data retention</p>
+<h3 id="phase-7-security-hardening-weeks-18-24">Phase 7: Security Hardening (Weeks 18-24)</h3>
+<p><strong>Goal</strong>: Security gaps closed before any customer deployment.
+1. Feature 4.4.2: OTA image ED25519 signing
+2. Feature 11.2.4: Cloud command authentication (signed downlinks)
+3. Feature 5.3.2: Fleet-wide command throttling and rate limiting
+4. Feature 10.5.1: Security validation testing</p>
+<hr />
+<h2 id="summary-statistics">Summary Statistics</h2>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Epics</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Milestones</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Features</td>
+<td>62</td>
+</tr>
+<tr>
+<td>Total tasks</td>
+<td>~220</td>
+</tr>
+<tr>
+<td>Tasks IMPLEMENTED (checked)</td>
+<td>~95</td>
+</tr>
+<tr>
+<td>Tasks remaining (unchecked)</td>
+<td>~125</td>
+</tr>
+<tr>
+<td>Known issues open</td>
+<td>1 (KI-003: stale flash)</td>
+</tr>
+<tr>
+<td>Known issues resolved</td>
+<td>2 (KI-001: documented workaround, KI-002: mitigated)</td>
+</tr>
+</tbody>
+</table>
+<p>The foundation is solid: the interlock hardware works, Sidewalk connectivity works, OTA pipeline works, demand response works, and CI runs 200+ tests. The path to production requires completing the firmware gaps (boot behavior, LED system, timestamps), building the production hardware (PCB, 24VAC, enclosure), validating with real equipment (J1772 chargers, thermostats, field RF conditions), navigating code compliance (NEC, UL), and building the installer experience (documentation, training, commissioning).</p>
+<p>The single biggest non-technical risk remains UL listing: no timeline, no budget, no NRTL engagement. This should be the next PM decision after Phase 0 stabilization.</p>
+</div>
+</body>
+</html>

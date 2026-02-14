@@ -18,3 +18,15 @@ app/rak4631_evse_monitor/tests/test_app.dSYM/
 
 # OS
 .DS_Store
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Binary artifacts (not firmware builds)
+*.bin
+!tools/*.py
+
+# Sidewalk key blobs
+sidewalk_keys.bin
+settings_backup.bin

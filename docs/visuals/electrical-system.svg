@@ -1,0 +1,263 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 880" font-family="Inter, system-ui, sans-serif">
+  <defs>
+    <style>
+      .title { font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; }
+      .subtitle { font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 500; }
+      .label { font-size: 13px; font-weight: 500; }
+      .label-sm { font-size: 11px; fill: #6B7280; }
+      .label-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+      .zone-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+      .wire-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; }
+    </style>
+    <marker id="arrowTeal" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#0A7E8C" stroke-width="1.5"/>
+    </marker>
+    <marker id="arrowAmber" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#F5A623" stroke-width="1.5"/>
+    </marker>
+    <marker id="arrowViolet" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#7B61FF" stroke-width="1.5"/>
+    </marker>
+    <marker id="arrowSlate" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#6B7280" stroke-width="1.5"/>
+    </marker>
+    <marker id="arrowDark" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6" fill="none" stroke="#064E56" stroke-width="1.5"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#1A1A2E" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="880" fill="#F4F5F7" rx="12"/>
+
+  <!-- Title -->
+  <text x="550" y="38" text-anchor="middle" class="title" font-size="22" fill="#064E56">SideCharge Electrical System</text>
+  <text x="550" y="58" text-anchor="middle" class="label-sm" font-size="12">How all components connect — low-voltage control plane highlighted</text>
+
+  <!-- ============================================ -->
+  <!-- ZONE 1: 240V POWER PLANE (top) -->
+  <!-- ============================================ -->
+  <rect x="30" y="75" width="1040" height="210" rx="10" fill="#FFFFFF" stroke="#F5A623" stroke-width="1.5" stroke-dasharray="6,3" filter="url(#shadow)"/>
+  <text x="50" y="96" class="zone-label" fill="#F5A623">240V Power Plane</text>
+  <text x="240" y="96" class="label-sm">SideCharge does not touch this — read-only current clamp is the only contact</text>
+
+  <!-- Electrical Panel -->
+  <rect x="60" y="125" width="130" height="120" rx="8" fill="#FFF7E6" stroke="#F5A623" stroke-width="2"/>
+  <text x="125" y="150" text-anchor="middle" class="label" fill="#1A1A2E">Electrical Panel</text>
+  <text x="125" y="167" text-anchor="middle" class="label-mono" fill="#6B7280">100A or 200A</text>
+  <rect x="95" y="180" width="60" height="22" rx="4" fill="#F5A623" opacity="0.2" stroke="#F5A623" stroke-width="1"/>
+  <text x="125" y="195" text-anchor="middle" class="label-mono" fill="#F5A623" font-size="10">40-50A 2P</text>
+  <text x="125" y="234" text-anchor="middle" class="label-sm" font-size="10">Shared breaker</text>
+
+  <!-- 240V line from Panel to Junction Box -->
+  <line x1="190" y1="190" x2="350" y2="190" stroke="#F5A623" stroke-width="3" marker-end="url(#arrowAmber)"/>
+  <text x="270" y="183" text-anchor="middle" class="label-mono" fill="#F5A623" font-size="10">240V L1/L2 + EGC</text>
+
+  <!-- Junction Box -->
+  <rect x="360" y="150" width="120" height="80" rx="8" fill="#FFF7E6" stroke="#F5A623" stroke-width="2"/>
+  <text x="420" y="180" text-anchor="middle" class="label" fill="#1A1A2E">Junction Box</text>
+  <text x="420" y="197" text-anchor="middle" class="label-sm">Circuit splits here</text>
+
+  <!-- 240V to AC Compressor -->
+  <path d="M480,170 L620,130" fill="none" stroke="#F5A623" stroke-width="3" marker-end="url(#arrowAmber)"/>
+
+  <!-- 240V to EV Charger -->
+  <path d="M480,210 L620,240" fill="none" stroke="#F5A623" stroke-width="3" marker-end="url(#arrowAmber)"/>
+
+  <!-- AC Compressor -->
+  <rect x="630" y="105" width="160" height="60" rx="8" fill="#FFF7E6" stroke="#F5A623" stroke-width="2"/>
+  <text x="710" y="130" text-anchor="middle" class="label" fill="#1A1A2E">AC Compressor</text>
+  <text x="710" y="148" text-anchor="middle" class="label-mono" fill="#F5A623">30-50A @ 240V</text>
+
+  <!-- EV Charger / EVSE -->
+  <rect x="630" y="220" width="160" height="60" rx="8" fill="#FFF7E6" stroke="#F5A623" stroke-width="2"/>
+  <text x="710" y="245" text-anchor="middle" class="label" fill="#1A1A2E">EV Charger (EVSE)</text>
+  <text x="710" y="263" text-anchor="middle" class="label-mono" fill="#F5A623">30-48A @ 240V</text>
+
+  <!-- Car -->
+  <rect x="870" y="220" width="120" height="60" rx="8" fill="#F4F5F7" stroke="#6B7280" stroke-width="1.5"/>
+  <text x="930" y="245" text-anchor="middle" class="label" fill="#6B7280">EV</text>
+  <text x="930" y="263" text-anchor="middle" class="label-sm">J1772 / NACS</text>
+  <line x1="790" y1="250" x2="865" y2="250" stroke="#6B7280" stroke-width="2" marker-end="url(#arrowSlate)"/>
+
+  <!-- Current clamp annotation on EV leg -->
+  <circle cx="600" cy="243" r="14" fill="none" stroke="#0A7E8C" stroke-width="2" stroke-dasharray="3,2"/>
+  <text x="600" y="247" text-anchor="middle" class="label-mono" fill="#0A7E8C" font-size="9">CT</text>
+
+  <!-- ============================================ -->
+  <!-- ZONE 2: LOW-VOLTAGE CONTROL PLANE (middle) -->
+  <!-- ============================================ -->
+  <rect x="30" y="300" width="1040" height="340" rx="10" fill="#FFFFFF" stroke="#0A7E8C" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="50" y="322" class="zone-label" fill="#0A7E8C">Low-Voltage Control Plane</text>
+  <text x="285" y="322" class="label-sm">SideCharge operates here — 24VAC thermostat wires + J1772 pilot (+/-12V)</text>
+
+  <!-- ===== LEFT COLUMN: INPUTS ===== -->
+
+  <!-- Thermostat -->
+  <rect x="60" y="345" width="175" height="155" rx="8" fill="#E8F8FA" stroke="#0A7E8C" stroke-width="2"/>
+  <text x="148" y="370" text-anchor="middle" class="label" fill="#064E56">Thermostat Wiring</text>
+  <!-- R wire -->
+  <rect x="78" y="382" width="140" height="20" rx="3" fill="#FECACA"/>
+  <text x="86" y="396" class="wire-label" fill="#DC2626">R</text>
+  <text x="110" y="396" class="label-mono" fill="#064E56" font-size="10">24VAC power</text>
+  <!-- Y wire -->
+  <rect x="78" y="406" width="140" height="20" rx="3" fill="#FEF3C7"/>
+  <text x="86" y="420" class="wire-label" fill="#D97706">Y</text>
+  <text x="110" y="420" class="label-mono" fill="#064E56" font-size="10">Cool call signal</text>
+  <!-- W wire -->
+  <rect x="78" y="430" width="140" height="20" rx="3" fill="#F3F4F6"/>
+  <text x="86" y="444" class="wire-label" fill="#6B7280">W</text>
+  <text x="110" y="444" class="label-mono" fill="#064E56" font-size="10">Heat call signal</text>
+  <!-- C wire -->
+  <rect x="78" y="454" width="140" height="20" rx="3" fill="#DBEAFE"/>
+  <text x="86" y="468" class="wire-label" fill="#2563EB">C</text>
+  <text x="110" y="468" class="label-mono" fill="#064E56" font-size="10">Common (return)</text>
+  <text x="148" y="493" text-anchor="middle" class="label-sm" font-size="9">Standard 18-22 AWG cable</text>
+
+  <!-- J1772 Pilot (moved to LEFT) -->
+  <rect x="60" y="520" width="175" height="70" rx="8" fill="#E8F8FA" stroke="#0A7E8C" stroke-width="2"/>
+  <text x="148" y="545" text-anchor="middle" class="label" fill="#064E56">J1772 Pilot Signal</text>
+  <text x="148" y="562" text-anchor="middle" class="label-mono" fill="#0A7E8C" font-size="10">1kHz ±12V square wave</text>
+  <text x="148" y="580" text-anchor="middle" class="label-sm" font-size="10">Car presence + charge state</text>
+
+  <!-- Current clamp label (with dashed line up to 240V zone) -->
+  <path d="M600,257 L600,310 L305,420" fill="none" stroke="#0A7E8C" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="510" y="340" class="label-mono" fill="#0A7E8C" font-size="9">Current clamp (read-only from 240V leg)</text>
+
+  <!-- ===== CENTER: SIDECHARGE DEVICE ===== -->
+  <rect x="310" y="355" width="270" height="265" rx="12" fill="#064E56" filter="url(#shadow)"/>
+
+  <!-- Device title — HIGH CONTRAST: white on dark -->
+  <text x="445" y="383" text-anchor="middle" class="title" font-size="17" fill="#FFFFFF">SideCharge</text>
+  <text x="445" y="401" text-anchor="middle" class="label-mono" fill="#B8E4E9" font-size="10">RAK4631 · nRF52840 + LoRa Radio</text>
+
+  <!-- Inputs section -->
+  <text x="330" y="428" class="label-sm" fill="#FFFFFF" font-size="10" font-weight="600">INPUTS</text>
+  <text x="330" y="445" class="label-mono" fill="#FFFFFF" font-size="10">R wire (24VAC)  → device power</text>
+  <text x="330" y="460" class="label-mono" fill="#FFFFFF" font-size="10">C wire (common) → return ground</text>
+  <text x="330" y="475" class="label-mono" fill="#FFFFFF" font-size="10">Y wire (cool)   → GPIO P0.05</text>
+  <text x="330" y="490" class="label-mono" fill="#FFFFFF" font-size="10">W wire (heat)   → GPIO P0.04</text>
+  <text x="330" y="505" class="label-mono" fill="#FFFFFF" font-size="10">J1772 Cp pin    → AIN0 (ADC)</text>
+  <text x="330" y="520" class="label-mono" fill="#FFFFFF" font-size="10">Current clamp   → AIN1 (ADC)</text>
+
+  <!-- Outputs section -->
+  <text x="330" y="545" class="label-sm" fill="#F5A623" font-size="10" font-weight="600">OUTPUTS</text>
+  <text x="330" y="560" class="label-mono" fill="#F5A623" font-size="10">Block AC  → gate 24VAC to contactor</text>
+  <text x="330" y="575" class="label-mono" fill="#F5A623" font-size="10">Pause EV  → spoof J1772 State B</text>
+
+  <!-- LED + Button INSIDE the device box (bottom) -->
+  <line x1="325" y1="588" x2="565" y2="588" stroke="#6B7280" stroke-width="0.5" opacity="0.4"/>
+  <circle cx="340" cy="604" r="5" fill="#2ECC71"/>
+  <text x="352" y="608" class="label-mono" fill="#B8E4E9" font-size="10">LED (status patterns)</text>
+  <rect x="480" y="596" width="50" height="16" rx="4" fill="#6B7280" opacity="0.4"/>
+  <text x="505" y="608" text-anchor="middle" class="label-mono" fill="#B8E4E9" font-size="9">BTN</text>
+  <text x="440" y="622" text-anchor="middle" class="label-sm" fill="#6B7280" font-size="9">"Charge Now" momentary button</text>
+
+  <!-- ===== INPUT LINES: Thermostat → SideCharge ===== -->
+  <!-- R wire (power) -->
+  <line x1="235" y1="392" x2="305" y2="440" stroke="#DC2626" stroke-width="2" marker-end="url(#arrowDark)"/>
+  <!-- Y wire (cool call) -->
+  <line x1="235" y1="416" x2="305" y2="470" stroke="#D97706" stroke-width="2" marker-end="url(#arrowDark)"/>
+  <!-- C wire (common) -->
+  <line x1="235" y1="464" x2="305" y2="455" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowDark)"/>
+
+  <!-- J1772 → SideCharge -->
+  <line x1="235" y1="555" x2="305" y2="510" stroke="#0A7E8C" stroke-width="2" marker-end="url(#arrowTeal)"/>
+  <text x="265" y="525" text-anchor="middle" class="label-mono" fill="#0A7E8C" font-size="9">Cp voltage</text>
+
+  <!-- ===== RIGHT COLUMN: OUTPUTS ===== -->
+
+  <!-- Compressor Contactor (output target) -->
+  <rect x="660" y="370" width="170" height="65" rx="8" fill="#FFF7E6" stroke="#F5A623" stroke-width="1.5"/>
+  <text x="745" y="395" text-anchor="middle" class="label" fill="#064E56">Compressor Contactor</text>
+  <text x="745" y="412" text-anchor="middle" class="label-sm">Gates 24VAC to compressor</text>
+  <text x="745" y="427" text-anchor="middle" class="label-mono" fill="#F5A623" font-size="9">Blocks AC when EV is charging</text>
+
+  <!-- EVSE Pilot Circuit (output target) -->
+  <rect x="660" y="460" width="170" height="65" rx="8" fill="#FFF7E6" stroke="#F5A623" stroke-width="1.5"/>
+  <text x="745" y="485" text-anchor="middle" class="label" fill="#064E56">EVSE Pilot Circuit</text>
+  <text x="745" y="502" text-anchor="middle" class="label-sm">Spoofs J1772 State B (~900Ω)</text>
+  <text x="745" y="517" text-anchor="middle" class="label-mono" fill="#F5A623" font-size="9">Pauses EV when AC calls</text>
+
+  <!-- Output lines: SideCharge → targets -->
+  <line x1="580" y1="555" x2="655" y2="400" stroke="#F5A623" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <text x="630" y="470" text-anchor="middle" class="label-mono" fill="#F5A623" font-size="9" transform="rotate(-50, 630, 470)">Block AC</text>
+
+  <line x1="580" y1="570" x2="655" y2="490" stroke="#F5A623" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <text x="635" y="540" text-anchor="middle" class="label-mono" fill="#F5A623" font-size="9" transform="rotate(-40, 635, 540)">Pause EV</text>
+
+  <!-- Dashed lines from output targets back up to 240V components -->
+  <path d="M745,370 L745,165 L790,135" fill="none" stroke="#6B7280" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="780" y="280" class="label-sm" font-size="9" fill="#6B7280" transform="rotate(-90, 780, 280)">to AC compressor</text>
+
+  <path d="M745,525 L830,525 L830,250 L790,250" fill="none" stroke="#6B7280" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="850" y="380" class="label-sm" font-size="9" fill="#6B7280" transform="rotate(-90, 850, 380)">to EV charger</text>
+
+  <!-- ============================================ -->
+  <!-- ZONE 3: CLOUD / LoRa CONNECTIVITY (bottom) -->
+  <!-- ============================================ -->
+  <rect x="30" y="660" width="1040" height="195" rx="10" fill="#FFFFFF" stroke="#7B61FF" stroke-width="1.5" stroke-dasharray="6,3" filter="url(#shadow)"/>
+  <text x="50" y="682" class="zone-label" fill="#7B61FF">Cloud Connectivity</text>
+  <text x="210" y="682" class="label-sm">Amazon Sidewalk LoRa mesh — no WiFi, no cellular, no monthly fees</text>
+
+  <!-- LoRa Radio -->
+  <rect x="330" y="705" width="130" height="55" rx="8" fill="#EDE9FE" stroke="#7B61FF" stroke-width="1.5"/>
+  <text x="395" y="728" text-anchor="middle" class="label" fill="#7B61FF">LoRa Radio</text>
+  <text x="395" y="745" text-anchor="middle" class="label-mono" fill="#7B61FF" font-size="10">915 MHz · 500-800m</text>
+
+  <!-- LoRa signal arcs -->
+  <path d="M465,732 Q480,732 485,718" fill="none" stroke="#7B61FF" stroke-width="1.5" opacity="0.35"/>
+  <path d="M470,732 Q490,732 498,712" fill="none" stroke="#7B61FF" stroke-width="1.5" opacity="0.55"/>
+  <path d="M475,732 Q500,732 510,706" fill="none" stroke="#7B61FF" stroke-width="1.5" opacity="0.75"/>
+
+  <!-- LoRa link -->
+  <line x1="520" y1="732" x2="620" y2="755" stroke="#7B61FF" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrowViolet)"/>
+
+  <!-- Sidewalk Gateway -->
+  <rect x="630" y="730" width="140" height="55" rx="8" fill="#EDE9FE" stroke="#7B61FF" stroke-width="1.5"/>
+  <text x="700" y="753" text-anchor="middle" class="label" fill="#7B61FF">Sidewalk Gateway</text>
+  <text x="700" y="770" text-anchor="middle" class="label-sm">Echo / Ring device</text>
+
+  <!-- Gateway to AWS -->
+  <line x1="770" y1="757" x2="860" y2="757" stroke="#7B61FF" stroke-width="2" marker-end="url(#arrowViolet)"/>
+  <text x="815" y="748" text-anchor="middle" class="label-mono" fill="#7B61FF" font-size="9">Internet</text>
+
+  <!-- AWS Cloud -->
+  <rect x="870" y="705" width="170" height="110" rx="10" fill="#EDE9FE" stroke="#7B61FF" stroke-width="1.5"/>
+  <text x="955" y="730" text-anchor="middle" class="subtitle" font-size="14" fill="#7B61FF">AWS Cloud</text>
+  <text x="955" y="750" text-anchor="middle" class="label-mono" fill="#7B61FF" font-size="10">IoT Wireless</text>
+  <text x="955" y="765" text-anchor="middle" class="label-mono" fill="#7B61FF" font-size="10">Lambda · DynamoDB</text>
+  <text x="955" y="780" text-anchor="middle" class="label-mono" fill="#7B61FF" font-size="10">S3 · EventBridge</text>
+  <text x="955" y="800" text-anchor="middle" class="label-sm" font-size="10">TOU rates · MOER · Override</text>
+
+  <!-- Uplink from SideCharge to LoRa Radio -->
+  <line x1="395" y1="625" x2="395" y2="700" stroke="#7B61FF" stroke-width="2" marker-end="url(#arrowViolet)"/>
+  <text x="415" y="668" class="label-mono" fill="#7B61FF" font-size="9">8-byte uplink</text>
+
+  <!-- ============================================ -->
+  <!-- LEGEND -->
+  <!-- ============================================ -->
+  <rect x="60" y="700" width="250" height="130" rx="8" fill="#FFFFFF" stroke="#6B7280" stroke-width="1" opacity="0.95"/>
+  <text x="80" y="722" class="label" fill="#1A1A2E" font-size="12" font-weight="600">Legend</text>
+
+  <line x1="80" y1="740" x2="110" y2="740" stroke="#F5A623" stroke-width="3"/>
+  <text x="118" y="744" class="label-sm">240V power (SideCharge doesn't touch)</text>
+
+  <line x1="80" y1="758" x2="95" y2="758" stroke="#DC2626" stroke-width="2"/>
+  <line x1="95" y1="758" x2="110" y2="758" stroke="#D97706" stroke-width="2"/>
+  <text x="118" y="762" class="label-sm">Thermostat wires (R / Y / W / C)</text>
+
+  <line x1="80" y1="776" x2="110" y2="776" stroke="#0A7E8C" stroke-width="2"/>
+  <text x="118" y="780" class="label-sm">Low-voltage signals (J1772 ±12V)</text>
+
+  <line x1="80" y1="794" x2="110" y2="794" stroke="#F5A623" stroke-width="2"/>
+  <text x="118" y="798" class="label-sm">Control outputs (block AC / pause EV)</text>
+
+  <line x1="80" y1="812" x2="110" y2="812" stroke="#7B61FF" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="118" y="816" class="label-sm">LoRa radio / cloud connectivity</text>
+
+  <!-- Footer -->
+  <text x="550" y="872" text-anchor="middle" class="label-sm" fill="#6B7280" font-size="10">SideCharge by Eta Works · Low-voltage circuit interlock · Level 2 charging, no panel upgrade</text>
+</svg>

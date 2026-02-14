@@ -202,6 +202,10 @@ def handle_s3_trigger(record):
     key = record["s3"]["object"]["key"]
     print(f"S3 trigger: s3://{bucket}/{key}")
 
+    if key.endswith("/baseline.bin"):
+        print(f"Skipping baseline file: {key}")
+        return
+
     firmware = load_firmware(bucket, key)
     fw_size = len(firmware)
     fw_crc = crc32(firmware)
@@ -219,7 +223,7 @@ def handle_s3_trigger(record):
 
     # Check for baseline firmware to enable delta mode
     delta_chunks_list = None
-    baseline_key = "firmware/baseline.bin"
+    baseline_key = "ota/baseline.bin"
     baseline_crc = None
     baseline_size = None
     try:
