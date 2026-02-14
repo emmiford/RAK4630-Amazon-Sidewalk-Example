@@ -65,3 +65,9 @@ variable "ota_bucket_name" {
   type        = string
   default     = "evse-ota-firmware-dev"
 }
+
+variable "device_registry_table_name" {
+  description = "DynamoDB table name for the SideCharge device registry"
+  type        = string
+  default     = "sidecharge-device-registry"
+}
