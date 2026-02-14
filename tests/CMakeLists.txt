@@ -122,6 +122,15 @@ target_include_directories(mock_flash PUBLIC
     ${APP_INC}
 )
 
+# Mock OTA signing library (controllable ota_verify_signature)
+add_library(mock_ota_signing STATIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks/mock_ota_signing.c
+)
+target_include_directories(mock_ota_signing PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks
+    ${APP_INC}
+)
+
 # OTA recovery test — compiles ota_update.c against mock Zephyr headers
 add_executable(test_ota_recovery
     ${CMAKE_CURRENT_SOURCE_DIR}/app/test_ota_recovery.c
@@ -132,7 +141,7 @@ target_include_directories(test_ota_recovery PRIVATE
     ${APP_INC}
     ${UNITY_DIR}
 )
-target_link_libraries(test_ota_recovery unity mock_flash)
+target_link_libraries(test_ota_recovery unity mock_flash mock_ota_signing)
 add_test(NAME test_ota_recovery COMMAND test_ota_recovery)
 
 # --- MFG key health check tests (platform module, needs mock MFG store) ---
@@ -159,5 +168,18 @@ target_include_directories(test_ota_chunks PRIVATE
     ${APP_INC}
     ${UNITY_DIR}
 )
-target_link_libraries(test_ota_chunks unity mock_flash)
+target_link_libraries(test_ota_chunks unity mock_flash mock_ota_signing)
 add_test(NAME test_ota_chunks COMMAND test_ota_chunks)
+
+# OTA ED25519 signing tests — uses mock_ota_signing instead of real ota_signing.c
+add_executable(test_ota_signing
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/test_ota_signing.c
+    ${APP_ROOT}/src/ota_update.c
+)
+target_include_directories(test_ota_signing PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/mocks   # mock Zephyr headers found here first
+    ${APP_INC}
+    ${UNITY_DIR}
+)
+target_link_libraries(test_ota_signing unity mock_flash mock_ota_signing)
+add_test(NAME test_ota_signing COMMAND test_ota_signing)

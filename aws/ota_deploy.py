@@ -178,10 +178,13 @@ def s3_download(key):
     return resp["Body"].read()
 
 
-def s3_upload(key, data):
+def s3_upload(key, data, metadata=None):
     """Upload bytes to the OTA bucket."""
     s3 = get_s3()
-    s3.put_object(Bucket=OTA_BUCKET, Key=key, Body=data)
+    kwargs = {"Bucket": OTA_BUCKET, "Key": key, "Body": data}
+    if metadata:
+        kwargs["Metadata"] = metadata
+    s3.put_object(**kwargs)
 
 
 def get_session():
@@ -287,6 +290,30 @@ def print_status(session):
 # --- Subcommands ---
 
 
+def cmd_keygen(args):
+    """Generate ED25519 signing keypair for OTA firmware signing."""
+    from ota_signing import (
+        PRIVATE_KEY_PATH,
+        PUBLIC_KEY_PATH,
+        extract_public_key_bytes,
+        generate_keypair,
+    )
+
+    if os.path.exists(PRIVATE_KEY_PATH) and not args.force:
+        print(f"Key already exists: {PRIVATE_KEY_PATH}")
+        print("Use --force to overwrite.")
+        sys.exit(1)
+
+    _, public_key = generate_keypair()
+    raw_bytes = extract_public_key_bytes(public_key)
+
+    print(f"Private key: {PRIVATE_KEY_PATH}")
+    print(f"Public key:  {PUBLIC_KEY_PATH}")
+    print("\nRaw public key (32 bytes) for ota_signing.c:")
+    hex_bytes = ", ".join(f"0x{b:02x}" for b in raw_bytes)
+    print(f"  {{{hex_bytes}}}")
+
+
 def cmd_baseline(args):
     """Dump device primary partition to S3 as baseline."""
     data = pyocd_read_primary()
@@ -375,14 +402,39 @@ def cmd_deploy(args):
         print("\nNo changes detected — firmware matches baseline.")
         sys.exit(0)
 
-    # Step 6: Upload to S3
+    # Step 6: Sign firmware (default) and upload to S3
+    is_signed = False
+    upload_data = firmware
+    if not args.unsigned:
+        try:
+            from ota_signing import OTA_SIG_SIZE, load_private_key, sign_firmware
+
+            private_key = load_private_key()
+            upload_data = sign_firmware(firmware, private_key)
+            is_signed = True
+            print(
+                f"\nSigned: {len(firmware)}B firmware + "
+                f"{OTA_SIG_SIZE}B signature = {len(upload_data)}B"
+            )
+        except FileNotFoundError:
+            print("\nWARNING: No signing key found. Run 'keygen' first.")
+            print("Deploying unsigned (use --unsigned to suppress this warning).")
+    else:
+        print("\nSkipping signing (--unsigned)")
+
     if args.version is not None:
         s3_key = f"firmware/app-v{args.version}.bin"
     else:
         s3_key = f"firmware/app-v{fw_version}.bin"
-    print(f"\nUploading to s3://{OTA_BUCKET}/{s3_key} ...")
-    s3_upload(s3_key, firmware)
-    print("Upload complete — Lambda triggered")
+
+    s3_metadata = {}
+    if is_signed:
+        s3_metadata["signed"] = "true"
+
+    print(f"Uploading to s3://{OTA_BUCKET}/{s3_key} ...")
+    s3_upload(s3_key, upload_data, metadata=s3_metadata if s3_metadata else None)
+    suffix = " (signed)" if is_signed else ""
+    print(f"Upload complete — Lambda triggered{suffix}")
 
     # Step 7: Monitor progress
     print("\nMonitoring OTA progress (Ctrl-C to stop)...\n")
@@ -502,6 +554,14 @@ def main():
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # keygen
+    p_keygen = sub.add_parser("keygen", help="Generate ED25519 signing keypair")
+    p_keygen.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing keypair",
+    )
+
     # baseline
     sub.add_parser("baseline", help="Dump device primary → S3 baseline")
 
@@ -522,6 +582,11 @@ def main():
         "--force",
         action="store_true",
         help="Override existing OTA session",
+    )
+    p_deploy.add_argument(
+        "--unsigned",
+        action="store_true",
+        help="Skip ED25519 signing",
     )
 
     # preview
@@ -547,6 +612,7 @@ def main():
     args = parser.parse_args()
 
     commands = {
+        "keygen": cmd_keygen,
         "baseline": cmd_baseline,
         "deploy": cmd_deploy,
         "preview": cmd_preview,

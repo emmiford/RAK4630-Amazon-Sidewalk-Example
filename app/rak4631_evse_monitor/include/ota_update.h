@@ -42,6 +42,13 @@ extern "C" {
 #define OTA_STATUS_FLASH_ERR    2
 #define OTA_STATUS_NO_SESSION   3
 #define OTA_STATUS_SIZE_ERR     4
+#define OTA_STATUS_SIG_ERR      5
+
+/* OTA_START flags byte (byte 19, optional) */
+#define OTA_START_FLAGS_SIGNED  0x01
+
+/* ED25519 signature size */
+#define OTA_SIG_SIZE            64
 
 /* ------------------------------------------------------------------ */
 /*  Flash layout                                                        */

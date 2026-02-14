@@ -10,6 +10,7 @@
  */
 
 #include <ota_update.h>
+#include <ota_signing.h>
 #include <platform_api.h>
 
 #include <zephyr/kernel.h>
@@ -44,6 +45,8 @@ static struct {
 	uint32_t app_version;
 	uint16_t chunks_received;
 	uint32_t bytes_written;
+	/* Signing: OTA_START indicated signed firmware */
+	bool     is_signed;
 	/* Delta mode: total_chunks < full image chunks */
 	bool     delta_mode;
 	uint16_t full_image_chunks;    /* chunks in the full image */
@@ -432,13 +435,20 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 	uint32_t crc32        = p[8] | (p[9] << 8) | (p[10] << 16) | (p[11] << 24);
 	uint32_t version      = p[12] | (p[13] << 8) | (p[14] << 16) | (p[15] << 24);
 
+	/* Parse optional flags byte (byte 19 = data[18]) */
+	uint8_t flags = 0;
+	if (len >= 19) {
+		flags = data[18];
+	}
+	bool is_signed = (flags & OTA_START_FLAGS_SIGNED) != 0;
+
 	/* Detect delta mode: fewer chunks than the full image requires */
 	uint16_t full_image_chunks = (total_size + chunk_size - 1) / chunk_size;
 	bool is_delta = (total_chunks < full_image_chunks);
 
-	LOG_INF("OTA START: size=%u chunks=%u/%u chunk_size=%u crc=0x%08x ver=%u%s",
+	LOG_INF("OTA START: size=%u chunks=%u/%u chunk_size=%u crc=0x%08x ver=%u%s%s",
 		total_size, total_chunks, full_image_chunks, chunk_size, crc32,
-		version, is_delta ? " DELTA" : "");
+		version, is_delta ? " DELTA" : "", is_signed ? " SIGNED" : "");
 
 	/* Reject START during active apply phases */
 	if (ota_state.phase == OTA_PHASE_APPLYING || ota_state.phase == OTA_PHASE_COMPLETE) {
@@ -489,6 +499,7 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 	ota_state.app_version = version;
 	ota_state.chunks_received = 0;
 	ota_state.bytes_written = 0;
+	ota_state.is_signed = is_signed;
 	ota_state.delta_mode = is_delta;
 	ota_state.full_image_chunks = full_image_chunks;
 	if (is_delta) {
@@ -502,6 +513,59 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 
 static void delta_validate_and_apply(void);
 
+/* Static buffer for reading signature from flash */
+static uint8_t ota_sig_buf[OTA_SIG_SIZE];
+
+/* Read firmware data from staging and verify ED25519 signature.
+ * The signed image layout is: [firmware_data][64-byte signature].
+ * Returns 0 on success, negative on failure. */
+static int ota_verify_staged_signature(uint32_t staging_addr, uint32_t total_size)
+{
+	if (total_size <= OTA_SIG_SIZE) {
+		LOG_ERR("OTA: signed image too small (%u)", total_size);
+		return -EINVAL;
+	}
+
+	uint32_t fw_size = total_size - OTA_SIG_SIZE;
+
+	/* Read signature from end of staged image */
+	int err = ota_flash_read(staging_addr + fw_size, ota_sig_buf, OTA_SIG_SIZE);
+	if (err) {
+		LOG_ERR("OTA: failed to read signature: %d", err);
+		return err;
+	}
+
+	/* Verify signature over firmware data (read in chunks to avoid
+	 * allocating the entire firmware in RAM). For the initial
+	 * implementation, ota_verify_signature() reads from the provided
+	 * buffer, so we pass staging address and let the verify function
+	 * handle it. However, the current API takes a flat buffer.
+	 *
+	 * Compromise: read firmware in page-sized chunks, feeding them to
+	 * a streaming verify would be ideal but ED25519 requires the full
+	 * message. Since our firmware is small (~4KB), we can read it into
+	 * the existing ota_page_buf (4KB). */
+	if (fw_size > OTA_FLASH_PAGE_SIZE) {
+		LOG_ERR("OTA: signed firmware too large for verify buffer (%u)", fw_size);
+		return -ENOMEM;
+	}
+
+	err = ota_flash_read(staging_addr, ota_page_buf, fw_size);
+	if (err) {
+		LOG_ERR("OTA: failed to read firmware for verify: %d", err);
+		return err;
+	}
+
+	err = ota_verify_signature(ota_page_buf, fw_size, ota_sig_buf);
+	if (err) {
+		LOG_ERR("OTA: ED25519 signature verification failed: %d", err);
+		return err;
+	}
+
+	LOG_INF("OTA: ED25519 signature verified OK (%u bytes firmware)", fw_size);
+	return 0;
+}
+
 static void ota_validate_and_apply(void)
 {
 	if (ota_state.delta_mode) {
@@ -512,7 +576,7 @@ static void ota_validate_and_apply(void)
 	LOG_INF("OTA: all chunks received, validating...");
 	ota_state.phase = OTA_PHASE_VALIDATING;
 
-	/* Compute CRC32 over staged image */
+	/* Compute CRC32 over staged image (includes signature if signed) */
 	uint32_t calc_crc32 = compute_flash_crc32(OTA_STAGING_ADDR,
 						  ota_state.total_size);
 	if (calc_crc32 != ota_state.expected_crc32) {
@@ -521,6 +585,17 @@ static void ota_validate_and_apply(void)
 		send_complete(OTA_STATUS_CRC_ERR, calc_crc32);
 		ota_state.phase = OTA_PHASE_ERROR;
 		return;
+	}
+
+	/* ED25519 signature verification (if flagged as signed) */
+	if (ota_state.is_signed) {
+		int sig_err = ota_verify_staged_signature(OTA_STAGING_ADDR,
+							  ota_state.total_size);
+		if (sig_err) {
+			send_complete(OTA_STATUS_SIG_ERR, calc_crc32);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
 	}
 
 	LOG_INF("OTA: CRC32 OK (0x%08x), scheduling apply in %ds", calc_crc32, OTA_APPLY_DELAY_SEC);
@@ -578,6 +653,59 @@ static void delta_validate_and_apply(void)
 		send_complete(OTA_STATUS_CRC_ERR, crc);
 		ota_state.phase = OTA_PHASE_ERROR;
 		return;
+	}
+
+	/* ED25519 signature verification for delta mode.
+	 * The merged image is firmware+signature; we need to read the
+	 * merged content into RAM for verification. Since our app is ~4KB,
+	 * the page buffer suffices. */
+	if (ota_state.is_signed) {
+		if (ota_state.total_size <= OTA_SIG_SIZE ||
+		    ota_state.total_size - OTA_SIG_SIZE > OTA_FLASH_PAGE_SIZE) {
+			LOG_ERR("OTA: delta signed image size invalid for verify");
+			send_complete(OTA_STATUS_SIG_ERR, crc);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+
+		uint32_t fw_size = ota_state.total_size - OTA_SIG_SIZE;
+
+		/* Read merged image into ota_page_buf (same merge logic as CRC) */
+		for (uint16_t ci = 0; ci < ota_state.full_image_chunks; ci++) {
+			uint32_t offset = (uint32_t)ci * ota_state.chunk_size;
+			uint16_t read_size = ota_state.chunk_size;
+			uint32_t remaining = ota_state.total_size - offset;
+
+			if (remaining < read_size) {
+				read_size = (uint16_t)remaining;
+			}
+
+			uint32_t addr = delta_chunk_received(ci)
+				? (OTA_STAGING_ADDR + offset)
+				: (OTA_APP_PRIMARY_ADDR + offset);
+
+			int err = ota_flash_read(addr, &ota_page_buf[offset],
+						 read_size);
+			if (err) {
+				LOG_ERR("OTA: delta sig read chunk %u: %d",
+					ci, err);
+				send_complete(OTA_STATUS_SIG_ERR, crc);
+				ota_state.phase = OTA_PHASE_ERROR;
+				return;
+			}
+		}
+
+		/* Signature is last 64 bytes of merged image */
+		int sig_err = ota_verify_signature(ota_page_buf, fw_size,
+						   &ota_page_buf[fw_size]);
+		if (sig_err) {
+			LOG_ERR("OTA: delta ED25519 signature verification failed");
+			send_complete(OTA_STATUS_SIG_ERR, crc);
+			ota_state.phase = OTA_PHASE_ERROR;
+			return;
+		}
+
+		LOG_INF("OTA: delta ED25519 signature verified OK");
 	}
 
 	LOG_INF("OTA: delta CRC32 OK (0x%08x), scheduling apply in %ds", crc, OTA_APPLY_DELAY_SEC);
@@ -828,10 +956,7 @@ static void handle_ota_chunk(const uint8_t *data, size_t len)
 
 	/* Check if this was the last chunk */
 	if (ota_state.chunks_received >= ota_state.total_chunks) {
-		LOG_INF("OTA: all chunks received, validating...");
-		ota_state.phase = OTA_PHASE_VALIDATING;
-
-		/* Verify total bytes match */
+		/* Verify total bytes match (full-mode only sanity check) */
 		if (ota_state.bytes_written != ota_state.total_size) {
 			LOG_ERR("OTA: size mismatch (written %u, expected %u)",
 				ota_state.bytes_written, ota_state.total_size);
@@ -840,21 +965,7 @@ static void handle_ota_chunk(const uint8_t *data, size_t len)
 			return;
 		}
 
-		/* Compute CRC32 over staged image */
-		uint32_t calc_crc32 = compute_flash_crc32(OTA_STAGING_ADDR,
-							  ota_state.total_size);
-		if (calc_crc32 != ota_state.expected_crc32) {
-			LOG_ERR("OTA: CRC32 mismatch (calc=0x%08x, expected=0x%08x)",
-				calc_crc32, ota_state.expected_crc32);
-			send_complete(OTA_STATUS_CRC_ERR, calc_crc32);
-			ota_state.phase = OTA_PHASE_ERROR;
-			return;
-		}
-
-		LOG_INF("OTA: CRC32 OK (0x%08x), scheduling apply in %ds", calc_crc32, OTA_APPLY_DELAY_SEC);
-		send_complete(OTA_STATUS_OK, calc_crc32);
-		ota_state.phase = OTA_PHASE_COMPLETE;
-		k_work_schedule(&ota_deferred_apply_work, K_SECONDS(OTA_APPLY_DELAY_SEC));
+		ota_validate_and_apply();
 	} else {
 		/* ACK with next expected chunk */
 		send_ack(OTA_STATUS_OK, ota_state.chunks_received, ota_state.chunks_received);
