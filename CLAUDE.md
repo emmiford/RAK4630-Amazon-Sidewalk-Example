@@ -131,7 +131,11 @@ app sid send        # Manual uplink trigger
 
 ## Branch Convention
 
-- Create a feature branch for each task
+- **One branch per task**, named `task/NNN-short-slug` where NNN is the task number and the slug is a kebab-case summary from the task title. Examples:
+  - TASK-031 "OTA image signing" → `task/031-ota-image-signing`
+  - TASK-033 "TIME_SYNC downlink" → `task/033-time-sync-downlink`
+  - TASK-039 "Commissioning self-test" → `task/039-commissioning-selftest`
+- Some older branches use `feature/` prefixes (e.g., `feature/selftest`). Don't rename them — just use the `task/` convention going forward.
 - All tests pass before merge to main
 - Commit with each logical change
 - Push to `origin` (emmiford/RAK4630-Amazon-Sidewalk-Example)
