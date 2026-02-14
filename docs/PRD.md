@@ -282,6 +282,62 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 
 **Notes**: OTA images are validated by CRC32 only — no cryptographic signature. A compromised S3 bucket or Lambda could push malicious firmware. This is acceptable for single-site development but would need signing for production deployment.
 
+### 6.4 Warranty and Liability
+
+#### 6.4.1 Risk Assessment
+
+The SideCharge device physically connects to the EVSE and vehicle charging circuit in four ways. Each connection carries different warranty risk:
+
+| Circuit | Connection Method | Warranty Risk | Rationale |
+|---------|------------------|---------------|-----------|
+| J1772 pilot wire | Voltage divider tap (read-only) | LOW | Passive monitoring, no signal modification, <1mA draw |
+| Current clamp | Non-invasive clamp-on CT | NONE | No electrical contact with charging circuit |
+| Charge control relay | Series relay on pilot wire | HIGH | Interrupts pilot signal; EVSE may detect as fault. Relay cycling adds wear to EVSE contactor |
+| Thermostat call wires | GPIO tap (read-only) | LOW | Passive monitoring, no modification to HVAC control |
+
+**Primary risk**: The charge control relay intercepts the J1772 pilot wire and presents ~900 ohm resistance to spoof State B (vehicle connected, not ready), causing the EVSE to stop delivering power. This modifies the normal pilot signal path and could be considered tampering by EVSE or vehicle manufacturers.
+
+**Secondary risk**: Frequent relay cycling (e.g., every 5 minutes during demand response events) causes additional contactor wear on the EVSE. EVSE contactors are typically rated for 10,000-100,000 cycles. Aggressive charge scheduling could accelerate end-of-life.
+
+#### 6.4.2 Magnuson-Moss Warranty Act (MMWA)
+
+The federal MMWA (15 U.S.C. 2302) prevents manufacturers from voiding warranties solely because a third-party product was installed. Key points:
+
+- **Protection**: Manufacturer must prove the third-party product *caused* the defect to deny warranty coverage
+- **Limitation**: Does not protect against defects actually caused by the third-party product
+- **Practical risk**: EVSE relay wear is a plausible SideCharge-caused defect. If the EVSE contactor fails prematurely, MMWA would NOT protect the user because the frequent cycling caused the failure
+- **Vehicle side**: Vehicle warranty risk is lower — the vehicle only sees standard J1772 states (A, B, C). SideCharge does not modify the vehicle's charge controller behavior
+
+#### 6.4.3 Mitigations
+
+| # | Mitigation | Type | Status |
+|---|-----------|------|--------|
+| 1 | Document that SideCharge only presents standard J1772 states | Legal/technical | NOT STARTED |
+| 2 | Implement minimum cycle interval (e.g., 15 min between relay toggles) | Firmware | NOT STARTED |
+| 3 | Track relay cycle count in DynamoDB for contactor life monitoring | Cloud | NOT STARTED |
+| 4 | Add contactor cycle budget (max daily/monthly toggles) | Firmware | NOT STARTED |
+| 5 | Provide user disclosure of warranty risk before installation | Documentation | NOT STARTED |
+| 6 | Design non-invasive alternative: current-limit pilot instead of interrupt | Hardware R&D | NOT STARTED |
+| 7 | Seek UL/ETL listing for the relay interposer assembly | Certification | NOT STARTED |
+| 8 | Obtain EVSE manufacturer written approval for pilot wire interposition | Business | NOT STARTED |
+
+#### 6.4.4 Phased Compliance Roadmap
+
+| Phase | Scope | Trigger |
+|-------|-------|---------|
+| v1.0 (current) | Single-site developer use; warranty risk accepted by operator | Now |
+| v1.1 | Add relay cycle limiting, user disclosure document | Before any non-developer deployment |
+| v2.0 | UL/ETL listing, manufacturer approvals | Before commercial sale or multi-site deployment |
+| v2.1 | Non-invasive charge control (current-limiting pilot, no relay) | If certification or manufacturer pushback blocks relay approach |
+
+#### 6.4.5 Open Questions
+
+1. **EVSE manufacturer stance**: Has any major EVSE manufacturer (ChargePoint, JuiceBox, ClipperCreek) published guidance on third-party pilot wire interposition? If so, what are their requirements?
+2. **Vehicle OBD-II logging**: Do any EV models log J1772 state transitions that could reveal SideCharge activity during warranty inspection?
+3. **Insurance implications**: Does modifying the EVSE circuit affect homeowner's insurance coverage for electrical fires?
+4. **UL listing path**: What is the cost and timeline for UL listing of a relay interposer assembly? Is there a relevant UL standard (UL 2594, UL 2231)?
+5. **Legal review**: Should we engage a product liability attorney before any deployment beyond developer use?
+
 ---
 
 ## 7. Scope Boundaries
@@ -336,6 +392,9 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 | No OTA image signing | Compromised S3 could push bad firmware | Future (out of v1.0 scope) |
 | No device offline alerting | Silent failures undetected | Future |
 | J1772 thresholds not hardware-calibrated | Possible misclassification | Oliver REC-002 |
+| Charge relay may void EVSE warranty | Liability risk for non-developer deployment | TASK-043 |
+| No relay cycle limiting | Accelerated EVSE contactor wear | TASK-043 |
+| No UL/ETL listing for relay interposer | Cannot legally sell as commercial product | TASK-043 |
 
 ---
 
@@ -359,3 +418,4 @@ Every backlog task maps to a gap in this PRD:
 | TASK-015 | — (Cleanup) | Dead code removal |
 | TASK-016 | 3.1 / 5.3 (SDK/Observability) | Architecture decisions documentation |
 | TASK-017 | — (Cleanup) | Legacy app removal |
+| TASK-043 | 6.4 (Warranty/Liability) | Warranty risk, relay cycle limiting, UL listing |
