@@ -93,18 +93,28 @@ python3 -m pytest rak-sid/aws/tests/ -v
 ## OTA Workflow
 
 ```
+# 0. Generate signing keypair (one-time setup)
+python3 rak-sid/aws/ota_deploy.py keygen
+
 # 1. Build app with version bump
 # 2. Capture baseline (current device firmware for delta comparison)
 python3 rak-sid/aws/ota_deploy.py baseline
 
-# 3. Deploy (builds, uploads to S3, triggers Lambda)
+# 3. Deploy (builds, signs with ED25519, uploads to S3, triggers Lambda)
 python3 rak-sid/aws/ota_deploy.py deploy --build --version <N>
+# Use --unsigned to skip signing
 
 # 4. Monitor
 python3 rak-sid/aws/ota_deploy.py status
 ```
 
 Delta mode sends only changed chunks (~2-3 chunks = seconds). Full mode sends all ~276 chunks (~69 min).
+
+### OTA Image Signing
+Firmware is signed with ED25519 before upload. The 64-byte signature is appended to app.bin. The device verifies the signature after CRC32 validation, before applying. Key management:
+- Private key: `~/.sidecharge/ota_signing.key` (developer machine, never committed)
+- Public key: 32-byte constant in `src/ota_signing.c` (compiled into platform firmware)
+- Key rotation requires platform reflash (acceptable for small fleet)
 
 ## AWS Infrastructure
 

@@ -48,6 +48,10 @@ OTA_STATUS_CRC_ERR = 1
 OTA_STATUS_FLASH_ERR = 2
 OTA_STATUS_NO_SESSION = 3
 OTA_STATUS_SIZE_ERR = 4
+OTA_STATUS_SIG_ERR = 5
+
+# OTA_START flags
+OTA_START_FLAGS_SIGNED = 0x01
 
 # Module-level cache
 _firmware_cache = {}  # key -> bytes
@@ -149,12 +153,24 @@ def log_ota_event(event_type, details):
 
 # --- OTA message builders ---
 
-def build_ota_start(total_size, total_chunks, chunk_size, fw_crc32, version):
-    """Build OTA_START downlink message."""
-    payload = struct.pack("<BBIHHI",
-        OTA_CMD_TYPE, OTA_SUB_START,
-        total_size, total_chunks, chunk_size, fw_crc32)
+def build_ota_start(total_size, total_chunks, chunk_size, fw_crc32, version, flags=0):
+    """Build OTA_START downlink message.
+
+    If flags != 0, appends a flags byte (byte 19) for backward-compatible
+    signaling. Old firmware ignores it; new firmware reads it.
+    """
+    payload = struct.pack(
+        "<BBIHHI",
+        OTA_CMD_TYPE,
+        OTA_SUB_START,
+        total_size,
+        total_chunks,
+        chunk_size,
+        fw_crc32,
+    )
     payload += struct.pack("<I", version)
+    if flags:
+        payload += struct.pack("<B", flags)
     return payload
 
 
@@ -210,6 +226,16 @@ def handle_s3_trigger(record):
     fw_size = len(firmware)
     fw_crc = crc32(firmware)
 
+    # Check S3 object metadata for signing flag
+    is_signed = False
+    try:
+        head = s3.head_object(Bucket=bucket, Key=key)
+        s3_metadata = head.get("Metadata", {})
+        is_signed = s3_metadata.get("signed", "").lower() == "true"
+    except Exception as e:
+        print(f"Warning: could not read S3 metadata: {e}")
+    print(f"Firmware signed: {is_signed}")
+
     full_chunks = (fw_size + CHUNK_DATA_SIZE - 1) // CHUNK_DATA_SIZE
 
     # Extract version from key if present (e.g., firmware/app-v2.bin → 2)
@@ -249,6 +275,9 @@ def handle_s3_trigger(record):
           f"chunk_size={CHUNK_DATA_SIZE} crc=0x{fw_crc:08x} ver={version} "
           f"mode={mode}")
 
+    # Compute flags byte for OTA_START
+    ota_flags = OTA_START_FLAGS_SIGNED if is_signed else 0
+
     # Save session state
     session_data = {
         "status": "starting",
@@ -262,6 +291,7 @@ def handle_s3_trigger(record):
         "next_chunk": 0,
         "retries": 0,
         "started_at": int(time.time()),
+        "is_signed": is_signed,
     }
     if baseline_crc is not None:
         session_data["baseline_crc32"] = baseline_crc
@@ -280,10 +310,12 @@ def handle_s3_trigger(record):
         "version": version,
         "mode": mode,
         "delta_chunks": delta_chunks_list,
+        "is_signed": is_signed,
     })
 
-    # Send OTA_START
-    msg = build_ota_start(fw_size, total_chunks, CHUNK_DATA_SIZE, fw_crc, version)
+    # Send OTA_START (with flags byte if signed)
+    msg = build_ota_start(fw_size, total_chunks, CHUNK_DATA_SIZE, fw_crc, version,
+                          flags=ota_flags)
     send_sidewalk_msg(msg)
 
     return {"statusCode": 200, "body": f"OTA started ({mode}): {key} ({fw_size}B, {total_chunks}/{full_chunks} chunks)"}
@@ -316,12 +348,14 @@ def handle_device_ack(ack_data):
             print(f"NO_SESSION: re-sending OTA_START (restart {restarts}/3)")
             firmware = load_firmware(session["s3_bucket"], session["s3_key"])
             fw_crc = crc32(firmware)
+            retry_flags = OTA_START_FLAGS_SIGNED if session.get("is_signed") else 0
             msg = build_ota_start(
                 int(session["fw_size"]),
                 int(session["total_chunks"]),
                 int(session["chunk_size"]),
                 fw_crc,
-                int(session.get("version", 0))
+                int(session.get("version", 0)),
+                flags=retry_flags,
             )
             write_session({**{k: v for k, v in session.items()
                              if k not in ("device_id", "timestamp", "updated_at")},
@@ -502,12 +536,14 @@ def handle_retry_check(event):
         # and NO_SESSION restart. Device will reply COMPLETE if already applied.
         firmware = load_firmware(session["s3_bucket"], session["s3_key"])
         fw_crc = crc32(firmware)
+        retry_flags = OTA_START_FLAGS_SIGNED if session.get("is_signed") else 0
         msg = build_ota_start(
             int(session["fw_size"]),
             int(session["total_chunks"]),
             int(session["chunk_size"]),
             fw_crc,
-            int(session.get("version", 0))
+            int(session.get("version", 0)),
+            flags=retry_flags,
         )
         send_sidewalk_msg(msg)
     else:
