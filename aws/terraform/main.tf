@@ -17,11 +17,23 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Package Lambda function code
+# Package decode Lambda (includes shared utils + device registry)
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_file = "${path.module}/../decode_evse_lambda.py"
   output_path = "${path.module}/../decode_evse_lambda.zip"
+
+  source {
+    content  = file("${path.module}/../decode_evse_lambda.py")
+    filename = "decode_evse_lambda.py"
+  }
+  source {
+    content  = file("${path.module}/../sidewalk_utils.py")
+    filename = "sidewalk_utils.py"
+  }
+  source {
+    content  = file("${path.module}/../device_registry.py")
+    filename = "device_registry.py"
+  }
 }
 
 # IAM role for Lambda
@@ -72,6 +84,15 @@ resource "aws_iam_role_policy" "evse_decoder_policy" {
       {
         Effect = "Allow"
         Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = aws_dynamodb_table.device_registry.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "lambda:InvokeFunction"
         ]
         Resource = "arn:aws:lambda:${var.aws_region}:*:function:${aws_lambda_function.ota_sender.function_name}"
@@ -93,8 +114,9 @@ resource "aws_lambda_function" "evse_decoder" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE  = var.dynamodb_table_name
-      OTA_LAMBDA_NAME = aws_lambda_function.ota_sender.function_name
+      DYNAMODB_TABLE         = var.dynamodb_table_name
+      OTA_LAMBDA_NAME        = aws_lambda_function.ota_sender.function_name
+      DEVICE_REGISTRY_TABLE  = var.device_registry_table_name
     }
   }
 

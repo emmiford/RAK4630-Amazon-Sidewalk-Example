@@ -20,11 +20,15 @@ from decimal import Decimal
 
 import boto3
 
+import device_registry
+
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
 table_name = os.environ.get('DYNAMODB_TABLE', 'sidewalk-v1-device_events_v2')
 ota_lambda_name = os.environ.get('OTA_LAMBDA_NAME', 'ota-sender')
+registry_table_name = os.environ.get('DEVICE_REGISTRY_TABLE', 'sidecharge-device-registry')
 table = dynamodb.Table(table_name)
+registry_table = dynamodb.Table(registry_table_name)
 
 # EVSE payload magic byte and version
 EVSE_MAGIC = 0xE5
@@ -323,6 +327,13 @@ def lambda_handler(event, context):
 
         # Write to DynamoDB
         table.put_item(Item=item)
+
+        # Update device registry (best-effort, never block event processing)
+        try:
+            app_ver = decoded.get('app_version') if decoded.get('payload_type') == 'ota' else None
+            device_registry.update_last_seen(registry_table, wireless_device_id, app_version=app_ver)
+        except Exception as e:
+            print(f"Device registry update failed (non-fatal): {e}")
 
         print(f"Stored decoded EVSE data: {json.dumps(decoded)}")
 
