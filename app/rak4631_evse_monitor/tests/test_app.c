@@ -17,6 +17,7 @@
 #include <evse_sensors.h>
 #include <charge_control.h>
 #include <thermostat_inputs.h>
+#include <selftest.h>
 #include <app_tx.h>
 #include <stdio.h>
 #include <assert.h>
@@ -504,6 +505,372 @@ static void test_init_sets_timer_interval(void)
 }
 
 /* ================================================================== */
+/*  selftest_boot: hardware path checks                                */
+/* ================================================================== */
+
+static void init_selftest(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;  /* pilot OK (State A) */
+	mock_get()->adc_values[1] = 0;     /* current OK (0 mA, consistent with State A) */
+	mock_get()->gpio_values[0] = 1;    /* charge enable */
+	mock_get()->gpio_values[1] = 0;    /* heat */
+	mock_get()->gpio_values[2] = 0;    /* cool */
+	mock_get()->uptime = 1000000;      /* high base */
+	selftest_set_api(mock_api());
+	selftest_reset();
+}
+
+static void test_selftest_boot_all_pass(void)
+{
+	init_selftest();
+	selftest_boot_result_t result;
+	assert(selftest_boot(&result) == 0);
+	assert(result.adc_pilot_ok == true);
+	assert(result.adc_current_ok == true);
+	assert(result.gpio_heat_ok == true);
+	assert(result.gpio_cool_ok == true);
+	assert(result.charge_en_ok == true);
+	assert(result.all_pass == true);
+	assert((selftest_get_fault_flags() & FAULT_SELFTEST) == 0);
+}
+
+static void test_selftest_boot_adc_pilot_fail(void)
+{
+	init_selftest();
+	mock_get()->adc_fail[0] = true;
+	selftest_boot_result_t result;
+	assert(selftest_boot(&result) == -1);
+	assert(result.adc_pilot_ok == false);
+	assert(result.all_pass == false);
+	assert(selftest_get_fault_flags() & FAULT_SELFTEST);
+}
+
+static void test_selftest_boot_adc_current_fail(void)
+{
+	init_selftest();
+	mock_get()->adc_fail[1] = true;
+	selftest_boot_result_t result;
+	assert(selftest_boot(&result) == -1);
+	assert(result.adc_current_ok == false);
+	assert(result.all_pass == false);
+}
+
+static void test_selftest_boot_gpio_heat_fail(void)
+{
+	init_selftest();
+	mock_get()->gpio_fail[1] = true;
+	selftest_boot_result_t result;
+	assert(selftest_boot(&result) == -1);
+	assert(result.gpio_heat_ok == false);
+	assert(result.all_pass == false);
+}
+
+static void test_selftest_boot_gpio_cool_fail(void)
+{
+	init_selftest();
+	mock_get()->gpio_fail[2] = true;
+	selftest_boot_result_t result;
+	assert(selftest_boot(&result) == -1);
+	assert(result.gpio_cool_ok == false);
+	assert(result.all_pass == false);
+}
+
+static void test_selftest_boot_charge_en_toggle_pass(void)
+{
+	init_selftest();
+	selftest_boot_result_t result;
+	assert(selftest_boot(&result) == 0);
+	assert(result.charge_en_ok == true);
+}
+
+static void test_selftest_boot_charge_en_readback_fail(void)
+{
+	init_selftest();
+	mock_get()->gpio_readback_fail[0] = true;
+	selftest_boot_result_t result;
+	assert(selftest_boot(&result) == -1);
+	assert(result.charge_en_ok == false);
+	assert(result.all_pass == false);
+}
+
+static void test_selftest_boot_flag_latched(void)
+{
+	/* After boot failure, FAULT_SELFTEST is latched */
+	init_selftest();
+	mock_get()->adc_fail[0] = true;
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+	assert(selftest_get_fault_flags() & FAULT_SELFTEST);
+
+	/* Running boot again with everything OK still has SELFTEST set (latched) */
+	mock_get()->adc_fail[0] = false;
+	selftest_boot(&result);
+	/* Second boot passes, so FAULT_SELFTEST gets cleared in the "all_pass" path.
+	 * Actually per plan: SELFTEST_FAIL is latched until reboot. But selftest_boot
+	 * only sets it on failure, doesn't clear it. So it stays latched. */
+	assert(selftest_get_fault_flags() & FAULT_SELFTEST);
+}
+
+static void test_selftest_boot_led_flash_on_failure(void)
+{
+	init_selftest();
+	mock_get()->adc_fail[0] = true;
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+	/* Should have called led_set at least twice (on + off) */
+	assert(mock_get()->led_set_count >= 2);
+	assert(mock_get()->led_last_id == 2);
+}
+
+/* ================================================================== */
+/*  selftest_continuous: runtime fault monitoring                       */
+/* ================================================================== */
+
+static void test_continuous_clamp_mismatch_state_c_no_current(void)
+{
+	init_selftest();
+	/* State C (charging) but no current — mismatch */
+	/* Before 10s: no fault */
+	selftest_continuous_tick(2, 1489, 0, true, false);  /* t=1000000 */
+	assert((selftest_get_fault_flags() & FAULT_CLAMP) == 0);
+
+	/* Tick at +9s: still no fault */
+	mock_get()->uptime = 1009000;
+	selftest_continuous_tick(2, 1489, 0, true, false);
+	assert((selftest_get_fault_flags() & FAULT_CLAMP) == 0);
+
+	/* Tick at +10s: fault triggers */
+	mock_get()->uptime = 1010000;
+	selftest_continuous_tick(2, 1489, 0, true, false);
+	assert(selftest_get_fault_flags() & FAULT_CLAMP);
+}
+
+static void test_continuous_clamp_mismatch_not_c_with_current(void)
+{
+	init_selftest();
+	/* State A (idle) but current flowing — mismatch */
+	mock_get()->uptime = 2000000;
+	selftest_continuous_tick(0, 2980, 5000, true, false);
+	assert((selftest_get_fault_flags() & FAULT_CLAMP) == 0);
+
+	/* After 10s */
+	mock_get()->uptime = 2010000;
+	selftest_continuous_tick(0, 2980, 5000, true, false);
+	assert(selftest_get_fault_flags() & FAULT_CLAMP);
+}
+
+static void test_continuous_clamp_mismatch_clears_on_resolve(void)
+{
+	init_selftest();
+	/* Trigger mismatch */
+	mock_get()->uptime = 3000000;
+	selftest_continuous_tick(2, 1489, 0, true, false);
+	mock_get()->uptime = 3010000;
+	selftest_continuous_tick(2, 1489, 0, true, false);
+	assert(selftest_get_fault_flags() & FAULT_CLAMP);
+
+	/* Resolve: State C with current */
+	mock_get()->uptime = 3011000;
+	selftest_continuous_tick(2, 1489, 5000, true, false);
+	assert((selftest_get_fault_flags() & FAULT_CLAMP) == 0);
+}
+
+static void test_continuous_normal_operation_no_fault(void)
+{
+	init_selftest();
+	/* State C + current = normal */
+	mock_get()->uptime = 4000000;
+	selftest_continuous_tick(2, 1489, 5000, true, false);
+	mock_get()->uptime = 4010000;
+	selftest_continuous_tick(2, 1489, 5000, true, false);
+	assert((selftest_get_fault_flags() & FAULT_CLAMP) == 0);
+}
+
+static void test_continuous_interlock_current_after_pause(void)
+{
+	init_selftest();
+	/* Start allowed */
+	mock_get()->uptime = 5000000;
+	selftest_continuous_tick(2, 1489, 5000, true, false);
+
+	/* Transition to paused, but current persists */
+	mock_get()->uptime = 5001000;
+	selftest_continuous_tick(2, 1489, 5000, false, false);
+	assert((selftest_get_fault_flags() & FAULT_INTERLOCK) == 0);
+
+	/* Before 30s: no fault */
+	mock_get()->uptime = 5029000;
+	selftest_continuous_tick(2, 1489, 5000, false, false);
+	assert((selftest_get_fault_flags() & FAULT_INTERLOCK) == 0);
+
+	/* After 30s: fault */
+	mock_get()->uptime = 5031000;
+	selftest_continuous_tick(2, 1489, 5000, false, false);
+	assert(selftest_get_fault_flags() & FAULT_INTERLOCK);
+}
+
+static void test_continuous_interlock_clears_when_current_drops(void)
+{
+	init_selftest();
+	/* Trigger interlock fault */
+	mock_get()->uptime = 6000000;
+	selftest_continuous_tick(2, 1489, 5000, true, false);
+	mock_get()->uptime = 6001000;
+	selftest_continuous_tick(2, 1489, 5000, false, false);
+	mock_get()->uptime = 6031000;
+	selftest_continuous_tick(2, 1489, 5000, false, false);
+	assert(selftest_get_fault_flags() & FAULT_INTERLOCK);
+
+	/* Current drops — clears */
+	mock_get()->uptime = 6032000;
+	selftest_continuous_tick(2, 1489, 0, false, false);
+	assert((selftest_get_fault_flags() & FAULT_INTERLOCK) == 0);
+}
+
+static void test_continuous_interlock_clears_when_charge_resumes(void)
+{
+	init_selftest();
+	/* Trigger interlock fault */
+	mock_get()->uptime = 7000000;
+	selftest_continuous_tick(2, 1489, 5000, true, false);
+	mock_get()->uptime = 7001000;
+	selftest_continuous_tick(2, 1489, 5000, false, false);
+	mock_get()->uptime = 7031000;
+	selftest_continuous_tick(2, 1489, 5000, false, false);
+	assert(selftest_get_fault_flags() & FAULT_INTERLOCK);
+
+	/* Charge resumed — clears */
+	mock_get()->uptime = 7032000;
+	selftest_continuous_tick(2, 1489, 5000, true, false);
+	assert((selftest_get_fault_flags() & FAULT_INTERLOCK) == 0);
+}
+
+static void test_continuous_pilot_out_of_range_sets_after_5s(void)
+{
+	init_selftest();
+	mock_get()->adc_fail[0] = true;  /* pilot ADC fails */
+	mock_get()->uptime = 8000000;
+	selftest_continuous_tick(6, 0, 0, true, false);  /* J1772_STATE_UNKNOWN */
+	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
+
+	/* Before 5s */
+	mock_get()->uptime = 8004000;
+	selftest_continuous_tick(6, 0, 0, true, false);
+	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
+
+	/* After 5s */
+	mock_get()->uptime = 8005000;
+	selftest_continuous_tick(6, 0, 0, true, false);
+	assert(selftest_get_fault_flags() & FAULT_SENSOR);
+}
+
+static void test_continuous_pilot_clears_on_resolve(void)
+{
+	init_selftest();
+	/* Trigger pilot fault */
+	mock_get()->adc_fail[0] = true;
+	mock_get()->uptime = 9000000;
+	selftest_continuous_tick(6, 0, 0, true, false);
+	mock_get()->uptime = 9005000;
+	selftest_continuous_tick(6, 0, 0, true, false);
+	assert(selftest_get_fault_flags() & FAULT_SENSOR);
+
+	/* Resolve */
+	mock_get()->adc_fail[0] = false;
+	mock_get()->uptime = 9006000;
+	selftest_continuous_tick(0, 2980, 0, true, false);
+	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
+}
+
+static void test_continuous_thermostat_chatter_fault(void)
+{
+	init_selftest();
+	mock_get()->uptime = 10000000;
+
+	/* Toggle cool_call >10 times within 60s */
+	for (int i = 0; i < 12; i++) {
+		mock_get()->uptime = 10000000 + (i * 2000);
+		bool cool = (i % 2 == 0);
+		selftest_continuous_tick(0, 2980, 0, true, cool);
+	}
+
+	assert(selftest_get_fault_flags() & FAULT_SENSOR);
+}
+
+static void test_continuous_thermostat_no_chatter(void)
+{
+	init_selftest();
+	mock_get()->uptime = 11000000;
+
+	/* Toggle <10 times in 60s — no fault */
+	for (int i = 0; i < 6; i++) {
+		mock_get()->uptime = 11000000 + (i * 5000);
+		bool cool = (i % 2 == 0);
+		selftest_continuous_tick(0, 2980, 0, true, cool);
+	}
+
+	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
+}
+
+/* ================================================================== */
+/*  selftest shell + payload integration                               */
+/* ================================================================== */
+
+static int shell_print_count;
+static void test_shell_print(const char *fmt, ...) { (void)fmt; shell_print_count++; }
+static void test_shell_error(const char *fmt, ...) { (void)fmt; }
+
+static void test_selftest_shell_all_pass(void)
+{
+	init_selftest();
+	evse_sensors_set_api(mock_api());
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	thermostat_inputs_set_api(mock_api());
+	shell_print_count = 0;
+
+	int ret = selftest_run_shell(test_shell_print, test_shell_error);
+	assert(ret == 0);
+	assert(shell_print_count > 0);
+}
+
+static void test_selftest_fault_flags_in_uplink_byte7(void)
+{
+	init_selftest();
+	/* Cause a boot failure to set FAULT_SELFTEST */
+	mock_get()->adc_fail[0] = true;
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+	uint8_t flags = selftest_get_fault_flags();
+	assert(flags & FAULT_SELFTEST);
+	/* Should be in upper nibble */
+	assert((flags & 0x0F) == 0);
+	assert((flags & 0xF0) != 0);
+}
+
+static void test_selftest_fault_flags_coexist_with_thermostat(void)
+{
+	init_selftest();
+	/* Set thermostat bits */
+	mock_get()->gpio_values[1] = 1;  /* heat */
+	mock_get()->gpio_values[2] = 1;  /* cool */
+	thermostat_inputs_set_api(mock_api());
+	uint8_t therm = thermostat_flags_get();  /* 0x03 */
+
+	/* Cause selftest fault */
+	mock_get()->adc_fail[0] = true;
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+	uint8_t fault = selftest_get_fault_flags();  /* 0x80 */
+
+	/* Combined byte should have both */
+	uint8_t combined = therm | fault;
+	assert((combined & 0x03) == 0x03);  /* thermostat bits preserved */
+	assert((combined & 0x80) == 0x80);  /* fault bit set */
+}
+
+/* ================================================================== */
 /*  Main                                                               */
 /* ================================================================== */
 
@@ -552,6 +919,35 @@ int main(void)
 	RUN_TEST(test_on_timer_multiple_changes_one_send);
 	RUN_TEST(test_on_timer_settled_after_change_no_send);
 	RUN_TEST(test_init_sets_timer_interval);
+
+	printf("\nselftest_boot:\n");
+	RUN_TEST(test_selftest_boot_all_pass);
+	RUN_TEST(test_selftest_boot_adc_pilot_fail);
+	RUN_TEST(test_selftest_boot_adc_current_fail);
+	RUN_TEST(test_selftest_boot_gpio_heat_fail);
+	RUN_TEST(test_selftest_boot_gpio_cool_fail);
+	RUN_TEST(test_selftest_boot_charge_en_toggle_pass);
+	RUN_TEST(test_selftest_boot_charge_en_readback_fail);
+	RUN_TEST(test_selftest_boot_flag_latched);
+	RUN_TEST(test_selftest_boot_led_flash_on_failure);
+
+	printf("\nselftest_continuous:\n");
+	RUN_TEST(test_continuous_clamp_mismatch_state_c_no_current);
+	RUN_TEST(test_continuous_clamp_mismatch_not_c_with_current);
+	RUN_TEST(test_continuous_clamp_mismatch_clears_on_resolve);
+	RUN_TEST(test_continuous_normal_operation_no_fault);
+	RUN_TEST(test_continuous_interlock_current_after_pause);
+	RUN_TEST(test_continuous_interlock_clears_when_current_drops);
+	RUN_TEST(test_continuous_interlock_clears_when_charge_resumes);
+	RUN_TEST(test_continuous_pilot_out_of_range_sets_after_5s);
+	RUN_TEST(test_continuous_pilot_clears_on_resolve);
+	RUN_TEST(test_continuous_thermostat_chatter_fault);
+	RUN_TEST(test_continuous_thermostat_no_chatter);
+
+	printf("\nselftest shell + payload:\n");
+	RUN_TEST(test_selftest_shell_all_pass);
+	RUN_TEST(test_selftest_fault_flags_in_uplink_byte7);
+	RUN_TEST(test_selftest_fault_flags_coexist_with_thermostat);
 
 	printf("\n=== %d/%d tests passed ===\n\n", tests_passed, tests_run);
 	return (tests_passed == tests_run) ? 0 : 1;

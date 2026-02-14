@@ -71,6 +71,7 @@ add_unit_test(test_app_tx
     ${APP_SRC}/rak_sidewalk.c
     ${APP_SRC}/evse_sensors.c
     ${APP_SRC}/thermostat_inputs.c
+    ${APP_SRC}/selftest.c
     ${APP_SRC}/charge_control.c
 )
 

@@ -58,6 +58,9 @@ static int mock_adc_read_mv(int channel)
 	if (channel < 0 || channel >= 4) {
 		return -1;
 	}
+	if (state.adc_fail[channel]) {
+		return -1;
+	}
 	return state.adc_values[channel];
 }
 
@@ -65,6 +68,12 @@ static int mock_gpio_get(int pin_index)
 {
 	if (pin_index < 0 || pin_index >= 4) {
 		return -1;
+	}
+	if (state.gpio_fail[pin_index]) {
+		return -1;
+	}
+	if (state.gpio_readback_fail[pin_index]) {
+		return !state.gpio_values[pin_index];
 	}
 	return state.gpio_values[pin_index];
 }

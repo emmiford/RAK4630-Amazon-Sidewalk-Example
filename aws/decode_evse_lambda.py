@@ -124,7 +124,7 @@ def decode_raw_evse_payload(raw_bytes):
       Byte 2: J1772 state (0-6)
       Byte 3-4: Pilot voltage mV (little-endian)
       Byte 5-6: Current mA (little-endian)
-      Byte 7: Thermostat flags
+      Byte 7: Thermostat flags (bits 0-1) + fault flags (bits 4-7)
     """
     if len(raw_bytes) < EVSE_PAYLOAD_SIZE:
         return None
@@ -138,7 +138,7 @@ def decode_raw_evse_payload(raw_bytes):
     j1772_state = raw_bytes[2]
     pilot_voltage = int.from_bytes(raw_bytes[3:5], 'little')
     current_ma = int.from_bytes(raw_bytes[5:7], 'little')
-    thermostat_bits = raw_bytes[7]
+    flags_byte = raw_bytes[7]
 
     # Sanity check values
     if j1772_state > 6:
@@ -154,9 +154,13 @@ def decode_raw_evse_payload(raw_bytes):
         'j1772_state': J1772_STATES.get(j1772_state, 'UNKNOWN'),
         'pilot_voltage_mv': pilot_voltage,
         'current_ma': current_ma,
-        'thermostat_bits': thermostat_bits,
-        'thermostat_heat': bool(thermostat_bits & 0x01),
-        'thermostat_cool': bool(thermostat_bits & 0x02),
+        'thermostat_bits': flags_byte & 0x0F,
+        'thermostat_heat': bool(flags_byte & 0x01),
+        'thermostat_cool': bool(flags_byte & 0x02),
+        'fault_sensor': bool(flags_byte & 0x10),
+        'fault_clamp_mismatch': bool(flags_byte & 0x20),
+        'fault_interlock': bool(flags_byte & 0x40),
+        'fault_selftest_fail': bool(flags_byte & 0x80),
     }
 
 
@@ -365,18 +369,24 @@ def lambda_handler(event, context):
                     print(f"Failed to invoke OTA Lambda: {e}")
 
         elif decoded.get('payload_type') == 'evse':
-            item['data'] = {
-                'evse': {
-                    'format': decoded.get('format', 'unknown'),
-                    'pilot_state': decoded['j1772_state'],
-                    'pilot_state_code': decoded['j1772_state_code'],
-                    'pilot_voltage_mv': decoded['pilot_voltage_mv'],
-                    'current_draw_ma': decoded['current_ma'],
-                    'thermostat_bits': decoded['thermostat_bits'],
-                    'thermostat_heat_active': decoded['thermostat_heat'],
-                    'thermostat_cool_active': decoded['thermostat_cool'],
-                }
+            evse_data = {
+                'format': decoded.get('format', 'unknown'),
+                'pilot_state': decoded['j1772_state'],
+                'pilot_state_code': decoded['j1772_state_code'],
+                'pilot_voltage_mv': decoded['pilot_voltage_mv'],
+                'current_draw_ma': decoded['current_ma'],
+                'thermostat_bits': decoded['thermostat_bits'],
+                'thermostat_heat_active': decoded['thermostat_heat'],
+                'thermostat_cool_active': decoded['thermostat_cool'],
             }
+            # Include fault flags if any are set
+            if any(decoded.get(f) for f in ('fault_sensor', 'fault_clamp_mismatch',
+                                             'fault_interlock', 'fault_selftest_fail')):
+                evse_data['fault_sensor'] = decoded.get('fault_sensor', False)
+                evse_data['fault_clamp_mismatch'] = decoded.get('fault_clamp_mismatch', False)
+                evse_data['fault_interlock'] = decoded.get('fault_interlock', False)
+                evse_data['fault_selftest_fail'] = decoded.get('fault_selftest_fail', False)
+            item['data'] = {'evse': evse_data}
 
             # Auto-send TIME_SYNC on EVSE uplinks
             try:

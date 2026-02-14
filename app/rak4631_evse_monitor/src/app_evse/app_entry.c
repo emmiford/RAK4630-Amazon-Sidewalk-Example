@@ -17,6 +17,7 @@
 #include <rak_sidewalk.h>
 #include <app_tx.h>
 #include <app_rx.h>
+#include <selftest.h>
 #include <time_sync.h>
 #include <event_buffer.h>
 #include <string.h>
@@ -95,6 +96,7 @@ static int app_init(const struct platform_api *platform)
 	rak_sidewalk_set_api(api);
 	app_tx_set_api(api);
 	app_rx_set_api(api);
+	selftest_set_api(api);
 	time_sync_set_api(api);
 
 	/* Initialize app subsystems */
@@ -103,6 +105,13 @@ static int app_init(const struct platform_api *platform)
 	thermostat_inputs_init();
 	time_sync_init();
 	event_buffer_init();
+
+	/* Boot self-test */
+	selftest_boot_result_t st_result;
+	if (selftest_boot(&st_result) != 0) {
+		api->log_err("Boot self-test FAILED (flags=0x%02x)",
+			     selftest_get_fault_flags());
+	}
 
 	/* Request 500ms poll interval from platform */
 	api->set_timer_interval(POLL_INTERVAL_MS);
@@ -207,6 +216,11 @@ static void app_on_timer(void)
 		event_buffer_add(&snap);
 	}
 
+	/* --- Continuous self-test monitoring --- */
+	selftest_continuous_tick((uint8_t)state, voltage_mv, current_ma,
+				charge_control_is_allowed(),
+				thermostat_cool_call_get());
+
 	/* --- Send on change or heartbeat --- */
 	uint32_t now = api->uptime_ms();
 	bool heartbeat_due = !last_heartbeat_ms ||
@@ -273,6 +287,11 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 		return -1;
 	}
 
+	/* selftest (commissioning) */
+	if (strcmp(cmd, "selftest") == 0) {
+		return selftest_run_shell(print, error);
+	}
+
 	/* sid commands */
 	if (strcmp(cmd, "sid") == 0 && args && strcmp(args, "time") == 0) {
 		if (!time_sync_is_synced()) {
@@ -288,7 +307,6 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 		print("  Since last sync: %u ms", since);
 		return 0;
 	}
-
 
 	/* sid send (manual trigger) */
 	if (strcmp(cmd, "sid") == 0 && args && strcmp(args, "send") == 0) {

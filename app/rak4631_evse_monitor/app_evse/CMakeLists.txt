@@ -81,6 +81,7 @@ set(APP_SOURCES
     ${APP_SRC}/rak_sidewalk.c
     ${APP_SRC}/app_tx.c
     ${APP_SRC}/app_rx.c
+    ${APP_SRC}/selftest.c
     ${APP_SRC}/time_sync.c
     ${APP_SRC}/event_buffer.c
 )

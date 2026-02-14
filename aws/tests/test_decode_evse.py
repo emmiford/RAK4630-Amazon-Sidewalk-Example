@@ -206,3 +206,49 @@ class TestLambdaHandler:
         mock_lambda.invoke.assert_called_once()
         call_kwargs = mock_lambda.invoke.call_args[1]
         assert call_kwargs["InvocationType"] == "Event"
+
+
+# --- Fault flag decoding ---
+
+class TestFaultFlags:
+    def test_no_faults_all_false(self):
+        """Byte 7 = 0x00 → no fault flags."""
+        raw = bytes([0xE5, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["fault_sensor"] is False
+        assert result["fault_clamp_mismatch"] is False
+        assert result["fault_interlock"] is False
+        assert result["fault_selftest_fail"] is False
+
+    def test_selftest_fail_flag(self):
+        """Byte 7 = 0x80 → selftest fail, no thermostat."""
+        raw = bytes([0xE5, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80])
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["fault_selftest_fail"] is True
+        assert result["fault_sensor"] is False
+        assert result["thermostat_heat"] is False
+        assert result["thermostat_cool"] is False
+        assert result["thermostat_bits"] == 0
+
+    def test_faults_coexist_with_thermostat(self):
+        """Byte 7 = 0x93 → heat + cool + sensor fault + selftest fail."""
+        raw = bytes([0xE5, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x93])
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_heat"] is True
+        assert result["thermostat_cool"] is True
+        assert result["thermostat_bits"] == 0x03
+        assert result["fault_sensor"] is True
+        assert result["fault_selftest_fail"] is True
+        assert result["fault_clamp_mismatch"] is False
+        assert result["fault_interlock"] is False
+
+    def test_all_fault_flags_set(self):
+        """Byte 7 = 0xF0 → all four fault flags."""
+        raw = bytes([0xE5, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0xF0])
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["fault_sensor"] is True
+        assert result["fault_clamp_mismatch"] is True
+        assert result["fault_interlock"] is True
+        assert result["fault_selftest_fail"] is True
+        assert result["thermostat_heat"] is False
+        assert result["thermostat_cool"] is False
