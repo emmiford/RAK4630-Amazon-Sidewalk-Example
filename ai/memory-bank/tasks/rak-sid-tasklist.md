@@ -6,6 +6,7 @@
 |-------|------|--------|----------|-------|
 | Oliver | Architecture / OTA / infra | `main`, `feature/generic-platform` | 2026-02-11 | TASK-001, 002, 004, 006, 007, 009, 010, 014, 019 |
 | Eero | Testing architect | `feature/testing-pyramid` | 2026-02-11 | TASK-003, 005, 009, 010, 011, 012, 013, 016, 018, 020, 021 |
+| Pam | Product manager | `feature/utility-identification` | 2026-02-13 | TASK-037 |
 
 ## Specification Summary
 **Project**: Embedded IoT EVSE monitor over Amazon Sidewalk (LoRa) with OTA firmware updates
@@ -505,6 +506,25 @@ TASK-028 (MFG key health tests) — unblocks TASK-023
 | P2 | TASK-001 | Merge feature branches to main |
 | P2 | TASK-026 | Boot path + app discovery tests (Eero, unblocked by TASK-024) |
 | Done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
+| Done | TASK-037 | Utility identification — PRD section 4.5 (Pam) |
+
+---
+
+### TASK-037: Scope utility identification and multi-utility TOU support in PRD — DONE (Pam)
+
+## Status: DONE (2026-02-13, Pam)
+## Branch: `feature/utility-identification`
+
+PRD section 4.5 added: Utility Identification and Multi-Utility Support. Covers address→utility lookup pipeline (correcting original meter→utility assumption), TOU data model, reference schedules for top 5 US utilities, config storage phasing, and charge scheduler refactor path. IaC renumbered to 4.6. Known Gaps and Traceability tables updated.
+
+## Acceptance Criteria
+- [x] PRD documents the utility identification pipeline (address → utility → TOU schedule)
+- [x] PRD documents TOU data model (day_type, hour ranges, season)
+- [x] PRD includes reference schedules for 5 major US utilities
+- [x] PRD documents config storage phasing (env vars → DynamoDB → per-device)
+- [x] PRD documents scheduler refactor path from hardcoded Xcel to configurable
+
+**Size**: S (2 points) — 30 min
 
 ---
 

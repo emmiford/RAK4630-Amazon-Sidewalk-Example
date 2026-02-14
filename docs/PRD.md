@@ -184,7 +184,83 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 
 **Notes**: The 70% MOER threshold is unvalidated against real PSCO data. See Oliver REC-004 / TASK-012.
 
-### 4.5 Infrastructure as Code
+### 4.5 Utility Identification and Multi-Utility TOU Support
+
+The current scheduler is hardcoded to Xcel Energy Colorado (PSCO balancing authority, weekday 5-9 PM MT peak). Scaling beyond a single site requires per-device utility identification and configurable TOU schedules.
+
+#### 4.5.1 Lookup Pipeline
+
+The correct data flow for identifying a device's utility and rate plan:
+
+```
+address/zip → utility (OpenEI USURDB) → TOU schedule
+lat/lon → balancing authority (WattTime /ba-from-loc) → MOER region
+meter_number → rate plan (utility-specific, optional disambiguation)
+```
+
+**Key correction**: The original assumption was meter_number → utility. This is wrong — US meter numbers are utility-specific serial numbers with no national standard or cross-utility registry. The correct lookup is address → utility, then meter number optionally disambiguates the rate plan within that utility.
+
+**API**: NREL's OpenEI Utility Rate Database (USURDB) provides free API access to 3,700+ US utility rate structures. Lookup by zip code returns utility name, rate plans, and TOU schedule details.
+
+| Requirement | Status |
+|-------------|--------|
+| Address/zip → utility lookup via OpenEI USURDB API | NOT STARTED |
+| Utility → TOU schedule mapping | NOT STARTED |
+| WattTime `/ba-from-loc` for grid region | NOT STARTED (hardcoded PSCO) |
+| Per-device utility configuration | NOT STARTED |
+| Fallback to hardcoded Xcel if lookup fails | NOT STARTED |
+
+#### 4.5.2 TOU Data Model
+
+Each TOU schedule is defined by:
+
+```json
+{
+  "utility_id": "xcel-co",
+  "utility_name": "Xcel Energy Colorado",
+  "rate_plan": "R-TOU",
+  "timezone": "America/Denver",
+  "watttime_ba": "PSCO",
+  "seasons": {
+    "summer": { "months": [6,7,8,9], "peak_hours": {"weekday": [[14,19]], "weekend": []} },
+    "winter": { "months": [1,2,3,4,5,10,11,12], "peak_hours": {"weekday": [[17,21]], "weekend": []} }
+  }
+}
+```
+
+Fields: `day_type` (weekday/weekend/holiday), `hour_ranges` (list of [start, end] in local time), `season` (date ranges), `timezone` (IANA).
+
+#### 4.5.3 Reference Schedules — Top 5 US Utilities
+
+| Utility | BA | Peak (Summer) | Peak (Winter) | Notes |
+|---------|------|---------------|---------------|-------|
+| Xcel Energy CO | PSCO | Weekdays 2-7 PM | Weekdays 5-9 PM | Current hardcoded schedule (winter only) |
+| PG&E (CA) | CISO | Weekdays 4-9 PM | Weekdays 4-9 PM | EV-specific E-TOU-D rate available |
+| SCE (CA) | CISO | Weekdays 4-9 PM | Weekdays 4-9 PM | TOU-D-PRIME for EV owners |
+| Duke Energy (NC/SC) | DUK | Weekdays 1-6 PM | Weekdays 6-9 AM, 6-9 PM | Seasonal variation |
+| ComEd (IL) | PJM | Weekdays 2-7 PM | Weekdays 2-7 PM | Real-time pricing also available |
+
+**Notes**: These are representative schedules for scoping purposes. Actual rate plans vary by customer class, enrollment date, and rate election. The OpenEI USURDB API provides authoritative schedule data.
+
+#### 4.5.4 Configuration Storage Phasing
+
+| Phase | Storage | Scope | When |
+|-------|---------|-------|------|
+| v1.0 (current) | Lambda env vars | Single utility (Xcel CO) | Now |
+| v1.1 | DynamoDB config table | Per-utility, shared across devices | Multi-utility support |
+| v2.0 | DynamoDB per-device config | Per-device utility + rate plan | Fleet management |
+
+#### 4.5.5 Scheduler Refactor Path
+
+The current `charge_scheduler_lambda.py` has three hardcoded values that must become configurable:
+
+1. `MT = ZoneInfo("America/Denver")` → device timezone from config
+2. `WATTTIME_REGION = "PSCO"` → device balancing authority from config
+3. `is_tou_peak()` weekday 5-9 PM → schedule lookup from TOU data model
+
+**Refactor approach**: Extract `is_tou_peak()` to accept a schedule object parameter instead of using hardcoded constants. Load schedule from DynamoDB config on each invocation (cached with TTL). Fall back to current Xcel schedule if config lookup fails.
+
+### 4.6 Infrastructure as Code
 
 | Requirement | Status |
 |-------------|--------|
@@ -305,7 +381,7 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 - On-device data logging (device is stateless, cloud stores everything)
 - OCPP (Open Charge Point Protocol) integration
 - Solar/battery storage integration
-- Multi-tariff or multi-utility TOU schedules (Xcel Colorado only)
+- Multi-tariff or multi-utility TOU schedules (Xcel Colorado only) — see section 4.5 for scoping
 
 ### 7.3 Future Considerations
 - Fleet provisioning and management tooling
@@ -336,6 +412,8 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 | No OTA image signing | Compromised S3 could push bad firmware | Future (out of v1.0 scope) |
 | No device offline alerting | Silent failures undetected | Future |
 | J1772 thresholds not hardware-calibrated | Possible misclassification | Oliver REC-002 |
+| Charge scheduler hardcoded to Xcel CO | Cannot support other utilities | TASK-037 |
+| No per-device utility configuration | All devices use same TOU schedule | TASK-037 |
 
 ---
 
@@ -359,3 +437,4 @@ Every backlog task maps to a gap in this PRD:
 | TASK-015 | — (Cleanup) | Dead code removal |
 | TASK-016 | 3.1 / 5.3 (SDK/Observability) | Architecture decisions documentation |
 | TASK-017 | — (Cleanup) | Legacy app removal |
+| TASK-037 | 4.5 (Utility Identification) | Multi-utility TOU support, address→utility lookup |
