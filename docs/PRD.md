@@ -282,6 +282,104 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 
 **Notes**: OTA images are validated by CRC32 only — no cryptographic signature. A compromised S3 bucket or Lambda could push malicious firmware. This is acceptable for single-site development but would need signing for production deployment.
 
+### 6.4 Privacy
+
+#### 6.4.1 Data Inventory and Classification
+
+All data collected by the system falls into three tiers:
+
+| Tier | Classification | Examples | Retention |
+|------|---------------|----------|-----------|
+| Tier 1 | Direct PII | AWS Sidewalk device ID (maps to account owner), IP addresses in CloudWatch logs | 90 days (DynamoDB), 30 days (CloudWatch) |
+| Tier 2 | Behavioral telemetry | J1772 charge sessions, current draw, thermostat activity, charge scheduling decisions | 90 days |
+| Tier 3 | Operational / non-personal | OTA session state, firmware version, link RSSI, LoRa sequence numbers | 90 days |
+
+**Notes**: The system does not collect names, email addresses, payment information, or vehicle identification numbers. However, Tier 2 data (charge timing patterns, thermostat usage) can reveal occupancy and lifestyle patterns and should be treated as quasi-PII under CCPA's broad definition of personal information.
+
+#### 6.4.2 Data Retention Rules
+
+| Data Store | Current Retention | Target Retention | Mechanism |
+|------------|-------------------|------------------|-----------|
+| DynamoDB (`device_events_v2`) | TTL enabled, no `ttl` attribute set on items | 90 days | Lambda sets `ttl = floor(timestamp_ms/1000) + 7776000` on each item |
+| CloudWatch Lambda logs | 14 days | 30 days | Terraform `retention_in_days` on all 3 log groups |
+| S3 firmware binaries | Indefinite | Indefinite (small, needed for delta OTA baselines) | No lifecycle policy needed |
+| DynamoDB sentinel keys | Indefinite (timestamp = -1, 0) | Indefinite (active session state) | Manual cleanup via `ota_deploy.py abort` / `clear-session` |
+
+**Implementation gap**: DynamoDB TTL is enabled in Terraform but the decode Lambda does not currently set a `ttl` attribute on items. This means records accumulate indefinitely despite the TTL infrastructure being in place. See TASK-038.
+
+#### 6.4.3 CCPA and State Privacy Law Compliance
+
+**Threshold analysis**: CCPA applies to businesses that (a) have >$25M annual revenue, (b) handle data of >50,000 consumers, or (c) derive >50% of revenue from selling personal data. A single-site residential deployment does not meet any threshold. However, privacy-by-design now avoids costly retrofits if the product scales.
+
+**Applicable state laws** (if thresholds are met in future):
+
+| Law | Jurisdiction | Key Requirements |
+|-----|-------------|------------------|
+| CCPA/CPRA | California | Right to know, delete, opt-out of sale; 45-day response |
+| CPA | Colorado | Right to access, correct, delete; opt-out of targeted advertising |
+| VCDPA | Virginia | Right to access, correct, delete, portability; opt-out of sale |
+| CTDPA | Connecticut | Right to access, correct, delete; opt-out of sale and profiling |
+
+**Consumer rights mapping** (future-proofing):
+
+| Right | Implementation Path |
+|-------|-------------------|
+| Right to know | DynamoDB query by `device_id` → export all records |
+| Right to delete | Delete all DynamoDB items for `device_id` + CloudWatch log filter |
+| Right to opt-out | Not applicable (no data sale or sharing with third parties) |
+| Right to correct | Telemetry is machine-generated; correction not meaningful |
+| Right to portability | JSON export of DynamoDB records for `device_id` |
+
+#### 6.4.4 Data Deletion Procedures
+
+When a device is decommissioned or a deletion request is received:
+
+1. Query DynamoDB for all items with matching `device_id`
+2. Batch-delete all returned items (including sentinel keys)
+3. Delete S3 firmware baselines associated with the device
+4. Note: CloudWatch logs cannot be selectively deleted — they expire per retention policy
+5. Confirm deletion to requestor with timestamp and item count
+6. Retain deletion audit record for 12 months (legal hold)
+
+**Implementation status**: No automated deletion tooling exists. Manual deletion via AWS CLI is possible but undocumented. See TASK-038 for privacy policy and retention documentation deliverables.
+
+#### 6.4.5 CloudWatch PII Audit
+
+Lambda functions log events that may contain PII-adjacent data:
+
+| Log Entry | Contains | Risk |
+|-----------|----------|------|
+| `Received event: {json.dumps(event)}` | `WirelessDeviceId`, `SidewalkId`, IP metadata | Device ID is linkable to AWS account owner |
+| `Stored decoded EVSE data: {json.dumps(decoded)}` | Charge state, voltage, current | Behavioral (Tier 2) |
+| `Forwarded OTA {ota_type}` | OTA session data | Operational (Tier 3) |
+| Error stack traces | Variable | May contain device IDs |
+
+**Recommendation**: Audit all `print()` / `logging` calls across the three Lambdas. Replace raw `json.dumps(event)` with filtered logging that excludes unnecessary metadata fields. Target: reduce Tier 1 data in logs to the minimum needed for debugging.
+
+#### 6.4.6 Privacy Governance
+
+| Requirement | Status |
+|-------------|--------|
+| Privacy policy document (customer-facing) | SCOPED — See TASK-038 |
+| Data retention policy (internal) | SCOPED — See TASK-038 |
+| CCPA threshold monitoring (annual review) | NOT STARTED |
+| Privacy consultant engagement | RECOMMENDED |
+| Data Processing Agreement (DPA) with AWS | IN PLACE (AWS DPA covers all services used) |
+| Third-party data sharing inventory | N/A (no third-party sharing; WattTime API is outbound query only) |
+
+**Recommendation**: Engage a privacy consultant before any multi-device or multi-user deployment. Cost estimate: $2,000-5,000 for initial assessment, $500-1,000/year for ongoing compliance monitoring. The consultant should review data flows, retention policies, and consumer rights procedures.
+
+#### 6.4.7 Privacy-by-Design Principles
+
+The following principles guide privacy decisions across the system:
+
+1. **Data minimization**: Collect only what is needed for demand response and diagnostics. No location data, no vehicle data, no user profiles.
+2. **Purpose limitation**: Telemetry is used for charge scheduling and operator diagnostics only. No analytics, no behavioral profiling, no data monetization.
+3. **Storage limitation**: All data has defined retention periods. No indefinite accumulation.
+4. **Transparency**: Privacy policy describes exactly what is collected and why. No hidden data flows.
+5. **Security**: Sidewalk encryption in transit, IAM least-privilege in cloud, MFG credentials in dedicated partition.
+6. **Accountability**: Deletion procedures documented, audit records maintained.
+
 ---
 
 ## 7. Scope Boundaries
@@ -336,6 +434,10 @@ Single-site residential installation: one RAK4631 device wired to a J1772 EVSE p
 | No OTA image signing | Compromised S3 could push bad firmware | Future (out of v1.0 scope) |
 | No device offline alerting | Silent failures undetected | Future |
 | J1772 thresholds not hardware-calibrated | Possible misclassification | Oliver REC-002 |
+| DynamoDB TTL attribute not set by Lambda | Records accumulate indefinitely | TASK-038 |
+| No automated data deletion tooling | Cannot fulfill deletion requests efficiently | TASK-042 |
+| CloudWatch logs may contain device IDs | PII-adjacent data in logs beyond retention needs | TASK-042 |
+| No privacy consultant engaged | Compliance risk if product scales to multi-user | TASK-042 |
 
 ---
 
@@ -359,3 +461,5 @@ Every backlog task maps to a gap in this PRD:
 | TASK-015 | — (Cleanup) | Dead code removal |
 | TASK-016 | 3.1 / 5.3 (SDK/Observability) | Architecture decisions documentation |
 | TASK-017 | — (Cleanup) | Legacy app removal |
+| TASK-038 | 6.4 (Privacy) | Privacy policy, data retention docs, DynamoDB TTL |
+| TASK-042 | 6.4 (Privacy) | Privacy scoping — CCPA, data inventory, governance |

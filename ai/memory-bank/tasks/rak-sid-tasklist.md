@@ -6,6 +6,7 @@
 |-------|------|--------|----------|-------|
 | Oliver | Architecture / OTA / infra | `main`, `feature/generic-platform` | 2026-02-11 | TASK-001, 002, 004, 006, 007, 009, 010, 014, 019 |
 | Eero | Testing architect | `feature/testing-pyramid` | 2026-02-11 | TASK-003, 005, 009, 010, 011, 012, 013, 016, 018, 020, 021 |
+| Pam | Product manager | `feature/privacy-scoping`, `feature/utility-identification`, `feature/warranty-scoping` | 2026-02-13 | TASK-037, 042, 043 |
 
 ## Specification Summary
 **Project**: Embedded IoT EVSE monitor over Amazon Sidewalk (LoRa) with OTA firmware updates
@@ -505,6 +506,9 @@ TASK-028 (MFG key health tests) — unblocks TASK-023
 | P2 | TASK-001 | Merge feature branches to main |
 | P2 | TASK-026 | Boot path + app discovery tests (Eero, unblocked by TASK-024) |
 | Done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
+| Done | TASK-042 | Privacy scoping — PRD section 6.4 (Pam) |
+| P1 | TASK-037 | Utility identification — PRD section 4.5 (Pam) |
+| P1 | TASK-043 | Warranty/liability risk — PRD section 6.5 (Pam) |
 
 ---
 
@@ -654,6 +658,63 @@ Also covers: OTA message routing (cmd 0x20 → OTA engine, else → app), NULL a
 - [x] Test: single nonzero byte edge cases
 - [x] Test: no short-circuit verification (both keys always checked)
 - [x] Tests mock the MFG read functions
+
+**Size**: S (2 points) — 30 min
+
+---
+
+### TASK-037: Scope utility identification and multi-utility TOU support in PRD — SCOPED (Pam)
+
+## Status: SCOPED (2026-02-13, Pam)
+## Branch: `feature/utility-identification`
+
+PRD section 4.5 added: Utility Identification and Multi-Utility Support. Covers address→utility lookup pipeline (correcting original meter→utility assumption), TOU data model, reference schedules for top 5 US utilities, config storage phasing, and charge scheduler refactor path.
+
+## Acceptance Criteria
+- [ ] PRD documents the utility identification pipeline (address → utility → TOU schedule)
+- [ ] PRD documents TOU data model (day_type, hour ranges, season)
+- [ ] PRD includes reference schedules for 5 major US utilities
+- [ ] PRD documents config storage phasing (env vars → DynamoDB → per-device)
+- [ ] PRD documents scheduler refactor path from hardcoded Xcel to configurable
+
+**Size**: S (2 points) — 30 min
+
+---
+
+### TASK-042: Privacy scoping — CCPA requirements, data retention, privacy governance — DONE (Pam)
+
+## Status: DONE (2026-02-13, Pam)
+## Branch: `feature/privacy-scoping`
+
+PRD section 6.4 added with 7 subsections: data inventory and classification (3 tiers), data retention rules (DynamoDB 90-day TTL, CloudWatch 30-day), CCPA/CPA/VCDPA/CTDPA compliance analysis, data deletion procedures, CloudWatch PII audit, privacy governance (consultant recommendation), privacy-by-design principles. Known Gaps and Traceability tables updated.
+
+## Acceptance Criteria
+- [x] PRD documents data inventory with classification tiers
+- [x] PRD documents retention rules per data store
+- [x] PRD documents CCPA threshold analysis and consumer rights mapping
+- [x] PRD documents data deletion procedures
+- [x] PRD documents CloudWatch PII audit findings
+- [x] PRD recommends privacy consultant engagement
+- [x] PRD Known Gaps table updated with privacy gaps
+- [x] PRD Traceability table updated
+
+**Size**: S (2 points) — 30 min
+
+---
+
+### TASK-043: Warranty and liability risk assessment — SCOPED (Pam)
+
+## Status: SCOPED (2026-02-13, Pam)
+## Branch: `feature/warranty-scoping`
+
+PRD section 6.5 added: Warranty and Liability. Documents risk that intercepting J1772 pilot wire may void EVSE or vehicle warranties. Covers per-circuit risk assessment, Magnuson-Moss Warranty Act analysis, 8 mitigations, phased compliance roadmap, and open questions.
+
+## Acceptance Criteria
+- [ ] PRD documents warranty risk per circuit (pilot, current clamp, relay, thermostat)
+- [ ] PRD documents Magnuson-Moss Warranty Act applicability
+- [ ] PRD documents mitigation strategies
+- [ ] PRD documents phased compliance roadmap
+- [ ] PRD documents open questions for legal review
 
 **Size**: S (2 points) — 30 min
 
