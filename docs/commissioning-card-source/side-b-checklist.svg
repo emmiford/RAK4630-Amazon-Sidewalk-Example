@@ -1,0 +1,266 @@
+<svg width="1100" height="850" viewBox="0 0 1100 850" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- White background -->
+  <rect width="1100" height="850" fill="white"/>
+
+  <!-- Top teal bar -->
+  <rect x="0" y="0" width="1100" height="4" fill="#0A7E8C"/>
+
+  <!-- ===== TITLE AREA (y: 12-55) ===== -->
+  <text x="36" y="35" fill="#064E56" font-family="Space Grotesk, sans-serif" font-size="20" font-weight="700">SideCharge Wiring Reference</text>
+  <text x="36" y="50" fill="#6B7280" font-family="Inter, sans-serif" font-size="11">Unfold and lay flat during installation. All SideCharge connections are low-voltage (24VAC max).</text>
+
+  <!-- Logo placeholder -->
+  <rect x="1000" y="12" width="70" height="28" rx="4" ry="4" fill="none" stroke="#064E56" stroke-width="1" opacity="0.4"/>
+  <text x="1035" y="30" fill="#064E56" font-family="Inter, sans-serif" font-size="12" text-anchor="middle">LOGO</text>
+
+  <!-- ===== SECTION HEADERS (y ~ 74-80) ===== -->
+  <text x="36" y="78" fill="#0A7E8C" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">Main Connection Diagram</text>
+  <text x="682" y="78" fill="#0A7E8C" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">Current Clamp Installation Detail</text>
+
+  <!-- ===== LEFT PANEL: Main Connection Diagram (x: 20-640, y: 60-611) ===== -->
+  <rect x="20" y="60" width="620" height="551" rx="6" ry="6" fill="#FAFBFC" stroke="#D1D5DB" stroke-width="0.5"/>
+
+  <!-- 240V Circuit Area (dashed amber border) -->
+  <rect x="30" y="92" width="600" height="136" rx="4" ry="4" fill="#FFFBEB" fill-opacity="0.6" stroke="#F5A623" stroke-width="1" stroke-dasharray="6 3"/>
+  <text x="50" y="109" fill="#F5A623" font-family="Inter, sans-serif" font-size="10" font-weight="600">240V Power Circuit — Existing items in Yellow</text>
+
+  <!-- Electrical Panel box -->
+  <rect x="50" y="128" width="110" height="70" rx="5" ry="5" fill="#FFF7E6" stroke="#F5A623" stroke-width="1.5"/>
+  <text x="68" y="158" fill="#1A1A2E" font-family="Inter, sans-serif" font-size="12">Electrical Panel</text>
+  <text x="85" y="180" fill="#F5A623" font-family="Inter, sans-serif" font-size="10" font-style="italic">breaker</text>
+
+  <!-- Connection line: Panel to Junction Box -->
+  <line x1="160" y1="163" x2="255" y2="163" stroke="#F5A623" stroke-width="3"/>
+
+  <!-- Junction Box -->
+  <rect x="255" y="135" width="95" height="55" rx="5" ry="5" fill="#EDE9FE" stroke="#7B61FF" stroke-width="1.5"/>
+  <text x="270" y="158" fill="#7B61FF" font-family="Inter, sans-serif" font-size="11">Junction Box</text>
+  <text x="272" y="175" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">Circuit splits</text>
+
+  <!-- Line from Junction to AC Compressor -->
+  <line x1="350" y1="148" x2="480" y2="120" stroke="#F5A623" stroke-width="2.5"/>
+
+  <!-- AC Compressor box -->
+  <rect x="480" y="102" width="130" height="40" rx="5" ry="5" fill="#FFF7E6" stroke="#F5A623" stroke-width="1.2"/>
+  <text x="500" y="118" fill="#1A1A2E" font-family="Inter, sans-serif" font-size="12">AC Compressor</text>
+  <text x="505" y="135" fill="#F5A623" font-family="Inter, sans-serif" font-size="10">30-50A @ 240V</text>
+
+  <!-- Line from Junction to EVSE -->
+  <line x1="350" y1="178" x2="480" y2="200" stroke="#7B61FF" stroke-width="2.5"/>
+
+  <!-- EV Charger box -->
+  <rect x="480" y="180" width="130" height="40" rx="5" ry="5" fill="#EDE9FE" stroke="#7B61FF" stroke-width="1.2"/>
+  <text x="495" y="200" fill="#1A1A2E" font-family="Inter, sans-serif" font-size="12">EV Charger (EVSE)</text>
+  <text x="505" y="215" fill="#6B7280" font-family="Inter, sans-serif" font-size="10">24-48A @ 240V</text>
+
+  <!-- CT Circle -->
+  <circle cx="430" cy="190" r="16" fill="white" stroke="#0A7E8C" stroke-width="2.5"/>
+  <text x="430" y="194" fill="#0A7E8C" font-family="JetBrains Mono, monospace" font-size="11" text-anchor="middle">CT</text>
+  <text x="455" y="183" fill="#0A7E8C" font-family="Inter, sans-serif" font-size="9">arrow → toward load</text>
+
+  <!-- Dashed lines from CT circle down to SideCharge device -->
+  <line x1="430" y1="206" x2="350" y2="310" stroke="#0A7E8C" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <line x1="430" y1="206" x2="400" y2="310" stroke="#0A7E8C" stroke-width="1.5" stroke-dasharray="4 3"/>
+
+  <!-- ===== SIDECHARGE DEVICE BOX (x: 185-465, y: 250-560) ===== -->
+  <rect x="185" y="250" width="280" height="310" rx="8" ry="8" fill="#064E56"/>
+
+  <!-- Inner terminal area -->
+  <rect x="200" y="310" width="250" height="230" rx="4" ry="4" fill="#0B6B78" fill-opacity="0.5"/>
+
+  <!-- Device labels -->
+  <text x="280" y="278" fill="white" font-family="Space Grotesk, sans-serif" font-size="16" font-weight="700">SideCharge</text>
+  <text x="240" y="298" fill="#B8E4E9" font-family="Inter, sans-serif" font-size="11">RAK4631 (nRF52840 + LoRa)</text>
+  <text x="270" y="328" fill="#B8E4E9" font-family="Inter, sans-serif" font-size="11" font-weight="600">TERMINALS</text>
+
+  <!-- Terminal Row 1: R — 24VAC Power -->
+  <rect x="210" y="338" width="230" height="22" rx="3" ry="3" fill="#0D4E56"/>
+  <rect x="213" y="341" width="16" height="16" rx="2" ry="2" fill="#DC2626" fill-opacity="0.8"/>
+  <text x="221" y="354" fill="white" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500" text-anchor="middle">R</text>
+  <text x="235" y="354" fill="white" font-family="Inter, sans-serif" font-size="10">24VAC Power (from transformer)</text>
+
+  <!-- Terminal Row 2: Y — Cool Call -->
+  <rect x="210" y="371" width="230" height="22" rx="3" ry="3" fill="#0D4E56"/>
+  <rect x="213" y="374" width="16" height="16" rx="2" ry="2" fill="#D97706" fill-opacity="0.8"/>
+  <text x="221" y="387" fill="white" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500" text-anchor="middle">Y</text>
+  <text x="235" y="387" fill="white" font-family="Inter, sans-serif" font-size="10">Cool Call (from thermostat)</text>
+
+  <!-- Terminal Row 3: C — 24VAC Common -->
+  <rect x="210" y="403" width="230" height="22" rx="3" ry="3" fill="#0D4E56"/>
+  <rect x="213" y="406" width="16" height="16" rx="2" ry="2" fill="#2563EB" fill-opacity="0.8"/>
+  <text x="221" y="419" fill="white" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500" text-anchor="middle">C</text>
+  <text x="235" y="419" fill="white" font-family="Inter, sans-serif" font-size="10">24VAC Common (return)</text>
+
+  <!-- Terminal Row 4: G — Ground -->
+  <rect x="210" y="434" width="230" height="28" rx="3" ry="3" fill="#0D4E56"/>
+  <rect x="213" y="438" width="16" height="16" rx="2" ry="2" fill="#2ECC71" fill-opacity="0.8"/>
+  <text x="221" y="451" fill="white" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500" text-anchor="middle">G</text>
+  <text x="235" y="448" fill="white" font-family="Inter, sans-serif" font-size="9">Ground (from Compressor</text>
+  <text x="235" y="459" fill="white" font-family="Inter, sans-serif" font-size="9">ground screw)</text>
+
+  <!-- Terminal Row 5: P — Pilot -->
+  <rect x="210" y="466" width="230" height="22" rx="3" ry="3" fill="#0D4E56"/>
+  <rect x="213" y="469" width="16" height="16" rx="2" ry="2" fill="#7B61FF" fill-opacity="0.8"/>
+  <text x="221" y="482" fill="white" font-family="JetBrains Mono, monospace" font-size="10" font-weight="500" text-anchor="middle">P</text>
+  <text x="235" y="482" fill="white" font-family="Inter, sans-serif" font-size="10">Pilot (J1772 signal from EVSE)</text>
+
+  <!-- Terminal Row 6: CT — Current Clamp -->
+  <rect x="210" y="498" width="230" height="22" rx="3" ry="3" fill="#0D4E56"/>
+  <rect x="213" y="501" width="20" height="16" rx="2" ry="2" fill="#0A7E8C" fill-opacity="0.8"/>
+  <text x="223" y="514" fill="white" font-family="JetBrains Mono, monospace" font-size="9" font-weight="500" text-anchor="middle">CT</text>
+  <text x="238" y="514" fill="white" font-family="Inter, sans-serif" font-size="10">Current Clamp (CT+ and CT-)</text>
+
+  <!-- ===== AC COMPRESSOR / THERMOSTAT DETAIL BOX (x: 30-150, y: 250-436) ===== -->
+  <rect x="30" y="250" width="120" height="186" rx="5" ry="5" fill="#E8F8FA" stroke="#0A7E8C" stroke-width="1.5"/>
+
+  <text x="45" y="272" fill="#064E56" font-family="Inter, sans-serif" font-size="11" font-weight="700">AC Compressor</text>
+  <text x="50" y="288" fill="#1A1A2E" font-family="Inter, sans-serif" font-size="10">Thermostat</text>
+  <text x="45" y="304" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">Standard 4-wire</text>
+
+  <!-- Wire labels with colored badges -->
+  <rect x="42" y="318" width="10" height="10" rx="2" ry="2" fill="#DC2626"/>
+  <text x="56" y="328" fill="#064E56" font-family="Inter, sans-serif" font-size="9">R  24VAC hot</text>
+
+  <rect x="42" y="338" width="10" height="10" rx="2" ry="2" fill="#D97706"/>
+  <text x="56" y="348" fill="#064E56" font-family="Inter, sans-serif" font-size="9">Y  Cool call</text>
+
+  <rect x="42" y="358" width="10" height="10" rx="2" ry="2" fill="#2563EB"/>
+  <text x="56" y="368" fill="#064E56" font-family="Inter, sans-serif" font-size="9">C  Common</text>
+
+  <text x="40" y="392" fill="#1A1A2E" font-family="Inter, sans-serif" font-size="9">Copper Ground Screw</text>
+
+  <rect x="42" y="400" width="10" height="10" rx="2" ry="2" fill="#2ECC71"/>
+  <text x="56" y="410" fill="#064E56" font-family="Inter, sans-serif" font-size="9">G  Ground</text>
+
+  <text x="38" y="428" fill="#6B7280" font-family="Inter, sans-serif" font-size="8">G wire to lug, NOT thermostat!</text>
+
+  <!-- Connection lines from AC/Thermostat box to SideCharge terminals -->
+  <line x1="150" y1="323" x2="210" y2="349" stroke="#DC2626" stroke-width="1.5"/>
+  <line x1="150" y1="343" x2="210" y2="382" stroke="#D97706" stroke-width="1.5"/>
+  <line x1="150" y1="363" x2="210" y2="414" stroke="#2563EB" stroke-width="1.5"/>
+  <line x1="150" y1="405" x2="210" y2="448" stroke="#2ECC71" stroke-width="1.5"/>
+
+  <!-- ===== EVSE PILOT BOX (x: 32-152, y: 447-554) ===== -->
+  <rect x="32" y="447" width="120" height="107" rx="5" ry="5" fill="#EDE9FE" stroke="#7B61FF" stroke-width="1.5"/>
+
+  <text x="55" y="472" fill="#7B61FF" font-family="Inter, sans-serif" font-size="11" font-weight="700">EVSE Pilot</text>
+  <text x="52" y="492" fill="#7B61FF" font-family="Inter, sans-serif" font-size="9">J1772 pilot</text>
+  <text x="48" y="506" fill="#7B61FF" font-family="Inter, sans-serif" font-size="9">signal, 1kHz pilot</text>
+  <text x="42" y="526" fill="#6B7280" font-family="Inter, sans-serif" font-size="8">Insert the connector that</text>
+  <text x="42" y="540" fill="#6B7280" font-family="Inter, sans-serif" font-size="8">matches the EVSE model</text>
+
+  <!-- Connection line from EVSE pilot box to SideCharge P terminal -->
+  <line x1="152" y1="477" x2="210" y2="477" stroke="#7B61FF" stroke-width="1.5"/>
+
+  <!-- ===== RIGHT PANEL: Current Clamp Detail (x: 660-1080, y: 60-460) ===== -->
+  <rect x="660" y="60" width="420" height="400" rx="6" ry="6" fill="#FAFBFC" stroke="#D1D5DB" stroke-width="0.5"/>
+
+  <!-- CORRECT box -->
+  <rect x="675" y="92" width="390" height="98" rx="4" ry="4" fill="#D1FAE5" fill-opacity="0.15" stroke="#2ECC71" stroke-width="1"/>
+  <text x="700" y="112" fill="#2ECC71" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">CORRECT</text>
+
+  <!-- Green checkmark -->
+  <path d="M760,104 L764,110 L772,100" stroke="#2ECC71" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Conductor pair lines -->
+  <line x1="700" y1="135" x2="1007" y2="135" stroke="#F5A623" stroke-width="2.5"/>
+  <line x1="700" y1="145" x2="1007" y2="145" stroke="#F5A623" stroke-width="2.5"/>
+
+  <!-- CT circle on conductor -->
+  <circle cx="860" cy="140" r="18" fill="white" stroke="#0A7E8C" stroke-width="2.5"/>
+  <text x="860" y="144" fill="#0A7E8C" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">CT</text>
+
+  <!-- Arrow from CT to right -->
+  <line x1="878" y1="140" x2="905" y2="140" stroke="#0A7E8C" stroke-width="2"/>
+  <path d="M900,136 L908,140 L900,144" fill="#0A7E8C"/>
+
+  <!-- Labels -->
+  <text x="715" y="130" fill="#6B7280" font-family="Inter, sans-serif" font-size="10">L1 → to EV Charger</text>
+  <text x="700" y="168" fill="#064E56" font-family="Inter, sans-serif" font-size="9">The arrow on the CT clamp must</text>
+  <text x="700" y="180" fill="#064E56" font-family="Inter, sans-serif" font-size="9">point toward the load (charger).</text>
+  <text x="920" y="150" fill="#0A7E8C" font-family="Inter, sans-serif" font-size="9">Clamp on EV charger</text>
+  <text x="920" y="162" fill="#0A7E8C" font-family="Inter, sans-serif" font-size="9">conductor only.</text>
+
+  <!-- WRONG #1 box -->
+  <rect x="675" y="220" width="190" height="90" rx="4" ry="4" fill="#FEE2E2" fill-opacity="0.3" stroke="#DC2626" stroke-width="0.8"/>
+  <text x="696" y="242" fill="#DC2626" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">WRONG</text>
+
+  <!-- Red X mark -->
+  <line x1="736" y1="230" x2="748" y2="242" stroke="#DC2626" stroke-width="2" stroke-linecap="round"/>
+  <line x1="748" y1="230" x2="736" y2="242" stroke="#DC2626" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Two conductor lines (both enclosed) -->
+  <line x1="690" y1="260" x2="845" y2="260" stroke="#F5A623" stroke-width="2"/>
+  <line x1="690" y1="272" x2="845" y2="272" stroke="#F5A623" stroke-width="2"/>
+
+  <!-- CT circle around both -->
+  <circle cx="770" cy="266" r="12" fill="white" stroke="#DC2626" stroke-width="2"/>
+  <text x="770" y="270" fill="#DC2626" font-family="JetBrains Mono, monospace" font-size="8" text-anchor="middle">CT</text>
+
+  <text x="698" y="298" fill="#DC2626" font-family="Inter, sans-serif" font-size="10">Clamp around both wires.</text>
+
+  <!-- WRONG #2 box -->
+  <rect x="675" y="320" width="190" height="90" rx="4" ry="4" fill="#FEE2E2" fill-opacity="0.3" stroke="#DC2626" stroke-width="0.8"/>
+  <text x="696" y="342" fill="#DC2626" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="700">WRONG</text>
+
+  <!-- Red X mark -->
+  <line x1="736" y1="330" x2="748" y2="342" stroke="#DC2626" stroke-width="2" stroke-linecap="round"/>
+  <line x1="748" y1="330" x2="736" y2="342" stroke="#DC2626" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Single conductor line -->
+  <line x1="690" y1="365" x2="845" y2="365" stroke="#F5A623" stroke-width="2"/>
+
+  <!-- CT circle with wrong-direction arrow -->
+  <circle cx="770" cy="365" r="10" fill="white" stroke="#DC2626" stroke-width="2"/>
+  <text x="770" y="369" fill="#DC2626" font-family="JetBrains Mono, monospace" font-size="7" text-anchor="middle">CT</text>
+
+  <!-- Arrow pointing left (wrong direction) -->
+  <line x1="760" y1="365" x2="730" y2="365" stroke="#DC2626" stroke-width="2"/>
+  <path d="M735,361 L727,365 L735,369" fill="#DC2626"/>
+
+  <text x="718" y="360" fill="#DC2626" font-family="Inter, sans-serif" font-size="10">← panel</text>
+
+  <text x="696" y="395" fill="#DC2626" font-family="Inter, sans-serif" font-size="10">Arrow pointing toward panel</text>
+  <text x="700" y="408" fill="#DC2626" font-family="Inter, sans-serif" font-size="9">— may read negative/wrong</text>
+
+  <!-- Amber note box -->
+  <rect x="875" y="330" width="190" height="70" rx="4" ry="4" fill="#F5A623" fill-opacity="0.1" stroke="#F5A623" stroke-width="0.8"/>
+  <rect x="875" y="330" width="4" height="70" rx="2" ry="2" fill="#F5A623"/>
+
+  <text x="894" y="350" fill="#B8860B" font-family="Inter, sans-serif" font-size="9" font-weight="600">Orientation matters!</text>
+  <text x="890" y="368" fill="#B8860B" font-family="Inter, sans-serif" font-size="9">Arrow → load</text>
+  <text x="890" y="386" fill="#6B7280" font-family="Inter, sans-serif" font-size="8">If readings are negative,</text>
+  <text x="890" y="398" fill="#6B7280" font-family="Inter, sans-serif" font-size="8">flip the clamp direction.</text>
+
+  <!-- ===== LOW-VOLTAGE DISCLAIMER (y ~ 570-610) ===== -->
+  <text x="33" y="585" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">All SideCharge connections are low-voltage control signals (24VAC max). The current clamp is the only contact with the 240V circuit</text>
+  <text x="33" y="598" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">and is read-only. SideCharge does not switch, interrupt, or carry 240V power.</text>
+
+  <!-- ===== EVSE CONNECTOR SELECTION BOX (x: 20-640, y: 615-699) ===== -->
+  <rect x="20" y="615" width="620" height="84" rx="5" ry="5" fill="#EDE9FE" fill-opacity="0.12" stroke="#7B61FF" stroke-width="0.8"/>
+  <rect x="20" y="615" width="4" height="84" rx="2" ry="2" fill="#7B61FF"/>
+
+  <text x="35" y="638" fill="#7B61FF" font-family="Space Grotesk, sans-serif" font-size="12" font-weight="700">EVSE CONNECTOR SELECTION</text>
+  <text x="35" y="656" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">The pilot signal wire connects SideCharge to your EV charger's J1772 control pilot (Cp) circuit.</text>
+  <text x="35" y="670" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">Connection method depends on your EVSE model:</text>
+  <text x="35" y="684" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">• Hardwired EVSE (e.g. Grizzl-E, ClipperCreek): Connect to the Cp terminal directly with spade terminal.</text>
+  <text x="35" y="698" fill="#6B7280" font-family="Inter, sans-serif" font-size="9">• Connector (e.g. ChargePoint, Tesla): Use an adapter connector between J1772 pilot wire and Cp pin.</text>
+
+  <!-- ===== WARNING BAR (x: 20-1080, y: 808-842) ===== -->
+  <rect x="20" y="808" width="1060" height="34" rx="4" ry="4" fill="#F5A623" fill-opacity="0.15"/>
+  <rect x="20" y="808" width="4" height="34" rx="2" ry="2" fill="#F5A623"/>
+
+  <!-- Warning triangle -->
+  <path d="M40,828 L46,816 L52,828 Z" fill="none" stroke="#F5A623" stroke-width="1.5" stroke-linejoin="round"/>
+  <text x="46" y="826" fill="#F5A623" font-family="Inter, sans-serif" font-size="9" font-weight="700" text-anchor="middle">!</text>
+
+  <text x="58" y="822" fill="#B8860B" font-family="Inter, sans-serif" font-size="10" font-weight="700">CAUTION: All 240V branch circuit work must be performed by a licensed electrician with the circuit breaker OFF and locked out.</text>
+  <text x="58" y="835" fill="#B8860B" font-family="Inter, sans-serif" font-size="9">Verify conductor sizing per NEC 240.4(D): #8 AWG Cu minimum for 40A circuit, #6 AWG Cu for 50A circuit.</text>
+
+</svg>

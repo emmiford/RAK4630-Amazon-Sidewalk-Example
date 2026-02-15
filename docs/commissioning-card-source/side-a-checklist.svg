@@ -1,0 +1,380 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="850" height="1100" viewBox="0 0 850 1100" fill="none">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap');
+    </style>
+    <clipPath id="page-clip">
+      <rect width="850" height="1100"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#page-clip)">
+
+    <!-- ============================================================ -->
+    <!-- TOP-LEFT QUADRANT: Steps C-01 to C-07 (x:0-425, y:0-550)    -->
+    <!-- ============================================================ -->
+
+    <!-- 4px teal bar at top -->
+    <rect x="0" y="0" width="425" height="4" fill="#0A7E8C"/>
+
+    <!-- Warning triangle icon (amber) -->
+    <path d="M185,14 L192,26 L178,26 Z" fill="none" stroke="#F5A623" stroke-width="1.5"/>
+    <text x="184" y="24" font-family="Inter, sans-serif" font-size="8" font-weight="700" fill="#F5A623" text-anchor="middle">!</text>
+
+    <!-- Section header -->
+    <text x="21" y="28" font-family="Space Grotesk, sans-serif" font-size="12" font-weight="700" fill="#1A1A2E">PRE-POWER INSPECTION</text>
+
+    <!-- Amber warning bar -->
+    <rect x="0" y="36" width="425" height="36" fill="#F5A623" opacity="0.15"/>
+    <rect x="0" y="36" width="3" height="36" fill="#F5A623"/>
+    <text x="27" y="50" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#B8860B">CIRCUIT BREAKER MUST BE OFF FOR STEPS C-01 THROUGH C-05.</text>
+    <text x="24" y="64" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">This device cannot detect 240V wiring errors. These visual checks are the only defense against branch circuit faults.</text>
+
+    <!-- ===== C-01 BRANCH CIRCUIT WIRING (y=80-134) ===== -->
+    <rect x="10" y="80" width="405" height="54" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="340" y="84" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="345" y="82" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="380" y="84" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M394.442 93V87.909H397.813V88.797H395.519V90.01H397.589V90.897H395.519V93H394.442ZM398.779 93H397.626L399.383 87.909H400.77L402.525 93H401.397L400.096 89.072H400.057L398.779 93ZM398.707 90.999H401.431V91.839H398.707V90.999ZM404.214 87.909V93H403.138V87.909H404.214ZM405.1 93V87.909H406.176V92.113H408.359V93H405.1Z" fill="#1A1A2E"/>
+    <text x="23" y="96" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-01</text>
+    <text x="53" y="96" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">BRANCH CIRCUIT WIRING</text>
+    <text x="21" y="108" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Inspect: conductor gauge, breaker rating, junction box connections, EGC continuity.</text>
+    <text x="21" y="120" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Conductors match breaker rating per NEC 240.4(D). EGC continuous from panel to both loads.</text>
+
+    <!-- ===== C-02 CURRENT CLAMP PLACEMENT (y=140-194) ===== -->
+    <rect x="10" y="140" width="405" height="54" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="340" y="144" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="345" y="142" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="380" y="144" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M394.442 153V147.909H397.813V148.797H395.519V150.01H397.589V150.897H395.519V153H394.442ZM398.779 153H397.626L399.383 147.909H400.77L402.525 153H401.397L400.096 149.072H400.057L398.779 153ZM398.707 150.999H401.431V151.839H398.707V150.999ZM404.214 147.909V153H403.138V147.909H404.214ZM405.1 153V147.909H406.176V152.113H408.359V153H405.1Z" fill="#1A1A2E"/>
+    <text x="23" y="156" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-02</text>
+    <text x="53" y="156" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">CURRENT CLAMP PLACEMENT</text>
+    <text x="21" y="168" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Inspect: clamp on correct conductor (EV charger leg, not AC leg). Arrow on clamp points toward load.</text>
+    <text x="21" y="180" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Clamp on EV charger conductor, correct orientation (arrow toward load). See wiring diagram on reverse.</text>
+
+    <!-- ===== C-03 THERMOSTAT WIRING (y=200-254) ===== -->
+    <rect x="10" y="200" width="405" height="54" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="340" y="204" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="345" y="202" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="380" y="204" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M394.442 213V207.909H397.813V208.797H395.519V210.01H397.589V210.897H395.519V213H394.442ZM398.779 213H397.626L399.383 207.909H400.77L402.525 213H401.397L400.096 209.072H400.057L398.779 213ZM398.707 210.999H401.431V211.839H398.707V210.999ZM404.214 207.909V213H403.138V207.909H404.214ZM405.1 213V207.909H406.176V212.113H408.359V213H405.1Z" fill="#1A1A2E"/>
+    <text x="23" y="216" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-03</text>
+    <text x="53" y="216" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">THERMOSTAT WIRING</text>
+    <text x="21" y="228" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Inspect: Y, C, and G wires on correct SideCharge terminals. No shorts between thermostat conductors.</text>
+    <text x="21" y="240" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Y (cool call), C (common/24VAC), G (fan) on correct terminals per wiring diagram on reverse.</text>
+
+    <!-- ===== C-04 J1772 PILOT TAP (y=260-308) ===== -->
+    <rect x="10" y="260" width="405" height="48" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="340" y="264" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="345" y="262" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="380" y="264" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M394.442 273V267.909H397.813V268.797H395.519V270.01H397.589V270.897H395.519V273H394.442ZM398.779 273H397.626L399.383 267.909H400.77L402.525 273H401.397L400.096 269.072H400.057L398.779 273ZM398.707 270.999H401.431V271.839H398.707V270.999ZM404.214 267.909V273H403.138V267.909H404.214ZM405.1 273V267.909H406.176V272.113H408.359V273H405.1Z" fill="#1A1A2E"/>
+    <text x="23" y="276" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-04</text>
+    <text x="53" y="276" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">J1772 PILOT TAP</text>
+    <text x="21" y="288" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Inspect: pilot signal wire connected to correct terminal on EVSE side.</text>
+    <text x="21" y="300" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Pilot wire connected to SideCharge pilot input terminal. See wiring diagram on reverse.</text>
+
+    <!-- ===== C-05 PHYSICAL MOUNTING (y=314-362) ===== -->
+    <rect x="10" y="314" width="405" height="48" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="340" y="318" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="345" y="316" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="380" y="318" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M394.442 327V321.909H397.813V322.797H395.519V324.01H397.589V324.897H395.519V327H394.442ZM398.779 327H397.626L399.383 321.909H400.77L402.525 327H401.397L400.096 323.072H400.057L398.779 327ZM398.707 324.999H401.431V325.839H398.707V324.999ZM404.214 321.909V327H403.138V321.909H404.214ZM405.1 327V321.909H406.176V326.113H408.359V327H405.1Z" fill="#1A1A2E"/>
+    <text x="23" y="330" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-05</text>
+    <text x="53" y="330" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">PHYSICAL MOUNTING</text>
+    <text x="21" y="342" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Inspect: device secured to wall or junction box. Conduit entries sealed. No strain on low-voltage wires.</text>
+    <text x="21" y="354" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Device firmly mounted. All conduit entries sealed. No wire strain.</text>
+
+    <!-- Powered Tests section bar -->
+    <rect x="0" y="372" width="425" height="24" fill="#B8E4E9" opacity="0.2"/>
+    <text x="21" y="388" font-family="Space Grotesk, sans-serif" font-size="12" font-weight="700" fill="#064E56">POWERED TESTS</text>
+    <text x="160" y="386" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Turn ON circuit breaker. Observe LEDs.</text>
+
+    <!-- ===== C-06 POWER ON + SELF-TEST (y=402-476, AMBER BORDER) ===== -->
+    <rect x="10" y="402" width="405" height="74" rx="4" fill="white" stroke="#F5A623" stroke-width="1.5"/>
+    <rect x="340" y="406" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="345" y="404" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="380" y="406" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M394.442 415V409.909H397.813V410.797H395.519V412.01H397.589V412.897H395.519V415H394.442ZM398.779 415H397.626L399.383 409.909H400.77L402.525 415H401.397L400.096 411.072H400.057L398.779 415ZM398.707 412.999H401.431V413.839H398.707V412.999ZM404.214 409.909V415H403.138V409.909H404.214ZM405.1 415V409.909H406.176V414.113H408.359V415H405.1Z" fill="#1A1A2E"/>
+    <text x="23" y="418" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-06</text>
+    <text x="53" y="418" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">POWER ON</text>
+    <text x="140" y="418" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="#F5A623">SELF-TEST REQUIRED</text>
+    <text x="21" y="432" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Action: Apply power (close breaker). Observe green LED 1Hz flash within 5 seconds.</text>
+    <text x="21" y="444" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Then press Charge Now button 5 times within 3 seconds. Count LED blink codes.</text>
+    <text x="21" y="456" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Green LED 1Hz flash within 5s. After 5-press: green blinks only, zero red blinks.</text>
+    <text x="21" y="470" font-family="Inter, sans-serif" font-size="8" font-weight="600" fill="#B8860B">If both LEDs rapid-flash (5Hz): self-test failed. Any red blinks: hardware check failed. Do not proceed.</text>
+
+    <!-- ===== C-07 SIDEWALK CONNECTIVITY (y=482-540) ===== -->
+    <rect x="10" y="482" width="405" height="58" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="340" y="486" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="345" y="484" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="380" y="486" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M394.442 495V489.909H397.813V490.797H395.519V492.01H397.589V492.897H395.519V495H394.442ZM398.779 495H397.626L399.383 489.909H400.77L402.525 495H401.397L400.096 491.072H400.057L398.779 495ZM398.707 492.999H401.431V493.839H398.707V492.999ZM404.214 489.909V495H403.138V489.909H404.214ZM405.1 495V489.909H406.176V494.113H408.359V495H405.1Z" fill="#1A1A2E"/>
+    <text x="23" y="498" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-07</text>
+    <text x="53" y="498" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">SIDEWALK CONNECTIVITY</text>
+    <text x="21" y="510" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Action: Wait for LED transition. Allow up to 5 minutes.</text>
+    <text x="21" y="522" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Green LED transitions from 1Hz flash to solid (typically 30-90 seconds).</text>
+    <text x="21" y="534" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">If still flashing after 5 min, verify Sidewalk gateway is within range.</text>
+
+
+    <!-- ============================================================ -->
+    <!-- TOP-RIGHT QUADRANT: Steps C-08 to C-12 (x:425-850, y:0-550) -->
+    <!-- ============================================================ -->
+
+    <!-- 4px teal bar at top -->
+    <rect x="425" y="0" width="425" height="4" fill="#0A7E8C"/>
+
+    <!-- Section header -->
+    <text x="441" y="28" font-family="Space Grotesk, sans-serif" font-size="12" font-weight="700" fill="#1A1A2E">POWERED TESTS (continued)</text>
+
+    <!-- ===== C-08 THERMOSTAT DETECTION (y=38-86) ===== -->
+    <rect x="435" y="38" width="405" height="48" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="765" y="42" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="770" y="40" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="805" y="42" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M819.442 51V45.909H822.813V46.797H820.519V48.01H822.589V48.897H820.519V51H819.442ZM823.779 51H822.626L824.383 45.909H825.77L827.525 51H826.397L825.096 47.072H825.057L823.779 51ZM823.707 48.999H826.431V49.839H823.707V48.999ZM829.214 45.909V51H828.138V45.909H829.214ZM830.1 51V45.909H831.176V50.113H833.359V51H830.1Z" fill="#1A1A2E"/>
+    <text x="449" y="54" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-08</text>
+    <text x="478" y="54" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">THERMOSTAT DETECTION</text>
+    <text x="446" y="66" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Action: Set thermostat to call for cooling.</text>
+    <text x="446" y="78" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Blue LED transitions to heartbeat pulse (200ms on, 1800ms off).</text>
+
+    <!-- ===== C-09 THERMOSTAT RELEASE (y=92-140) ===== -->
+    <rect x="435" y="92" width="405" height="48" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="765" y="96" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="770" y="94" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="805" y="96" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M819.442 105V99.909H822.813V100.797H820.519V102.01H822.589V102.897H820.519V105H819.442ZM823.779 105H822.626L824.383 99.909H825.77L827.525 105H826.397L825.096 101.072H825.057L823.779 105ZM823.707 102.999H826.431V103.839H823.707V102.999ZM829.214 99.909V105H828.138V99.909H829.214ZM830.1 105V99.909H831.176V104.113H833.359V105H830.1Z" fill="#1A1A2E"/>
+    <text x="449" y="108" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-09</text>
+    <text x="478" y="108" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">THERMOSTAT RELEASE</text>
+    <text x="446" y="120" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Action: Cancel cooling call at thermostat.</text>
+    <text x="446" y="132" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Blue LED returns to off (idle). Confirms device sees signal drop.</text>
+
+    <!-- ===== C-10 EV CHARGE DETECTION (y=146-200) ===== -->
+    <rect x="435" y="146" width="405" height="54" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="765" y="150" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="770" y="148" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="805" y="150" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M819.442 159V153.909H822.813V154.797H820.519V156.01H822.589V156.897H820.519V159H819.442ZM823.779 159H822.626L824.383 153.909H825.77L827.525 159H826.397L825.096 155.072H825.057L823.779 159ZM823.707 156.999H826.431V157.839H823.707V156.999ZM829.214 153.909V159H828.138V153.909H829.214ZM830.1 159V153.909H831.176V158.113H833.359V159H830.1Z" fill="#1A1A2E"/>
+    <text x="449" y="162" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-10</text>
+    <text x="478" y="162" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">EV CHARGE DETECTION</text>
+    <text x="446" y="174" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Action: Plug in EV, or start a charge session.</text>
+    <text x="446" y="186" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Blue LED goes solid. Current reading >0 in uplink (if cloud-verified).</text>
+
+    <!-- ===== C-11 INTERLOCK TEST (y=206-284, AMBER BORDER) ===== -->
+    <rect x="435" y="206" width="405" height="78" rx="4" fill="white" stroke="#F5A623" stroke-width="1.5"/>
+    <rect x="765" y="210" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="770" y="208" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="805" y="210" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M819.442 219V213.909H822.813V214.797H820.519V216.01H822.589V216.897H820.519V219H819.442ZM823.779 219H822.626L824.383 213.909H825.77L827.525 219H826.397L825.096 215.072H825.057L823.779 219ZM823.707 216.999H826.431V217.839H823.707V216.999ZM829.214 213.909V219H828.138V213.909H829.214ZM830.1 219V213.909H831.176V218.113H833.359V219H830.1Z" fill="#1A1A2E"/>
+    <text x="449" y="222" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-11</text>
+    <text x="478" y="222" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">INTERLOCK TEST</text>
+    <text x="574" y="222" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="#F5A623">CRITICAL SAFETY TEST</text>
+    <text x="446" y="236" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Action: Trigger AC call (set thermostat to cool) WHILE the EV is charging.</text>
+    <text x="446" y="248" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Blue LED transitions to heartbeat pulse. EV charger pauses (pilot drops to State B).</text>
+    <!-- Amber warning bar inside C-11 -->
+    <rect x="438" y="252" width="399" height="28" rx="2" fill="#F5A623" opacity="0.15"/>
+    <rect x="438" y="252" width="3" height="28" fill="#F5A623"/>
+    <text x="451" y="266" font-family="Inter, sans-serif" font-size="9" font-weight="600" fill="#B8860B">If EV does NOT pause: STOP. Do not leave the job site.</text>
+    <text x="451" y="278" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Investigate charge enable wiring and J1772 pilot connection.</text>
+
+    <!-- ===== C-12 CHARGE RESUME (y=290-338) ===== -->
+    <rect x="435" y="290" width="405" height="48" rx="4" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="765" y="294" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="770" y="292" font-family="Inter, sans-serif" font-size="6" font-weight="600" fill="#1A1A2E" text-anchor="middle">PASS</text>
+    <rect x="805" y="294" width="10" height="10" rx="1" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <path d="M819.442 303V297.909H822.813V298.797H820.519V300.01H822.589V300.897H820.519V303H819.442ZM823.779 303H822.626L824.383 297.909H825.77L827.525 303H826.397L825.096 299.072H825.057L823.779 303ZM823.707 300.999H826.431V301.839H823.707V300.999ZM829.214 297.909V303H828.138V297.909H829.214ZM830.1 303V297.909H831.176V302.113H833.359V303H830.1Z" fill="#1A1A2E"/>
+    <text x="449" y="306" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#1A1A2E">C-12</text>
+    <text x="478" y="306" font-family="Inter, sans-serif" font-size="10" font-weight="600" fill="#1A1A2E">CHARGE RESUME</text>
+    <text x="446" y="318" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Action: Cancel AC call while EV is still connected.</text>
+    <text x="446" y="330" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">PASS: Blue LED returns to solid. EV charger resumes (pilot returns to State C).</text>
+
+    <!-- Teal divider -->
+    <rect x="435" y="348" width="405" height="4" fill="#0A7E8C" opacity="0.5"/>
+
+    <!-- ===== INSTALLATION RECORD (y=358-540) ===== -->
+    <rect x="435" y="358" width="405" height="182" fill="#B8E4E9" opacity="0.08"/>
+    <text x="446" y="378" font-family="Space Grotesk, sans-serif" font-size="12" font-weight="700" fill="#064E56">INSTALLATION RECORD</text>
+
+    <text x="446" y="400" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Installer Name:</text>
+    <line x1="530" y1="401" x2="830" y2="401" stroke="#D1D5DB" stroke-width="0.5"/>
+
+    <text x="446" y="418" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Company:</text>
+    <line x1="498" y1="419" x2="660" y2="419" stroke="#D1D5DB" stroke-width="0.5"/>
+    <text x="670" y="418" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">License #:</text>
+    <line x1="730" y1="419" x2="830" y2="419" stroke="#D1D5DB" stroke-width="0.5"/>
+
+    <text x="446" y="436" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Date:</text>
+    <line x1="472" y1="437" x2="600" y2="437" stroke="#D1D5DB" stroke-width="0.5"/>
+    <text x="610" y="436" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Device ID (from label):</text>
+    <line x1="730" y1="437" x2="830" y2="437" stroke="#D1D5DB" stroke-width="0.5"/>
+
+    <text x="446" y="458" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Steps Passed: ____ / 12</text>
+    <text x="600" y="458" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Steps Failed: ____ / 12</text>
+
+    <text x="446" y="478" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="#1A1A2E">All P0 steps passed?</text>
+    <rect x="582" y="468" width="14" height="14" rx="2" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="600" y="478" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">YES</text>
+    <rect x="630" y="468" width="14" height="14" rx="2" fill="none" stroke="#1A1A2E" stroke-width="0.6"/>
+    <text x="648" y="478" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">NO</text>
+
+    <text x="446" y="498" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Installer Signature:</text>
+    <line x1="548" y1="499" x2="830" y2="499" stroke="#D1D5DB" stroke-width="0.5"/>
+
+    <text x="446" y="518" font-family="Inter, sans-serif" font-size="9" font-weight="500" fill="#1A1A2E">Notes:</text>
+    <line x1="480" y1="520" x2="830" y2="520" stroke="#D1D5DB" stroke-width="0.5"/>
+    <line x1="446" y1="533" x2="830" y2="533" stroke="#D1D5DB" stroke-width="0.5"/>
+
+    <text x="500" y="542" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">This card is the installation record. Attach to device enclosure or junction box cover.</text>
+
+
+    <!-- ============================================================ -->
+    <!-- BOTTOM-LEFT QUADRANT: LED Reference + Troubleshooting        -->
+    <!-- (x:0-425, y:550-1100)                                        -->
+    <!-- ============================================================ -->
+
+    <!-- 4px teal bar -->
+    <rect x="0" y="550" width="425" height="4" fill="#0A7E8C"/>
+
+    <!-- LED Quick Reference header -->
+    <text x="21" y="578" font-family="Space Grotesk, sans-serif" font-size="12" font-weight="700" fill="#1A1A2E">LED QUICK REFERENCE</text>
+    <text x="24" y="594" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Green LED = Health / Connectivity. Blue LED = Interlock / Charging.</text>
+
+    <!-- LED Table border -->
+    <rect x="10" y="602" width="405" height="158" rx="2" fill="none" stroke="#D1D5DB" stroke-width="0.5"/>
+
+    <!-- Table header row -->
+    <rect x="10" y="602" width="405" height="18" rx="2" fill="#064E56"/>
+    <rect x="10" y="612" width="405" height="8" fill="#064E56"/>
+    <text x="21" y="615" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="white">What You See</text>
+    <text x="154" y="615" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="white">Green LED</text>
+    <text x="240" y="615" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="white">Blue LED</text>
+    <text x="320" y="615" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="white">Meaning</text>
+
+    <!-- Column separator lines -->
+    <line x1="144" y1="602" x2="144" y2="760" stroke="#D1D5DB" stroke-width="0.5"/>
+    <line x1="230" y1="602" x2="230" y2="760" stroke="#D1D5DB" stroke-width="0.5"/>
+    <line x1="310" y1="602" x2="310" y2="760" stroke="#D1D5DB" stroke-width="0.5"/>
+
+    <!-- Row 1: Healthy, idle -->
+    <rect x="11" y="620" width="403" height="20" fill="#B8E4E9" opacity="0.1"/>
+    <text x="21" y="634" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#1A1A2E">Healthy, idle</text>
+    <text x="154" y="634" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Solid</text>
+    <text x="240" y="634" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Off</text>
+    <text x="320" y="634" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Connected to Sidewalk, no load</text>
+
+    <!-- Row 2: EV charging -->
+    <text x="21" y="654" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#1A1A2E">EV charging</text>
+    <text x="154" y="654" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Solid</text>
+    <text x="240" y="654" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Solid</text>
+    <text x="320" y="654" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">EV drawing current</text>
+
+    <!-- Row 3: AC has priority -->
+    <rect x="11" y="660" width="403" height="20" fill="#B8E4E9" opacity="0.1"/>
+    <text x="21" y="674" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#1A1A2E">AC has priority</text>
+    <text x="154" y="674" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Solid</text>
+    <text x="240" y="674" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Heartbeat</text>
+    <text x="320" y="674" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">AC cooling active, EV paused</text>
+
+    <!-- Row 4: Commissioning -->
+    <text x="21" y="694" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#1A1A2E">Commissioning</text>
+    <text x="154" y="694" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">1Hz flash</text>
+    <text x="240" y="694" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Off</text>
+    <text x="320" y="694" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Starting up, connecting to Sidewalk</text>
+
+    <!-- Row 5: Disconnected -->
+    <rect x="11" y="700" width="403" height="20" fill="#B8E4E9" opacity="0.1"/>
+    <text x="21" y="714" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#1A1A2E">Disconnected</text>
+    <text x="154" y="714" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Slow flash</text>
+    <text x="240" y="714" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">(per load)</text>
+    <text x="320" y="714" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">No network, works locally</text>
+
+    <!-- Row 6: OTA update -->
+    <text x="21" y="734" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#1A1A2E">OTA update</text>
+    <text x="154" y="734" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Double-blink</text>
+    <text x="240" y="734" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#1A1A2E">Off</text>
+    <text x="320" y="734" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Firmware updating...</text>
+
+    <!-- Error row -->
+    <rect x="11" y="740" width="403" height="19" fill="#FEE2E2" opacity="0.3"/>
+    <text x="21" y="754" font-family="Inter, sans-serif" font-size="8" font-weight="500" fill="#DC2626">Hardware fault</text>
+    <text x="154" y="754" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#DC2626">5Hz rapid</text>
+    <text x="240" y="754" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#DC2626">5Hz rapid</text>
+    <text x="320" y="754" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#DC2626">Sensor/relay fault</text>
+
+    <!-- TROUBLESHOOTING header -->
+    <text x="22" y="782" font-family="Space Grotesk, sans-serif" font-size="11" font-weight="700" fill="#1A1A2E">TROUBLESHOOTING</text>
+
+    <!-- Troubleshooting Card 1 -->
+    <rect x="10" y="792" width="405" height="46" rx="3" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="10" y="792" width="3" height="46" rx="1" fill="#F5A623"/>
+    <text x="25" y="806" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="#1A1A2E">1. BOTH LEDs RAPID FLASH (5Hz)</text>
+    <text x="23" y="822" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Hardware fault. Power-cycle the device. If rapid flash returns within 60s, check: thermostat wires,</text>
+    <text x="23" y="834" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">current clamp, J1772 pilot. Contact support if persistent.</text>
+
+    <!-- Troubleshooting Card 2 -->
+    <rect x="10" y="844" width="405" height="46" rx="3" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="10" y="844" width="3" height="46" rx="1" fill="#F5A623"/>
+    <text x="25" y="858" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="#1A1A2E">2. GREEN LED 1Hz FLASH > 5 MINUTES</text>
+    <text x="23" y="874" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Not connecting to Sidewalk. Check: (a) Amazon Sidewalk gateway (Echo/Ring) within range,</text>
+    <text x="23" y="886" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">(b) device is registered in AWS IoT Wireless, (c) MFG credentials are valid.</text>
+
+    <!-- Troubleshooting Card 3 -->
+    <rect x="10" y="896" width="405" height="46" rx="3" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="10" y="896" width="3" height="46" rx="1" fill="#F5A623"/>
+    <text x="25" y="910" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="#1A1A2E">3. BLUE LED STUCK ON HEARTBEAT</text>
+    <text x="23" y="926" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Interlock is holding EV paused even though AC is off. Check: thermostat Y wire for short to C,</text>
+    <text x="23" y="938" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">or stale AC call flag. Power-cycle to clear. If recurring, thermostat wiring issue.</text>
+
+    <!-- Troubleshooting Card 4 -->
+    <rect x="10" y="948" width="405" height="46" rx="3" fill="white" stroke="#D1D5DB" stroke-width="0.5"/>
+    <rect x="10" y="948" width="3" height="46" rx="1" fill="#F5A623"/>
+    <text x="25" y="962" font-family="Inter, sans-serif" font-size="9" font-weight="700" fill="#1A1A2E">4. NO CURRENT READING DURING CHARGE</text>
+    <text x="23" y="978" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">Current clamp may be on wrong conductor or reversed. Re-check C-02 (current clamp placement).</text>
+    <text x="23" y="990" font-family="Inter, sans-serif" font-size="8" font-weight="400" fill="#6B7280">If clamp is correct but still zero, check clamp model compatibility and ADC calibration.</text>
+
+
+    <!-- ============================================================ -->
+    <!-- BOTTOM-RIGHT QUADRANT: Front Cover (x:425-850, y:550-1100)   -->
+    <!-- ============================================================ -->
+
+    <!-- Deep Current background -->
+    <rect x="425" y="550" width="425" height="550" fill="#064E56"/>
+
+    <!-- Logo placeholder -->
+    <rect x="598" y="672" width="80" height="80" rx="10" fill="none" stroke="white" stroke-width="1" opacity="0.6"/>
+    <text x="638" y="718" font-family="Space Grotesk, sans-serif" font-size="11" font-weight="600" fill="white" text-anchor="middle">LOGO</text>
+
+    <!-- Product name -->
+    <text x="638" y="790" font-family="Space Grotesk, sans-serif" font-size="24" font-weight="700" fill="white" text-anchor="middle">SideCharge</text>
+    <text x="638" y="818" font-family="Space Grotesk, sans-serif" font-size="14" font-weight="500" fill="white" text-anchor="middle">SC-100</text>
+
+    <!-- White separator line 1 -->
+    <line x1="538" y1="825" x2="738" y2="825" stroke="white" stroke-width="0.5" opacity="0.4"/>
+
+    <!-- Tagline -->
+    <text x="638" y="855" font-family="Inter, sans-serif" font-size="11" font-weight="400" fill="#B8E4E9" text-anchor="middle">Level 2 charging. No panel upgrade.</text>
+
+    <!-- White separator line 2 -->
+    <line x1="538" y1="875" x2="738" y2="875" stroke="white" stroke-width="0.5" opacity="0.4"/>
+
+    <!-- COMMISSIONING CHECKLIST -->
+    <text x="638" y="900" font-family="Space Grotesk, sans-serif" font-size="22" font-weight="700" fill="white" text-anchor="middle" letter-spacing="2px">COMMISSIONING</text>
+    <text x="638" y="935" font-family="Space Grotesk, sans-serif" font-size="22" font-weight="700" fill="white" text-anchor="middle" letter-spacing="2px">CHECKLIST</text>
+
+    <!-- Footer text -->
+    <text x="638" y="990" font-family="Inter, sans-serif" font-size="9" font-weight="400" fill="#B8E4E9" text-anchor="middle">This card is your installation record.</text>
+    <text x="638" y="1005" font-family="Inter, sans-serif" font-size="9" font-weight="400" fill="#B8E4E9" text-anchor="middle">Complete all 12 steps. Leave this card at the job site.</text>
+
+
+    <!-- ============================================================ -->
+    <!-- FOLD GUIDES (dashed lines)                                   -->
+    <!-- ============================================================ -->
+
+    <!-- Horizontal fold guide at y=550 -->
+    <line x1="0" y1="550" x2="850" y2="550" stroke="#D1D5DB" stroke-width="0.75" stroke-dasharray="8 4"/>
+
+    <!-- Vertical fold guide at x=425 -->
+    <line x1="425" y1="0" x2="425" y2="1100" stroke="#D1D5DB" stroke-width="0.75" stroke-dasharray="8 4"/>
+
+  </g>
+</svg>
