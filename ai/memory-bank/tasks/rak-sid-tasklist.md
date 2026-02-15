@@ -482,9 +482,10 @@ TASK-031 (OTA image signing) ——— MERGED DONE (Eliel)
 TASK-045 (ED25519 verify lib) —— blocked by TASK-031 (needs signing infra)
 TASK-046 (Signed OTA E2E) ————— blocked by TASK-045 (needs real verify on device)
 TASK-032 (Cloud cmd auth) ————— independent (Eliel: signed downlinks)
-TASK-033 (TIME_SYNC downlink) —— independent (Eliel: device wall-clock time)
-TASK-034 (Event buffer) ————————— depends on TASK-033 (ACK watermark needs time sync)
-TASK-035 (Uplink v0x07) ————————— blocked by TASK-033 + TASK-034 (timestamp + event buffer)
+TASK-033 (TIME_SYNC downlink) —— MERGED DONE (Eliel)
+TASK-034 (Event buffer) ————————— MERGED DONE (Eliel)
+TASK-035 (Uplink v0x07) ————————— unblocked (033+034 merged), ready for implementation
+TASK-047 (Device verification) ——— blocked by TASK-035 (needs all 3 features merged)
 TASK-036 (Device registry) ————— independent (Eliel: DynamoDB fleet identity)
 TASK-037 (Utility identification) — blocked by TASK-036 (meter_number lives in registry)
 TASK-038 (Data privacy) ————————— independent (Pam: policy + CCPA)
@@ -528,9 +529,9 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | P0 | TASK-039 | Commissioning self-test — P0 for first field install (Eero) |
 | P0 | TASK-041 | Commissioning checklist card — P0 for first field install (Bobby) |
 | P1 | TASK-022 | BUG: Stale flash inflates OTA delta baselines (plan drafted, not approved) — KI-003 |
-| P1 | TASK-033 | TIME_SYNC downlink (0x30) — enables device timestamps (Eliel) |
-| P1 | TASK-034 | Event buffer — ring buffer + ACK watermark, depends on 033 (Eliel) |
-| P1 | TASK-035 | Uplink v0x07 — timestamp + control flags, blocked by 033+034 (Eliel) |
+| Merged done | TASK-033 | TIME_SYNC downlink (0x30) — 11 C + 15 Python tests, merged 2026-02-14 (Eliel) |
+| Merged done | TASK-034 | Event buffer — 19 C tests, merged 2026-02-14 (Eliel) |
+| P1 | TASK-035 | Uplink v0x07 — timestamp + control flags, unblocked (Eliel) |
 | Merged done | TASK-031 | OTA image signing — ED25519, merged 2026-02-14 (Eliel) |
 | P1 | TASK-029 | Production observability — CloudWatch alerting + remote query (Eliel) |
 | P1 | TASK-036 | Device registry — DynamoDB fleet identity table (Eliel) |
@@ -546,6 +547,7 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | Planned | TASK-043 | Warranty/liability risk — EVSE pilot wire, MMWA, mitigation roadmap (Pam) |
 | P1 | TASK-045 | ED25519 verify library integration — platform firmware (Eliel) |
 | P1 | TASK-046 | Signed OTA E2E verification on device — blocked by 045 (Eero) |
+| P1 | TASK-047 | On-device verification — TIME_SYNC + event buffer + uplink v0x07 |
 | Merged done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
 | Merged done | TASK-043 | Warranty/liability risk — PRD section 6.4 (Pam) |
 
@@ -891,11 +893,12 @@ ED25519 signing implemented end-to-end. 64-byte signature appended to app.bin be
 
 ---
 
-### TASK-033: TIME_SYNC downlink — new 0x30 command with SideCharge epoch and ACK watermark
+### TASK-033: TIME_SYNC downlink — new 0x30 command with SideCharge epoch and ACK watermark — MERGED DONE (Eliel)
 
-## Branch & Worktree Strategy
-**Base Branch**: `main`
-- Branch: `feature/time-sync`
+## Status: MERGED DONE (2026-02-14, Eliel)
+**Branch**: `task/033-time-sync-downlink` (originally `feature/time-sync`) | **Commit**: `399c8e3`
+
+Device: time_sync.c/h parses 9-byte 0x30 command (epoch + ACK watermark), tracks wall-clock time via uptime offset. app_rx.c dispatches 0x30. app_entry.c adds time_sync_init/set_api + `sid time` shell command. Cloud: decode_evse_lambda.py auto-sends TIME_SYNC on EVSE uplinks with DynamoDB sentinel (daily re-sync). 11 C unit tests + 15 Python tests, all passing.
 
 ## Description
 **Agent**: Eliel (Backend Architect). Per PRD 3.3 (PDL-011 decided), the device has no wall-clock time — the cloud infers timing from uplink arrival. This task implements the TIME_SYNC downlink command (0x30) with a 9-byte payload: command type, 4-byte SideCharge epoch (seconds since 2026-01-01 00:00:00 UTC), and 4-byte ACK watermark (timestamp of most recent cloud-received uplink). The device stores sync_time and uptime_at_sync, then computes current time as sync_time + (uptime_now - uptime_at_sync). The decode Lambda sends TIME_SYNC on first uplink after boot (detects timestamp=0) and periodically for drift correction (~daily).
@@ -905,23 +908,23 @@ ED25519 signing implemented end-to-end. 64-byte signature appended to app.bin be
 **Unblocks**: TASK-034 (event buffer uses ACK watermark), TASK-035 (uplink v0x07 uses timestamps)
 
 ## Acceptance Criteria
-- [ ] Device parses 0x30 command: extracts 4-byte epoch time + 4-byte ACK watermark
-- [ ] Device stores sync_time and sync_uptime; computes current time as sync_time + (k_uptime_get() - sync_uptime)
-- [ ] Decode Lambda detects first uplink after boot (timestamp=0 or version=0x07 with no time) and sends TIME_SYNC
-- [ ] Decode Lambda sends periodic TIME_SYNC (~daily) for drift correction
-- [ ] ACK watermark value passed to event buffer for trimming (TASK-034 integration point)
-- [ ] `sid time` shell command shows current synced time and drift estimate
+- [x] Device parses 0x30 command: extracts 4-byte epoch time + 4-byte ACK watermark
+- [x] Device stores sync_time and sync_uptime; computes current time as sync_time + (k_uptime_get() - sync_uptime)
+- [x] Decode Lambda detects first uplink after boot (timestamp=0 or version=0x07 with no time) and sends TIME_SYNC
+- [x] Decode Lambda sends periodic TIME_SYNC (~daily) for drift correction
+- [x] ACK watermark value passed to event buffer for trimming (TASK-034 integration point)
+- [x] `sid time` shell command shows current synced time and drift estimate
 
 ## Testing Requirements
-- [ ] C unit tests: TIME_SYNC parsing, time computation, drift over simulated uptime
-- [ ] C unit tests: reject malformed 0x30 (wrong length)
-- [ ] Python tests: decode Lambda auto-sync trigger logic
-- [ ] Python tests: periodic sync scheduling
+- [x] C unit tests: TIME_SYNC parsing, time computation, drift over simulated uptime (11 tests)
+- [x] C unit tests: reject malformed 0x30 (wrong length)
+- [x] Python tests: decode Lambda auto-sync trigger logic (15 tests)
+- [x] Python tests: periodic sync scheduling
 
 ## Completion Requirements (Definition of Done)
-- [ ] TIME_SYNC delivered and verified on physical device
-- [ ] Device reports correct wall-clock time via shell after sync
-- [ ] Clock drift < 10 seconds per day confirmed
+- [x] TIME_SYNC code merged to main
+- [ ] TIME_SYNC delivered and verified on physical device — PENDING (requires device)
+- [ ] Clock drift < 10 seconds per day confirmed — PENDING (requires device)
 
 ## Deliverables
 - `app/rak4631_evse_monitor/src/app_evse/app_rx.c`: Parse 0x30 command
@@ -935,11 +938,12 @@ ED25519 signing implemented end-to-end. 64-byte signature appended to app.bin be
 
 ---
 
-### TASK-034: Device-side event buffer — ring buffer with ACK watermark trimming
+### TASK-034: Device-side event buffer — ring buffer with ACK watermark trimming — MERGED DONE (Eliel)
 
-## Branch & Worktree Strategy
-**Base Branch**: `main`
-- Branch: `feature/event-buffer`
+## Status: MERGED DONE (2026-02-14, Eliel)
+**Branch**: `task/034-event-buffer` | **Merge commit**: `d37dee5` | **Commit**: `88cb692`
+
+50-entry ring buffer (600B RAM) of timestamped EVSE state snapshots. Captures J1772 state, voltage, current, thermostat flags, and charge control state on every 500ms poll cycle. TIME_SYNC ACK watermark trims acknowledged entries. Integration: app_entry.c (init, snapshot on timer, `evse buffer` shell cmd), app_rx.c (trim after TIME_SYNC). 19 C unit tests, all passing.
 
 ## Description
 **Agent**: Eliel (Backend Architect). Per PRD 3.2.2 (PDL-010 decided), state changes between uplinks are lost if LoRa drops the message. This task implements a device-side ring buffer of ~50 timestamped state snapshots (12 bytes each = 600 bytes from the app's 8KB RAM budget). On each uplink the device sends the most recent snapshot. The cloud ACKs received data by piggybacking an ACK watermark timestamp on the TIME_SYNC downlink (0x30). The device drops all buffer entries at or before the ACK'd timestamp. If no ACK arrives, the ring buffer wraps and overwrites the oldest entries.
@@ -949,23 +953,24 @@ ED25519 signing implemented end-to-end. 64-byte signature appended to app.bin be
 **Unblocks**: TASK-035 (uplink v0x07 sends timestamped snapshots from buffer)
 
 ## Acceptance Criteria
-- [ ] Ring buffer holds ~50 entries of 12-byte timestamped snapshots in app RAM
-- [ ] New state snapshot added to buffer on every sensor poll (500ms cycle)
-- [ ] Most recent snapshot sent on each uplink
-- [ ] ACK watermark from TIME_SYNC trims all entries at or before watermark timestamp
-- [ ] Buffer wraps and overwrites oldest entries when full (no crash, no stall)
-- [ ] `evse buffer` shell command shows buffer fill level and oldest/newest timestamps
+- [x] Ring buffer holds ~50 entries of 12-byte timestamped snapshots in app RAM
+- [x] New state snapshot added to buffer on every sensor poll (500ms cycle)
+- [x] Most recent snapshot sent on each uplink
+- [x] ACK watermark from TIME_SYNC trims all entries at or before watermark timestamp
+- [x] Buffer wraps and overwrites oldest entries when full (no crash, no stall)
+- [x] `evse buffer` shell command shows buffer fill level and oldest/newest timestamps
 
 ## Testing Requirements
-- [ ] C unit tests: buffer insert, wrap, trim by watermark
-- [ ] C unit tests: buffer full behavior (oldest overwritten)
-- [ ] C unit tests: empty buffer edge case
-- [ ] C unit tests: watermark older than all entries (no trim)
-- [ ] C unit tests: watermark newer than all entries (trim all)
+- [x] C unit tests: buffer insert, wrap, trim by watermark (19 tests)
+- [x] C unit tests: buffer full behavior (oldest overwritten)
+- [x] C unit tests: empty buffer edge case
+- [x] C unit tests: watermark older than all entries (no trim)
+- [x] C unit tests: watermark newer than all entries (trim all)
 
 ## Completion Requirements (Definition of Done)
-- [ ] Buffer operational on device, verified via shell
-- [ ] ACK watermark trim verified via TIME_SYNC round-trip
+- [x] Event buffer code merged to main
+- [ ] Buffer operational on device, verified via shell — PENDING (requires device)
+- [ ] ACK watermark trim verified via TIME_SYNC round-trip — PENDING (requires device)
 
 ## Deliverables
 - `app/rak4631_evse_monitor/src/app_evse/event_buffer.c`: Ring buffer implementation
@@ -1439,6 +1444,42 @@ Reference: commissioning card design spec at `docs/commissioning-card-source/REA
 ## Deliverables
 - `tests/e2e/RESULTS-signed-ota.md`: E2E test results
 - Updated `tests/e2e/RUNBOOK.md`: Add signed OTA test procedure
+
+**Size**: S (2 points) — 1 hour (requires device + AWS access)
+
+---
+
+### TASK-047: On-device verification — TIME_SYNC, event buffer, and uplink v0x07
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: N/A (device testing, no code changes expected)
+
+## Description
+Combined device verification for TASK-033 (TIME_SYNC), TASK-034 (event buffer), and TASK-035 (uplink v0x07). All three features have host-side tests passing but need physical device verification to confirm correct behavior on hardware. Requires platform + app rebuild and reflash.
+
+## Dependencies
+**Blockers**: TASK-033 (merged), TASK-034 (merged), TASK-035 (in progress)
+**Unblocks**: None
+
+## Acceptance Criteria
+- [ ] TIME_SYNC: `sid time` shell command shows synced time after first uplink triggers cloud TIME_SYNC
+- [ ] TIME_SYNC: Clock drift < 10 seconds per day confirmed
+- [ ] Event buffer: `evse buffer` shell command shows fill level and timestamps
+- [ ] Event buffer: ACK watermark from TIME_SYNC trims buffer entries
+- [ ] Uplink v0x07: DynamoDB events include device-side timestamp, charge_allowed, and version=0x07
+- [ ] Uplink v0x07: 12-byte payload confirmed in CloudWatch logs
+- [ ] Backward compat: decode Lambda still handles v0x06 payloads from older devices
+
+## Testing Requirements
+- [ ] Reflash platform + app with all three features
+- [ ] Monitor serial output during TIME_SYNC receipt
+- [ ] Verify DynamoDB event format matches expected v0x07 schema
+- [ ] Simulate state changes and verify event buffer fill/trim cycle
+
+## Deliverables
+- Updated `tests/e2e/RUNBOOK.md`: Add TIME_SYNC, event buffer, and v0x07 test procedures
+- `tests/e2e/RESULTS-time-sync-v07.md`: Test results
 
 **Size**: S (2 points) — 1 hour (requires device + AWS access)
 
