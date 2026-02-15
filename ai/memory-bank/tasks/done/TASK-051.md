@@ -1,6 +1,6 @@
 # TASK-051: Move EVSE payload struct to app layer
 
-**Status**: committed
+**Status**: merged done (2026-02-15, Eliel)
 **Priority**: P1
 **Owner**: Eliel
 **Branch**: main (small refactor, no worktree needed)
