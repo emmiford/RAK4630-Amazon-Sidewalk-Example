@@ -43,7 +43,6 @@ Special: deferred, declined
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | — |
 | TASK-048b | P2 | not started | Bobby | Charge Now single-press button | — |
-| TASK-050 | P1 | not started | Eliel | Delete platform-side EVSE shell files | — |
 | TASK-051 | P1 | not started | Eliel | Move EVSE payload struct to app layer | — |
 | TASK-052 | P1 | not started | Eliel | Rename rak_sidewalk → evse_payload | TASK-051 |
 | TASK-053 | P1 | not started | Eliel | Resolve two app_tx.c naming collision | — |
@@ -53,7 +52,7 @@ Special: deferred, declined
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 
-## Completed Tasks (33)
+## Completed Tasks (34)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-002 | Create CLAUDE.md | MERGED DONE | 2026-02-11 | — |
@@ -89,6 +88,7 @@ Special: deferred, declined
 | TASK-040 | Production self-test trigger | MERGED DONE | 2026-02-14 | Eero |
 | TASK-041 | Commissioning checklist card | MERGED DONE | 2026-02-14 | Bobby |
 | TASK-043 | Warranty/liability risk | MERGED DONE | 2026-02-13 | Pam |
+| TASK-050 | Delete platform-side EVSE shell files | MERGED DONE | 2026-02-15 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design-rak-firmware.md`
