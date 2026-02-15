@@ -18,6 +18,7 @@
 #include <app_tx.h>
 #include <app_rx.h>
 #include <selftest.h>
+#include <selftest_trigger.h>
 #include <time_sync.h>
 #include <event_buffer.h>
 #include <string.h>
@@ -97,6 +98,7 @@ static int app_init(const struct platform_api *platform)
 	app_tx_set_api(api);
 	app_rx_set_api(api);
 	selftest_set_api(api);
+	selftest_trigger_set_api(api);
 	time_sync_set_api(api);
 
 	/* Initialize app subsystems */
@@ -105,6 +107,8 @@ static int app_init(const struct platform_api *platform)
 	thermostat_inputs_init();
 	time_sync_init();
 	event_buffer_init();
+	selftest_trigger_set_send_fn(app_tx_send_evse_data);
+	selftest_trigger_init();
 
 	/* Boot self-test */
 	selftest_boot_result_t st_result;
@@ -164,6 +168,9 @@ static void app_on_timer(void)
 
 	/* Check auto-resume timer */
 	charge_control_tick();
+
+	/* Poll Charge Now button for 5-press self-test trigger */
+	selftest_trigger_tick();
 
 	/* --- Poll sensors and detect changes --- */
 	bool changed = false;

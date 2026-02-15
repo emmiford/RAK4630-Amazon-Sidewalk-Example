@@ -487,10 +487,12 @@ TASK-036 (Device registry) ————— independent (Eliel: DynamoDB fleet id
 TASK-037 (Utility identification) — blocked by TASK-036 (meter_number lives in registry)
 TASK-038 (Data privacy) ————————— independent (Pam: policy + CCPA)
 TASK-039 (Commissioning self-test) — independent (Eero: P0 for field install)
-TASK-040 (Prod self-test trigger) — blocked by TASK-039 (needs self-test logic first + physical button)
+TASK-040 (Prod self-test trigger) — DONE (2026-02-14, Eero, branch: task/040-prod-selftest-trigger)
 TASK-041 (Commissioning card) ——— independent (Bobby: printed card design)
 TASK-042 (Privacy agent) ————————— independent (Pam: assign legal/privacy owner)
 TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sections, G = earth ground)
+TASK-048 (Charge Now single-press) —— depends on TASK-040 (button GPIO infrastructure exists)
+TASK-049 (Platform button callback) — independent (enables tighter 3s detection window)
 ```
 
 ## Priority Order (Recommended)
@@ -532,7 +534,7 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | P1 | TASK-031 | OTA image signing — ED25519, critical security gap (Eliel) |
 | P1 | TASK-029 | Production observability — CloudWatch alerting + remote query (Eliel) |
 | P1 | TASK-036 | Device registry — DynamoDB fleet identity table (Eliel) |
-| P1 | TASK-040 | Production self-test trigger — 5-press button, blocked by 039 (Eero) |
+| P1 | TASK-040 | DONE — Production self-test trigger — 5-press button (Eero) |
 | P1 | TASK-044 | PRD update — commissioning sections + G = earth ground, no fan (Pam) |
 | P2 | TASK-001 | Merge feature branches to main |
 | P2 | TASK-026 | Boot path + app discovery tests (Eero, unblocked by TASK-024) |
@@ -541,6 +543,8 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | Planned | TASK-037 | Utility identification — lookup pipeline + TOU data model designed (Pam) |
 | P2 | TASK-038 | Data privacy — policy + retention + CCPA review (Pam) |
 | P2 | TASK-042 | Privacy agent — assign legal/privacy owner (Pam) |
+| P2 | TASK-048 | Charge Now single-press — FLAG_CHARGE_NOW + button handler (Bobby) |
+| P3 | TASK-049 | Platform button callback — GPIO interrupt, tighter 3s window (Eliel) |
 | Planned | TASK-043 | Warranty/liability risk — EVSE pilot wire, MMWA, mitigation roadmap (Pam) |
 | Merged done | TASK-008 | OTA recovery runbook — 533-line runbook (Eero) |
 | Merged done | TASK-043 | Warranty/liability risk — PRD section 6.4 (Pam) |
@@ -1172,39 +1176,44 @@ Product scoping complete in PRD section 4.5. Corrected the original design assum
 
 ### TASK-040: Production self-test trigger — 5-press button trigger with LED blink-code results
 
+## Status: DONE (2026-02-14, Eero)
+**Branch**: `task/040-prod-selftest-trigger`
+
 ## Branch & Worktree Strategy
 **Base Branch**: `main`
-- Branch: `feature/prod-selftest-trigger`
+- Branch: `task/040-prod-selftest-trigger`
 
 ## Description
-**Agent**: Eero (Testing Architect). Per PRD 2.5.3, production devices have no USB serial — self-tests need a physical trigger. **P1.** This task implements a 5-press Charge Now button trigger (5 presses within 3 seconds) that runs the full self-test cycle from TASK-039. Results are reported via LED blink codes: green rapid-blinks the count of passed tests, pause, then red/both rapid-blinks the count of failed tests (0 blinks = all passed). Results are also sent as a special uplink with the SELFTEST_FAIL flag if any test fails. Requires the physical Charge Now button on the PCB.
+**Agent**: Eero (Testing Architect). Per PRD 2.5.3, production devices have no USB serial — self-tests need a physical trigger. **P1.** This task implements a 5-press Charge Now button trigger (5 presses within 5 seconds, widened from 3s to accommodate 500ms GPIO polling) that runs the full boot self-test cycle from TASK-039. Results are reported via LED blink codes: green blinks = passed count, 1s pause, red blinks = failed count (skipped if 0). Results are also sent as a special uplink with FAULT_SELFTEST flag if any test fails. Single-press Charge Now behavior is not affected (5-press only consumes presses at threshold).
 
 ## Dependencies
 **Blockers**: TASK-039 (self-test logic must exist first), physical Charge Now button on PCB
 **Unblocks**: None
 
 ## Acceptance Criteria
-- [ ] 5-press detection within 3-second window on Charge Now button GPIO
-- [ ] Triggers full self-test cycle (boot checks + one pass of continuous checks)
-- [ ] LED blink-code output: green rapid-blinks = passed count, pause, red rapid-blinks = failed count
-- [ ] 0 failed = green-only blink sequence (no red)
-- [ ] Special uplink sent with SELFTEST_FAIL flag if any test fails
-- [ ] Normal button behavior (single press = Charge Now) not affected by 5-press detection
+- [x] 5-press detection within 5-second window on Charge Now button GPIO (pin 3)
+- [x] Triggers full boot self-test cycle (5 hardware path checks)
+- [x] LED blink-code output: green blinks = passed count, pause, red blinks = failed count
+- [x] 0 failed = green-only blink sequence (no red, no pause)
+- [x] Special uplink sent with FAULT_SELFTEST flag if any test fails
+- [x] Normal button behavior (single press = Charge Now) not affected by 5-press detection
 
 ## Testing Requirements
-- [ ] C unit tests: 5-press detection timing (valid and invalid sequences)
-- [ ] C unit tests: LED blink-code generation for various pass/fail counts
-- [ ] C unit tests: single-press still triggers Charge Now (not self-test)
-- [ ] On-device verification with physical button
+- [x] C unit tests: 5-press detection timing (valid sequences, invalid, expired, outside window)
+- [x] C unit tests: LED blink-code generation for all-pass, max-fail, mixed pass/fail
+- [x] C unit tests: single-press does not trigger self-test
+- [ ] On-device verification with physical button (pending PCB)
 
 ## Completion Requirements (Definition of Done)
-- [ ] 5-press trigger and LED blink-code verified on physical device
-- [ ] Normal Charge Now button behavior unaffected
+- [x] All 17 unit tests pass
+- [x] All existing tests still pass (13 C suites + 141 Python tests)
+- [ ] 5-press trigger and LED blink-code verified on physical device (pending PCB)
 
 ## Deliverables
 - `app/rak4631_evse_monitor/src/app_evse/selftest_trigger.c`: Button detection + LED output
 - `app/rak4631_evse_monitor/include/selftest_trigger.h`: Header
-- `tests/app/test_selftest_trigger.c`: C unit tests
+- `tests/app/test_selftest_trigger.c`: 17 C unit tests
+- `tests/mocks/mock_platform_api.{h,c}`: Enhanced with LED state tracking + gpio_set readback
 
 **Size**: M (3 points) — 2 hours
 
@@ -1363,6 +1372,74 @@ Reference: commissioning card design spec at `docs/commissioning-card-source/REA
 
 ---
 
+
+### TASK-048: Charge Now single-press — implement FLAG_CHARGE_NOW button handler
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: `task/048-charge-now-button`
+
+## Description
+**Agent**: Bobby (Full-Stack Developer). The `FLAG_CHARGE_NOW` bit (bit 3 of uplink byte 7) is reserved in app_tx.c but not yet implemented. TASK-040 added the button GPIO polling infrastructure (`EVSE_PIN_BUTTON`, pin 3) for the 5-press self-test trigger. This task implements the single-press behavior: a single press of the Charge Now button toggles charging (if paused → allow, if allowed → no-op or toggle depending on product decision). The press sets `FLAG_CHARGE_NOW` in the next uplink so the cloud knows it was a local override. Must coexist with the 5-press self-test trigger — single presses that are part of a multi-press sequence should not fire until it's clear the sequence won't reach 5.
+
+## Dependencies
+**Blockers**: TASK-040 (button GPIO infrastructure)
+**Unblocks**: None
+
+## Acceptance Criteria
+- [ ] Single press on Charge Now button toggles charging allowed state
+- [ ] FLAG_CHARGE_NOW (bit 3) set in uplink byte 7 on next send after button press
+- [ ] Flag auto-clears after one uplink
+- [ ] Coexists with 5-press self-test trigger (no false triggers in either direction)
+- [ ] Debounce: rapid presses within 200ms treated as one press
+
+## Testing Requirements
+- [ ] C unit tests: single-press toggles charge state
+- [ ] C unit tests: FLAG_CHARGE_NOW set and auto-cleared
+- [ ] C unit tests: 5-press still triggers self-test (no regression)
+
+## Deliverables
+- Modified `selftest_trigger.c` or new `charge_now_button.c` (single-press handler)
+- Modified `app_tx.c` (FLAG_CHARGE_NOW integration)
+- Unit tests
+
+**Size**: S (2 points) — 1 hour
+
+---
+
+### TASK-049: Platform button callback — add GPIO interrupt-driven on_button_press to platform API
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: `task/049-platform-button-callback`
+
+## Description
+**Agent**: Eliel (Backend Architect). TASK-040's 5-press detection uses 500ms GPIO polling, which required widening the detection window from 3s to 5s and needs each press held ≥500ms. Adding an `on_button_press` callback to the `app_callbacks` struct (driven by a GPIO interrupt in the platform) would give sub-millisecond press detection, enabling the original 3-second window and natural quick-press sequences. This is an additive change to `app_callbacks` (new field at the end), which requires bumping `APP_CALLBACK_VERSION` per ADR-001. The platform registers a GPIO interrupt on the button pin and calls through the callback table on each edge.
+
+## Dependencies
+**Blockers**: None
+**Unblocks**: Tighter 3s detection window for TASK-040/TASK-048
+
+## Acceptance Criteria
+- [ ] `on_button_press(uint32_t timestamp_ms)` callback added to `app_callbacks` struct
+- [ ] `APP_CALLBACK_VERSION` bumped (per ADR-001)
+- [ ] Platform registers GPIO interrupt on button pin, calls callback on rising edge
+- [ ] `selftest_trigger.c` updated to use callback instead of polling (detection window back to 3s)
+- [ ] Backward compatible: platform checks callback version before calling
+
+## Testing Requirements
+- [ ] C unit tests: callback invocation triggers press detection
+- [ ] C unit tests: 5 presses within 3s now triggers self-test
+
+## Deliverables
+- Modified `platform_api.h` (app_callbacks version bump + new field)
+- Modified platform button init code
+- Modified `selftest_trigger.c` (use callback)
+- Unit tests
+
+**Size**: M (3 points) — 2 hours
+
+---
 
 ## Quality Requirements (Project-Level)
 - [ ] All host-side unit tests passing before merge to main

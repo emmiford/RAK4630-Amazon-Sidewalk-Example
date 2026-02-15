@@ -1,0 +1,224 @@
+/*
+ * Production Self-Test Trigger Implementation
+ *
+ * Polls the Charge Now button GPIO every 500ms tick.  When 5 presses
+ * are detected within a 5-second window, runs the boot self-test and
+ * outputs results as LED blink codes.
+ *
+ * Each blink = one tick ON (500ms) + one tick OFF (500ms) = 1 blink/sec.
+ * Green blinks = passed count, pause, red blinks = failed count.
+ */
+
+#include <selftest_trigger.h>
+#include <selftest.h>
+#include <platform_api.h>
+#include <string.h>
+
+static const struct platform_api *api;
+static selftest_send_fn send_fn;
+
+/* ------------------------------------------------------------------ */
+/*  Button press detection                                             */
+/* ------------------------------------------------------------------ */
+
+static uint32_t press_times[TRIGGER_PRESS_COUNT];
+static int press_count;
+static bool last_button_pressed;
+
+/* ------------------------------------------------------------------ */
+/*  Blink state machine                                                */
+/* ------------------------------------------------------------------ */
+
+typedef enum {
+	TRIG_IDLE,
+	TRIG_BLINKING,
+} trigger_state_t;
+
+static trigger_state_t state;
+static int blink_tick;
+static int passed_count;
+static int failed_count;
+static int green_end_tick;
+static int red_start_tick;
+static int total_blink_ticks;
+static bool send_pending;
+
+/* ------------------------------------------------------------------ */
+/*  API setup                                                          */
+/* ------------------------------------------------------------------ */
+
+void selftest_trigger_set_api(const struct platform_api *platform)
+{
+	api = platform;
+}
+
+void selftest_trigger_set_send_fn(selftest_send_fn fn)
+{
+	send_fn = fn;
+}
+
+void selftest_trigger_init(void)
+{
+	state = TRIG_IDLE;
+	press_count = 0;
+	last_button_pressed = false;
+	blink_tick = 0;
+	passed_count = 0;
+	failed_count = 0;
+	green_end_tick = 0;
+	red_start_tick = 0;
+	total_blink_ticks = 0;
+	send_pending = false;
+}
+
+bool selftest_trigger_is_running(void)
+{
+	return state != TRIG_IDLE;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Self-test execution                                                */
+/* ------------------------------------------------------------------ */
+
+static void start_selftest(void)
+{
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+
+	passed_count = 0;
+	if (result.adc_pilot_ok)   passed_count++;
+	if (result.adc_current_ok) passed_count++;
+	if (result.gpio_heat_ok)   passed_count++;
+	if (result.gpio_cool_ok)   passed_count++;
+	if (result.charge_en_ok)   passed_count++;
+	failed_count = SELFTEST_CHECK_COUNT - passed_count;
+
+	/* Compute blink sequence tick layout:
+	 * Green: passed_count * 2 ticks (on + off per blink)
+	 * Pause: BLINK_PAUSE_TICKS (only if both green and red needed)
+	 * Red:   failed_count * 2 ticks (on + off per blink)
+	 */
+	green_end_tick = passed_count * 2;
+
+	if (passed_count == 0) {
+		/* No green blinks — skip straight to red */
+		red_start_tick = 0;
+		total_blink_ticks = failed_count * 2;
+	} else if (failed_count == 0) {
+		/* No red blinks — green only, no pause */
+		red_start_tick = green_end_tick;
+		total_blink_ticks = green_end_tick;
+	} else {
+		/* Both green and red — insert pause */
+		red_start_tick = green_end_tick + BLINK_PAUSE_TICKS;
+		total_blink_ticks = red_start_tick + failed_count * 2;
+	}
+
+	send_pending = (failed_count > 0);
+	blink_tick = 0;
+	state = TRIG_BLINKING;
+
+	if (api) {
+		api->log_inf("Self-test triggered: %d pass, %d fail",
+			     passed_count, failed_count);
+	}
+}
+
+/* ------------------------------------------------------------------ */
+/*  Button polling                                                     */
+/* ------------------------------------------------------------------ */
+
+static void poll_button(void)
+{
+	if (!api) {
+		return;
+	}
+
+	bool pressed = (api->gpio_get(EVSE_PIN_BUTTON) == 1);
+
+	if (pressed && !last_button_pressed) {
+		/* Rising edge — new press */
+		uint32_t now = api->uptime_ms();
+
+		/* Expire old presses outside window */
+		while (press_count > 0 &&
+		       (now - press_times[0]) > TRIGGER_WINDOW_MS) {
+			memmove(press_times, press_times + 1,
+				(press_count - 1) * sizeof(uint32_t));
+			press_count--;
+		}
+
+		/* Record new press */
+		if (press_count < TRIGGER_PRESS_COUNT) {
+			press_times[press_count++] = now;
+		}
+
+		/* Check trigger threshold */
+		if (press_count >= TRIGGER_PRESS_COUNT) {
+			press_count = 0;
+			start_selftest();
+		}
+	}
+
+	last_button_pressed = pressed;
+}
+
+/* ------------------------------------------------------------------ */
+/*  LED blink driver                                                   */
+/* ------------------------------------------------------------------ */
+
+static void drive_blinks(void)
+{
+	if (!api) {
+		return;
+	}
+
+	if (blink_tick < green_end_tick) {
+		/* Green phase: even ticks = ON, odd ticks = OFF */
+		bool on = (blink_tick % 2 == 0);
+		api->led_set(LED_GREEN, on);
+	} else if (blink_tick < red_start_tick) {
+		/* Pause phase: all LEDs off */
+		api->led_set(LED_GREEN, false);
+		api->led_set(LED_RED, false);
+	} else if (blink_tick < total_blink_ticks) {
+		/* Red phase: even offset ticks = ON, odd = OFF */
+		int rt = blink_tick - red_start_tick;
+		bool on = (rt % 2 == 0);
+		api->led_set(LED_RED, on);
+	} else {
+		/* Done */
+		api->led_set(LED_GREEN, false);
+		api->led_set(LED_RED, false);
+
+		if (send_pending && send_fn) {
+			send_fn();
+			send_pending = false;
+		}
+
+		state = TRIG_IDLE;
+		return;
+	}
+
+	blink_tick++;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tick handler — call from app_on_timer every 500ms                  */
+/* ------------------------------------------------------------------ */
+
+void selftest_trigger_tick(void)
+{
+	if (!api) {
+		return;
+	}
+
+	switch (state) {
+	case TRIG_IDLE:
+		poll_button();
+		break;
+	case TRIG_BLINKING:
+		drive_blinks();
+		break;
+	}
+}

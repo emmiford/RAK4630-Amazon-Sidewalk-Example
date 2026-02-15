@@ -19,6 +19,8 @@ uint8_t mock_last_send_buf[256];
 size_t mock_last_send_len;
 int mock_send_count;
 int mock_send_return;
+bool mock_led_states[4];
+int mock_led_on_count[4];
 char mock_last_log[256];
 int mock_log_wrn_count;
 
@@ -76,6 +78,9 @@ static int stub_gpio_set(int pin_index, int val)
 	mock_gpio_set_last_pin = pin_index;
 	mock_gpio_set_last_val = val;
 	mock_gpio_set_call_count++;
+	if (pin_index >= 0 && pin_index < 4) {
+		mock_gpio_values[pin_index] = val;
+	}
 	return 0;
 }
 
@@ -117,6 +122,16 @@ static void stub_log_wrn(const char *fmt, ...)
 	vsnprintf(mock_last_log, sizeof(mock_last_log), fmt, args);
 	va_end(args);
 	mock_log_wrn_count++;
+}
+
+static void stub_led_set(int led_id, bool on)
+{
+	if (led_id >= 0 && led_id < 4) {
+		mock_led_states[led_id] = on;
+		if (on) {
+			mock_led_on_count[led_id]++;
+		}
+	}
 }
 
 static void stub_shell_print(const char *fmt, ...)
@@ -171,6 +186,7 @@ const struct platform_api *mock_platform_api_init(void)
 	mock_api.adc_read_mv = stub_adc_read_mv;
 	mock_api.gpio_get = stub_gpio_get;
 	mock_api.gpio_set = stub_gpio_set;
+	mock_api.led_set = stub_led_set;
 
 	mock_api.uptime_ms = stub_uptime_ms;
 	mock_api.reboot = stub_reboot;
@@ -206,6 +222,8 @@ void mock_platform_api_reset(void)
 	mock_last_send_len = 0;
 	mock_send_count = 0;
 	mock_send_return = 0;
+	memset(mock_led_states, 0, sizeof(mock_led_states));
+	memset(mock_led_on_count, 0, sizeof(mock_led_on_count));
 	memset(mock_last_log, 0, sizeof(mock_last_log));
 	mock_log_wrn_count = 0;
 }
