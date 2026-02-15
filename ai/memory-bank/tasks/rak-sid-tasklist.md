@@ -486,8 +486,9 @@ TASK-033 (TIME_SYNC downlink) —— MERGED DONE (Eliel)
 TASK-034 (Event buffer) ————————— MERGED DONE (Eliel)
 TASK-035 (Uplink v0x07) ————————— unblocked (033+034 merged), ready for implementation
 TASK-047 (Device verification) ——— blocked by TASK-035 (needs all 3 features merged)
-TASK-036 (Device registry) ————— independent (Eliel: DynamoDB fleet identity)
-TASK-037 (Utility identification) — blocked by TASK-036 (meter_number lives in registry)
+TASK-036 (Device registry) ————— MERGED DONE (Eliel)
+TASK-049 (Deploy device registry) — blocked by TASK-036 (merged), terraform apply needed
+TASK-037 (Utility identification) — blocked by TASK-036 (merged), unblocked for implementation
 TASK-038 (Data privacy) ————————— independent (Pam: policy + CCPA)
 TASK-039 (Commissioning self-test) — MERGED DONE (Eero)
 TASK-048 (Selftest device verification) — blocked by TASK-039 (merged), ready for device testing
@@ -536,7 +537,8 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | P1 | TASK-035 | Uplink v0x07 — timestamp + control flags, unblocked (Eliel) |
 | Merged done | TASK-031 | OTA image signing — ED25519, merged 2026-02-14 (Eliel) |
 | P1 | TASK-029 | Production observability — CloudWatch alerting + remote query (Eliel) |
-| P1 | TASK-036 | Device registry — DynamoDB fleet identity table (Eliel) |
+| Merged done | TASK-036 | Device registry — DynamoDB SC- short IDs, 12 Python tests, merged 2026-02-14 (Eliel) |
+| P0 | TASK-049 | Deploy device registry — `terraform apply` + verify uplink creates registry entry (Eliel) |
 | P1 | TASK-040 | Production self-test trigger — 5-press button, blocked by 039 (Eero) |
 | P1 | TASK-044 | PRD update — commissioning sections + G = earth ground, no fan (Pam) |
 | P2 | TASK-001 | Merge feature branches to main |
@@ -1024,11 +1026,18 @@ Device: time_sync.c/h parses 9-byte 0x30 command (epoch + ACK watermark), tracks
 
 ---
 
-### TASK-036: Device registry — DynamoDB table with SC- short ID and installer-provided location
+### TASK-036: Device registry — DynamoDB table with SC- short ID and installer-provided location — MERGED DONE (Eliel)
+
+## Status: MERGED DONE (2026-02-14, Eliel)
+## Branch: `feature/device-registry` (merged to main, branch deleted)
+
+Delivered: `aws/device_registry.py` (84 lines), `aws/terraform/device_registry.tf` (41 lines), `aws/tests/test_device_registry.py` (12 tests), decode Lambda integration (best-effort last_seen update on every uplink). Auto-provisions on first uplink with status "active". SC-XXXXXXXX short IDs from SHA-256 of wireless device UUID. Two GSIs (owner_email, status). Simplified schema vs. PRD 4.6 — missing some installer/provisioning fields (owner_name, meter_number, install_address/lat/lon, install_date, installer_name, updated_at) which can be added when commissioning workflow exists.
+
+**Note**: Terraform has NOT been applied yet — table is not deployed. See TASK-049.
 
 ## Branch & Worktree Strategy
 **Base Branch**: `main`
-- Branch: `feature/device-registry`
+- Branch: `feature/device-registry` (merged)
 
 ## Description
 **Agent**: Eliel (Backend Architect). Per PRD 4.6 (PDL-012 decided), there is no way to track which customer owns which device, where it is installed, or its current firmware version and liveness. This task creates a DynamoDB table `sidecharge-device-registry` with device_id (PK, format SC- + first 8 hex chars of SHA-256 of Sidewalk UUID), sidewalk_id, owner fields, meter_number, install address/coordinates, firmware version, last_seen, and status lifecycle (provisioned -> installed -> active -> inactive / returned). The decode Lambda updates last_seen and app_version on every uplink. GSIs on owner_email and status for fleet queries.
@@ -1525,6 +1534,39 @@ Combined device verification for TASK-033 (TIME_SYNC), TASK-034 (event buffer), 
 - Updated `tests/e2e/RUNBOOK.md`: Add selftest verification procedure
 
 **Size**: S (2 points) — 1 hour (requires device + AWS access)
+
+---
+
+### TASK-049: Deploy device registry — terraform apply + verify uplink creates DynamoDB entry
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: N/A (infrastructure deployment, no code changes expected)
+
+## Description
+**Agent**: Eliel (Backend Architect). TASK-036 merged code for the device registry DynamoDB table, but `terraform apply` has not been run yet. The table `sidecharge-device-registry` does not exist in AWS. This task deploys the infrastructure and verifies end-to-end that the next device uplink auto-provisions a registry entry.
+
+## Dependencies
+**Blockers**: TASK-036 (merged)
+**Unblocks**: TASK-037 (utility identification needs registry deployed)
+
+## Acceptance Criteria
+- [ ] `terraform apply` succeeds — `sidecharge-device-registry` table created with both GSIs
+- [ ] Lambda environment variable `DEVICE_REGISTRY_TABLE` set correctly
+- [ ] Lambda has IAM permissions to read/write the registry table
+- [ ] Physical verification: trigger a device uplink, confirm registry entry appears in DynamoDB
+- [ ] Verify SC- short ID matches expected SHA-256 for known device `b319d001-6b08-4d88-b4ca-4d2d98a6d43c`
+
+## Testing Requirements
+- [ ] `terraform plan` shows only expected additions (no destructive changes)
+- [ ] `aws dynamodb scan --table-name sidecharge-device-registry` returns the auto-provisioned device after uplink
+- [ ] CloudWatch logs show "Auto-provisioned device SC-XXXXXXXX" message
+
+## Deliverables
+- Deployed DynamoDB table in AWS
+- Verified registry entry for physical device
+
+**Size**: XS (1 point) — 30 minutes (requires AWS access + device)
 
 ---
 
