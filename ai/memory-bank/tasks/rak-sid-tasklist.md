@@ -5,7 +5,7 @@
 | Agent | Role | Branch | Sessions | Tasks |
 |-------|------|--------|----------|-------|
 | Oliver | Architecture / OTA / infra | `main`, `feature/generic-platform` | 2026-02-11 | TASK-001, 002, 004, 006, 007, 009, 010, 014, 019 |
-| Eero | Testing architect | `feature/testing-pyramid` | 2026-02-11 | TASK-003, 005, 009, 010, 011, 012, 013, 016, 018, 020, 021, 039, 040 |
+| Eero | Testing architect | `feature/testing-pyramid` | 2026-02-11 | TASK-003, 005, 009, 010, 011, 012, 013, 016, 018, 020, 021, 039, 040, 048 |
 | Eliel | Backend architect | TBD | 2026-02-13 | TASK-029, 030, 031, 032, 033, 034, 035, 036 |
 | Pam | Product manager | TBD | 2026-02-13 | TASK-037, 038, 042, 043, 044 |
 | Bobby | Brand guardian | TBD | 2026-02-13 | TASK-041 |
@@ -489,8 +489,9 @@ TASK-047 (Device verification) ——— blocked by TASK-035 (needs all 3 featur
 TASK-036 (Device registry) ————— independent (Eliel: DynamoDB fleet identity)
 TASK-037 (Utility identification) — blocked by TASK-036 (meter_number lives in registry)
 TASK-038 (Data privacy) ————————— independent (Pam: policy + CCPA)
-TASK-039 (Commissioning self-test) — independent (Eero: P0 for field install)
-TASK-040 (Prod self-test trigger) — blocked by TASK-039 (needs self-test logic first + physical button)
+TASK-039 (Commissioning self-test) — MERGED DONE (Eero)
+TASK-048 (Selftest device verification) — blocked by TASK-039 (merged), ready for device testing
+TASK-040 (Prod self-test trigger) — blocked by TASK-039 (merged), needs physical button
 TASK-041 (Commissioning card) ——— independent (Bobby: printed card design)
 TASK-042 (Privacy agent) ————————— independent (Pam: assign legal/privacy owner)
 TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sections, G = earth ground)
@@ -526,7 +527,8 @@ TASK-044 (PRD commissioning + wiring) — independent (Pam: commissioning sectio
 | Merged done | TASK-015 | Dead code removal — 5 files, ~1,600 lines deleted (Claude) |
 | Merged done | TASK-023 | PSA crypto -149 root caused, flash.sh warning added (Claude + Eero) |
 | P4 | TASK-013 | OTA field RF testing — deferred, Sidewalk platform concern |
-| P0 | TASK-039 | Commissioning self-test — P0 for first field install (Eero) |
+| Merged done | TASK-039 | Commissioning self-test — 23 C + 4 Python tests, merged 2026-02-14 (Eero) |
+| P0 | TASK-048 | On-device selftest verification — `sid selftest` + DynamoDB fault flags (Eero) |
 | P0 | TASK-041 | Commissioning checklist card — P0 for first field install (Bobby) |
 | P1 | TASK-022 | BUG: Stale flash inflates OTA delta baselines (plan drafted, not approved) — KI-003 |
 | Merged done | TASK-033 | TIME_SYNC downlink (0x30) — 11 C + 15 Python tests, merged 2026-02-14 (Eliel) |
@@ -1138,7 +1140,11 @@ Product scoping complete in PRD section 4.5. Corrected the original design assum
 
 ---
 
-### TASK-039: Commissioning self-test — boot self-test, continuous monitoring, and `sid selftest` command
+### TASK-039: Commissioning self-test — boot self-test, continuous monitoring, and `sid selftest` command — MERGED DONE (Eero)
+
+## Status: MERGED DONE (2026-02-14, Eero)
+**Branch**: `feature/selftest` | **Commit**: `877d357` → merged `75cb85f`
+**Note**: Code complete. On-device verification tracked separately in TASK-048.
 
 ## Branch & Worktree Strategy
 **Base Branch**: `main`
@@ -1480,6 +1486,43 @@ Combined device verification for TASK-033 (TIME_SYNC), TASK-034 (event buffer), 
 ## Deliverables
 - Updated `tests/e2e/RUNBOOK.md`: Add TIME_SYNC, event buffer, and v0x07 test procedures
 - `tests/e2e/RESULTS-time-sync-v07.md`: Test results
+
+**Size**: S (2 points) — 1 hour (requires device + AWS access)
+
+---
+
+### TASK-048: On-device verification — commissioning self-test (`sid selftest` + DynamoDB fault flags)
+
+## Branch & Worktree Strategy
+**Base Branch**: `main`
+- Branch: N/A (device testing, no code changes expected)
+
+## Description
+**Agent**: Eero (Testing Architect). TASK-039 implemented all self-test logic (boot checks, continuous monitoring, `sid selftest` shell command) with 23 C tests and 4 Lambda decoder tests — all passing and merged to main. Two Definition of Done criteria remain that require the physical device:
+
+1. **`sid selftest` verified on physical device** — Flash current main (platform + app), run `sid selftest` via serial, confirm pass/fail output matches expected behavior.
+2. **Fault flags appear in DynamoDB uplinks** — Trigger a fault condition (e.g., simulate clamp mismatch via `evse c` with no load, or disconnect a sensor), confirm the uplink thermostat byte bits 4-7 are set, and verify the decode Lambda extracts `sensor_fault`, `clamp_mismatch`, `interlock_fault`, and `selftest_fail` fields in DynamoDB.
+
+## Dependencies
+**Blockers**: TASK-039 (merged)
+**Unblocks**: None
+
+## Acceptance Criteria
+- [ ] `sid selftest` shell command runs on device and prints pass/fail for each check
+- [ ] Boot self-test runs on power-on (confirm via serial log)
+- [ ] Fault flags appear in uplink byte 7 bits 4-7 when a fault condition is active
+- [ ] DynamoDB event contains decoded fault fields (`sensor_fault`, `clamp_mismatch`, `interlock_fault`, `selftest_fail`)
+- [ ] Fault flags clear when condition resolves (continuous monitoring self-clear)
+
+## Testing Requirements
+- [ ] Reflash platform + app from current main
+- [ ] Monitor serial output during boot and `sid selftest`
+- [ ] Simulate fault conditions (e.g., `evse c` with no load for clamp mismatch)
+- [ ] Query DynamoDB for fault flag fields in decoded events
+
+## Deliverables
+- `tests/e2e/RESULTS-selftest.md`: On-device test results
+- Updated `tests/e2e/RUNBOOK.md`: Add selftest verification procedure
 
 **Size**: S (2 points) — 1 hour (requires device + AWS access)
 
