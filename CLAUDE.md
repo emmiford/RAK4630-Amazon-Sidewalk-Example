@@ -164,8 +164,8 @@ This project uses nine named agent personas:
 
 ### Malcolm — Senior Project Manager
 - **Role**: Converts specs and messy thoughts into actionable, structured task lists
-- **Artifacts**: `ai/memory-bank/tasks/rak-sid-tasklist.md` (backlog with priorities, dependencies, acceptance criteria)
-- **Style**: Standardized task template with branch strategy, testing requirements, deliverables, and sizing
+- **Artifacts**: `ai/memory-bank/tasks/INDEX.md` (summary), `ai/memory-bank/tasks/active/` (open tasks), `ai/memory-bank/tasks/done/` (completed tasks)
+- **Style**: One file per task using `ai/memory-bank/tasks/TEMPLATE.md`; INDEX.md is the summary view
 - **Invoke**: Ask for "Malcolm" by name to manage tasks, update the backlog, or show the task table
 - **Full definition**: See `ai/agents/project-manager-senior.md` (or fetch from GitHub)
 
@@ -235,17 +235,17 @@ This project uses nine named agent personas:
 - **Note**: This definition is lightweight — if Pam needs more depth for specific tasks, revisit and upgrade
 
 ### Task Ownership Convention
-When you start working on a task, **immediately** update the task entry in `ai/memory-bank/tasks/rak-sid-tasklist.md` to record:
+When you start working on a task, **immediately** update its file in `ai/memory-bank/tasks/active/TASK-NNN.md` to record:
 - **Session ID**: The current conversation/session identifier (from the `.jsonl` filename or context)
 - **Branch name**: The git branch you are working on
 
-Append these to the task's status line, e.g.:
+Update the task's status line, e.g.:
 ```
-## Status: IN PROGRESS (2026-02-13, Eliel)
-**Session**: `a1b2c3d4-...` | **Branch**: `feature/time-sync`
+**Status**: in progress (2026-02-13, Eliel)
+**Session**: `a1b2c3d4-...`
 ```
 
-This prevents duplicate work across sessions and makes it possible to trace which conversation produced which changes. Update the status to DONE with the same fields when complete.
+Also update the corresponding row in `ai/memory-bank/tasks/INDEX.md`. When a task reaches **merged done**, move it from `active/` to `done/` (collapse to summary format) and move the row from the Open to Completed table in INDEX.md.
 
 ### Task Table View Preference
 - **"table view"**: Box-drawn table with columns: Priority | Task | Status | Description | Blocks/Blocked By. Done tasks in a separate table at the bottom.

@@ -431,7 +431,7 @@ e88d519    —            EXP-008: Generic platform           GO
 ```
 
 ## Cross-Reference
-- **Malcolm's Task List**: `ai/memory-bank/tasks/rak-sid-tasklist.md`
+- **Task Index**: `ai/memory-bank/tasks/INDEX.md`
 - **Tasks informed by experiments**:
   - TASK-005 (OTA recovery tests) — validates EXP-004/EXP-007 recovery paths
   - TASK-007 (E2E test plan) — should include REC-005 field conditions
