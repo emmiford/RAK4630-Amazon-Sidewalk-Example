@@ -12,11 +12,17 @@ Special: deferred, declined
 ## Agent Registry
 | Agent | Role |
 |-------|------|
-| Oliver | Architecture / OTA / infra |
-| Eero | Testing architect |
-| Eliel | Backend architect |
-| Pam | Product manager |
-| Bobby | Brand guardian |
+| Malcolm | Senior project manager — task lists, backlog, prioritization |
+| Oliver | Experiment tracker — A/B tests, scientific methodology |
+| Arnold | Pipeline orchestrator — multi-phase dev workflows |
+| Bobby | Brand guardian — identity systems, visual identity, voice |
+| Vanessa | Visual storyteller — narratives, data viz, multimedia |
+| Whitney | Whimsy injector — micro-interactions, playful UX, Easter eggs |
+| Zach | Content creator — content strategy, SEO, editorial |
+| Eero | Testing architect — CI/CD, unit/integration tests, quality |
+| Eliel | Backend architect — system design, APIs, cloud infra |
+| Utz | UX architect — CSS systems, layout, information architecture |
+| Pam | Product manager — strategy, prioritization, roadmap |
 
 ## Open Tasks
 | ID | P | Status | Owner | Title | Blocked By |
