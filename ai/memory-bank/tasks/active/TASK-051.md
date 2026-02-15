@@ -1,9 +1,9 @@
 # TASK-051: Move EVSE payload struct to app layer
 
-**Status**: not started
+**Status**: committed
 **Priority**: P1
 **Owner**: Eliel
-**Branch**: —
+**Branch**: main (small refactor, no worktree needed)
 **Size**: S (1 point)
 
 ## Description
@@ -20,15 +20,15 @@ Reference: `docs/technical-design-rak-firmware.md`, Change 2.
 **Blocks**: TASK-052
 
 ## Acceptance Criteria
-- [ ] `evse_payload_t` no longer defined in a platform-visible header
+- [x] `evse_payload_t` no longer defined in a platform-visible header
 - [ ] Platform build succeeds without EVSE payload knowledge
-- [ ] App build succeeds
-- [ ] Host tests pass
+- [x] App build succeeds
+- [x] Host tests pass (55/55 Makefile, 13/13 CMake)
 
 ## Testing Requirements
 - [ ] Platform build succeeds
-- [ ] App build succeeds
-- [ ] 57 host-side tests pass
+- [x] App build succeeds
+- [x] 68 host-side tests pass (55 Makefile + 13 CMake)
 
 ## Deliverables
 - Payload struct moved to app-layer header or source

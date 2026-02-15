@@ -43,7 +43,7 @@ Special: deferred, declined
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | — |
 | TASK-048b | P2 | not started | Bobby | Charge Now single-press button | — |
-| TASK-051 | P1 | not started | Eliel | Move EVSE payload struct to app layer | — |
+| TASK-051 | P1 | committed | Eliel | Move EVSE payload struct to app layer | — |
 | TASK-052 | P1 | not started | Eliel | Rename rak_sidewalk → evse_payload | TASK-051 |
 | TASK-053 | P1 | not started | Eliel | Resolve two app_tx.c naming collision | — |
 | TASK-056 | P1 | not started | Eliel | Break up app.c into focused platform modules | TASK-050 |
