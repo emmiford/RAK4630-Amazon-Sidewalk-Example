@@ -315,7 +315,7 @@ static void test_charge_control_no_auto_resume_when_zero(void)
 /*  app_tx: payload format and rate limiting                           */
 /* ================================================================== */
 
-static void test_app_tx_sends_8_byte_payload(void)
+static void test_app_tx_sends_12_byte_payload(void)
 {
 	mock_reset();
 	mock_get()->adc_values[0] = 2980;  /* State A */
@@ -333,11 +333,11 @@ static void test_app_tx_sends_8_byte_payload(void)
 	int ret = app_tx_send_evse_data();
 	assert(ret == 0);
 	assert(mock_get()->send_count == 1);
-	assert(mock_get()->sends[0].len == 8);
+	assert(mock_get()->sends[0].len == 12);
 
 	/* Check magic and version bytes */
 	assert(mock_get()->sends[0].data[0] == 0xE5);  /* EVSE_MAGIC */
-	assert(mock_get()->sends[0].data[1] == 0x06);  /* EVSE_VERSION */
+	assert(mock_get()->sends[0].data[1] == 0x07);  /* EVSE_VERSION v0x07 */
 }
 
 static void test_app_tx_rate_limits(void)
@@ -905,7 +905,7 @@ int main(void)
 	RUN_TEST(test_charge_control_no_auto_resume_when_zero);
 
 	printf("\napp_tx:\n");
-	RUN_TEST(test_app_tx_sends_8_byte_payload);
+	RUN_TEST(test_app_tx_sends_12_byte_payload);
 	RUN_TEST(test_app_tx_rate_limits);
 	RUN_TEST(test_app_tx_not_ready_skips);
 

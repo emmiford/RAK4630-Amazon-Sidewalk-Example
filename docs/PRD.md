@@ -1,6 +1,6 @@
 # SideCharge Product Requirements -- v1.5
 
-**Status**: Active -- terminology aligned with lexicon (docs/lexicon.md); commissioning test sequence, self-test/fault detection, installation failure modes (sections 2.5.2-2.5.4); uplink fault flags (byte 7 bits 4-7)
+**Status**: Active -- terminology aligned with lexicon (docs/lexicon.md); commissioning test sequence, self-test/fault detection, installation failure modes (sections 2.5.2-2.5.4); uplink fault flags (byte 7 bits 4-7); self-test 5-press trigger implemented with 500ms polling limitation documented (TASK-040 done, TASK-049 scoped)
 **Hardware**: RAK4631 (nRF52840 + Semtech SX1262 LoRa)
 **Connectivity**: Amazon Sidewalk (LoRa 915MHz) -- no WiFi, no cellular, no monthly fees
 **Cloud**: AWS (Lambda, DynamoDB, S3, IoT Wireless, EventBridge)
@@ -167,7 +167,7 @@ Both overrides share the same 30-minute timer. After 30 minutes, everything retu
 **Additional considerations:**
 - ~~**Thermal comfort safeguard**~~: RESOLVED — the 30-minute hard limit is the safeguard. No auto-cancel based on continuous cool call. The override is 30 minutes, period.
 - **LED feedback**: The amber/blue LED shows override status (see section 2.5). When override expires or is cancelled, the LED returns to the normal interlock pattern.
-- **Button interaction**: Single press = activate override. Long press (3 seconds) = cancel override early. Long press (10 seconds) = activate BLE diagnostics beacon (see production diagnostics).
+- **Button interaction**: Single press = activate override (TASK-048). Long press (3 seconds) = cancel override early. Long press (10 seconds) = activate BLE diagnostics beacon (see production diagnostics). 5 presses within 5 seconds = trigger on-demand self-test (TASK-040, implemented). All button detection uses 500ms GPIO polling in v1.0; TASK-049 would add interrupt-driven detection for faster response.
 - **Cloud reporting**: Override activation and cancellation are reported in the next uplink.
 - **Power loss**: Override state is RAM-only. Power cycle = override lost, safe default restored. This is intentional.
 
@@ -501,7 +501,9 @@ These checks run on every 500ms sensor poll cycle. They detect faults that devel
 
 **On-demand self-test**
 
-During development, `sid selftest` triggers a full self-test cycle (boot checks + one pass of continuous checks) and prints results to the shell. In production (no USB), the same test is triggered by pressing the Charge Now button 5 times within 3 seconds. Results are reported via LED blink codes: green rapid-blinks the count of passed tests, then pauses, then red/both rapid-blinks the count of failed tests (0 blinks = all passed). Results are also sent as a special uplink with the SELFTEST_FAIL flag if any test fails.
+During development, `sid selftest` triggers a full self-test cycle (boot checks + one pass of continuous checks) and prints results to the shell. In production (no USB), the same test is triggered by pressing the Charge Now button 5 times within 5 seconds. Results are reported via LED blink codes: green rapid-blinks the count of passed tests, then pauses, then red/both rapid-blinks the count of failed tests (0 blinks = all passed). Results are also sent as a special uplink with the SELFTEST_FAIL flag if any test fails.
+
+**Button detection limitation (v1.0)**: The app layer has no GPIO interrupt path — button state is read by polling `gpio_get()` inside `app_on_timer()`, which fires every 500ms. Each press must be held long enough to span at least one polling tick to be detected. With 500ms resolution, five deliberate press-and-release cycles require ~5 seconds, so the original 3-second window was impractical. The 5-second window accommodates this. Quick taps shorter than 500ms may be missed entirely. This is adequate for production use (installers press deliberately), but TASK-049 would add a platform-side GPIO interrupt callback (`on_button_press`) that delivers sub-millisecond press timestamps, enabling the tighter 3-second window and natural quick presses. TASK-049 requires an `APP_CALLBACK_VERSION` bump (v3 → v4) per ADR-001.
 
 **What can vs. cannot be automated**
 
@@ -523,7 +525,8 @@ During development, `sid selftest` triggers a full self-test cycle (boot checks 
 | Pilot voltage range validation (continuous) | NOT STARTED | P1 |
 | Thermostat chatter detection (continuous) | NOT STARTED | P2 |
 | `sid selftest` shell command | NOT STARTED | P0 |
-| Production 5-press button trigger for self-test | NOT STARTED (TASK-040) | P1 |
+| Production 5-press button trigger for self-test (5s window, polling-based — see limitation note above) | IMPLEMENTED (SW) (TASK-040) | P1 |
+| Platform GPIO interrupt callback for tighter 3s button detection | NOT STARTED (TASK-049) | P3 |
 | Self-test results in uplink fault flags (byte 7, bits 4-7) | NOT STARTED | P0 |
 
 #### 2.5.4 Installation Failure Modes
@@ -1661,7 +1664,8 @@ We name our limitations. This table is the honest accounting of what is missing 
 | No data privacy policy or retention rules | Behavioral telemetry (AC/EV patterns) and PII (address, meter number) stored indefinitely with no policy | TASK-038 |
 | **No UL listing or regulatory roadmap** | Cannot legally sell or install through electrician channel without third-party safety certification. First installer to pull a permit will be asked "Is this UL listed?" No timeline, no budget, no NRTL engagement. This is the biggest non-technical risk to the product. | Future (acknowledged, not addressed in v1.0) |
 | No commissioning self-test implementation | Boot self-test, continuous monitoring (current/J1772 cross-check, charge enable effectiveness), and `sid selftest` command not yet built. P0 for first field install. | TASK-039 |
-| No production self-test trigger | 5-press button trigger and LED blink-code results for field self-test without USB serial. P1. | TASK-040 |
+| ~~No production self-test trigger~~ | ~~RESOLVED~~ — 5-press button trigger with LED blink-code results implemented (TASK-040). Uses 500ms GPIO polling with 5-second detection window. Deliberate presses required. TASK-049 would add GPIO interrupt callback for tighter 3s window. | TASK-040 (done), TASK-049 (future) |
+| Button detection uses 500ms polling (no GPIO interrupts in app layer) | Quick button taps (<500ms) can be missed. 5-press self-test requires 5s window instead of 3s. Adequate for deliberate presses but not ideal UX. | TASK-049 (P3 — quality-of-life improvement) |
 | No commissioning checklist card | Printed card with 12-step checklist, wiring diagram, and installer sign-off fields. Only defense against 240V wiring errors. P0 for first field install. | TASK-041 |
 | EVSE rear-entry wiring not supported | SideCharge assumes bottom-entry wiring to the EVSE. Many chargers also provide a rear knockout for back-of-wall wiring. Rear-entry installations require a different mounting approach and conduit routing that SideCharge does not accommodate. | Out of scope (acknowledged) |
 | No privacy agent or policy owner | Privacy policy, CCPA review, data retention, and customer data deletion need a dedicated privacy/legal agent. No one currently owns this. | TASK-042 |
@@ -1716,3 +1720,5 @@ Every backlog task maps to a gap in this PRD:
 | TASK-041 | 2.5.2 (Commissioning Test Sequence) | Commissioning checklist card: design, print, include in product packaging |
 | TASK-042 | 6.4.2 (Data Privacy) | Find/assign privacy agent, draft privacy policy, CCPA review, data retention rules |
 | TASK-043 | 6.4 (Warranty and Liability) | Warranty risk scoping, mitigation roadmap, insurance, reversible connector, OCPP path |
+| TASK-048 | 2.0.1.1 (Charge Now Override) | Charge Now single-press button handler, FLAG_CHARGE_NOW in uplink |
+| TASK-049 | 2.5.3 (Self-Test and Fault Detection) | Platform GPIO interrupt callback (`on_button_press`), tighter 3s detection window, APP_CALLBACK_VERSION bump |

@@ -37,6 +37,10 @@ extern size_t mock_last_send_len;
 extern int mock_send_count;
 extern int mock_send_return;
 
+/* LED state tracking */
+extern bool mock_led_states[4];
+extern int mock_led_on_count[4];
+
 /* Log capture (last message) */
 extern char mock_last_log[256];
 extern int mock_log_wrn_count;

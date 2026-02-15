@@ -94,6 +94,14 @@ add_unit_test(test_event_buffer
     ${APP_SRC}/event_buffer.c
 )
 
+# selftest_trigger tests (needs selftest + evse_sensors + charge_control)
+add_unit_test(test_selftest_trigger
+    ${APP_SRC}/selftest_trigger.c
+    ${APP_SRC}/selftest.c
+    ${APP_SRC}/evse_sensors.c
+    ${APP_SRC}/charge_control.c
+)
+
 # shell command dispatch tests (needs app_entry + all app modules)
 add_executable(test_shell_commands
     ${CMAKE_CURRENT_SOURCE_DIR}/app/test_shell_commands.c
@@ -105,6 +113,7 @@ add_executable(test_shell_commands
     ${APP_SRC}/app_tx.c
     ${APP_SRC}/app_rx.c
     ${APP_SRC}/selftest.c
+    ${APP_SRC}/selftest_trigger.c
     ${APP_SRC}/time_sync.c
     ${APP_SRC}/event_buffer.c
 )
