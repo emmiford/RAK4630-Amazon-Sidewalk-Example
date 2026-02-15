@@ -1,15 +1,18 @@
 """
 Lambda function to decode EVSE Sidewalk sensor data.
 
-Supports two payload formats:
-1. New raw format (8 bytes): Magic 0xE5, Version, J1772 state, voltage, current, thermostat
-2. Legacy sid_demo format: Wrapped with demo protocol headers
+Supports three payload formats:
+1. v0x07 raw format (12 bytes): Magic 0xE5, J1772, voltage, current, flags+control, timestamp
+2. v0x06 raw format (8 bytes): Magic 0xE5, J1772, voltage, current, thermostat+faults
+3. Legacy sid_demo format: Wrapped with demo protocol headers
 
 Extracts:
 - J1772 pilot state
 - Pilot voltage (mV)
 - Current draw (mA)
 - Thermostat input bits
+- Charge control flags (v0x07+)
+- Device-side timestamp (v0x07+)
 """
 
 import base64
@@ -37,10 +40,10 @@ TIME_SYNC_INTERVAL_S = 86400  # Re-sync daily
 
 from sidewalk_utils import send_sidewalk_msg  # noqa: E402
 
-# EVSE payload magic byte and version
+# EVSE payload magic byte and versions
 EVSE_MAGIC = 0xE5
-EVSE_VERSION = 0x01
-EVSE_PAYLOAD_SIZE = 8
+EVSE_PAYLOAD_SIZE_V06 = 8
+EVSE_PAYLOAD_SIZE_V07 = 12
 
 # Legacy payload type
 LEGACY_EVSE_TYPE = 0x01
@@ -116,17 +119,23 @@ def maybe_send_time_sync(device_id):
 
 def decode_raw_evse_payload(raw_bytes):
     """
-    Decode the new raw 8-byte EVSE payload format.
+    Decode raw EVSE payload (v0x06 = 8 bytes, v0x07 = 12 bytes).
 
-    Format:
+    v0x06 format (8 bytes):
       Byte 0: Magic (0xE5)
-      Byte 1: Version (0x01)
+      Byte 1: Version (0x06)
       Byte 2: J1772 state (0-6)
       Byte 3-4: Pilot voltage mV (little-endian)
       Byte 5-6: Current mA (little-endian)
-      Byte 7: Thermostat flags (bits 0-1) + fault flags (bits 4-7)
+      Byte 7: Flags — thermostat (bits 0-1) + faults (bits 4-7)
+
+    v0x07 format (12 bytes):
+      Bytes 0-7: Same as v0x06
+      Byte 7: Flags — thermostat (bits 0-1) + charge_allowed (bit 2)
+               + charge_now (bit 3) + faults (bits 4-7)
+      Byte 8-11: SideCharge epoch timestamp (LE uint32, seconds since 2026-01-01)
     """
-    if len(raw_bytes) < EVSE_PAYLOAD_SIZE:
+    if len(raw_bytes) < EVSE_PAYLOAD_SIZE_V06:
         return None
 
     magic = raw_bytes[0]
@@ -146,7 +155,7 @@ def decode_raw_evse_payload(raw_bytes):
     if pilot_voltage > 15000 or current_ma > 100000:
         return None
 
-    return {
+    result = {
         'payload_type': 'evse',
         'format': 'raw_v1',
         'version': version,
@@ -154,14 +163,27 @@ def decode_raw_evse_payload(raw_bytes):
         'j1772_state': J1772_STATES.get(j1772_state, 'UNKNOWN'),
         'pilot_voltage_mv': pilot_voltage,
         'current_ma': current_ma,
-        'thermostat_bits': flags_byte & 0x0F,
+        'thermostat_bits': flags_byte & 0x03,
         'thermostat_heat': bool(flags_byte & 0x01),
         'thermostat_cool': bool(flags_byte & 0x02),
+        'charge_allowed': bool(flags_byte & 0x04),
+        'charge_now': bool(flags_byte & 0x08),
         'fault_sensor': bool(flags_byte & 0x10),
         'fault_clamp_mismatch': bool(flags_byte & 0x20),
         'fault_interlock': bool(flags_byte & 0x40),
         'fault_selftest_fail': bool(flags_byte & 0x80),
     }
+
+    # v0x07+: 4-byte timestamp at bytes 8-11
+    if len(raw_bytes) >= EVSE_PAYLOAD_SIZE_V07:
+        sc_epoch = int.from_bytes(raw_bytes[8:12], 'little')
+        result['device_timestamp_epoch'] = sc_epoch
+        if sc_epoch > 0:
+            result['device_timestamp_unix'] = sc_epoch + SIDECHARGE_EPOCH_OFFSET
+        else:
+            result['device_timestamp_unix'] = None  # Not yet synced
+
+    return result
 
 
 def decode_legacy_sid_demo_payload(raw_bytes):
@@ -371,6 +393,7 @@ def lambda_handler(event, context):
         elif decoded.get('payload_type') == 'evse':
             evse_data = {
                 'format': decoded.get('format', 'unknown'),
+                'version': decoded.get('version', 1),
                 'pilot_state': decoded['j1772_state'],
                 'pilot_state_code': decoded['j1772_state_code'],
                 'pilot_voltage_mv': decoded['pilot_voltage_mv'],
@@ -378,6 +401,8 @@ def lambda_handler(event, context):
                 'thermostat_bits': decoded['thermostat_bits'],
                 'thermostat_heat_active': decoded['thermostat_heat'],
                 'thermostat_cool_active': decoded['thermostat_cool'],
+                'charge_allowed': decoded.get('charge_allowed', False),
+                'charge_now': decoded.get('charge_now', False),
             }
             # Include fault flags if any are set
             if any(decoded.get(f) for f in ('fault_sensor', 'fault_clamp_mismatch',
@@ -386,6 +411,11 @@ def lambda_handler(event, context):
                 evse_data['fault_clamp_mismatch'] = decoded.get('fault_clamp_mismatch', False)
                 evse_data['fault_interlock'] = decoded.get('fault_interlock', False)
                 evse_data['fault_selftest_fail'] = decoded.get('fault_selftest_fail', False)
+            # Include device-side timestamp if present (v0x07+)
+            if decoded.get('device_timestamp_epoch') is not None:
+                evse_data['device_timestamp_epoch'] = decoded['device_timestamp_epoch']
+            if decoded.get('device_timestamp_unix') is not None:
+                evse_data['device_timestamp_unix'] = decoded['device_timestamp_unix']
             item['data'] = {'evse': evse_data}
 
             # Auto-send TIME_SYNC on EVSE uplinks

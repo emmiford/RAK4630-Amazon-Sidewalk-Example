@@ -252,3 +252,98 @@ class TestFaultFlags:
         assert result["fault_selftest_fail"] is True
         assert result["thermostat_heat"] is False
         assert result["thermostat_cool"] is False
+
+
+# --- v0x07 payload decoding (12 bytes with timestamp + control flags) ---
+
+class TestDecodeV07Payload:
+    def _make_v07(self, j1772=1, voltage=0, current=0, flags=0, timestamp=0):
+        """Helper: build a 12-byte v0x07 payload."""
+        return bytes([
+            0xE5, 0x07, j1772,
+            voltage & 0xFF, (voltage >> 8) & 0xFF,
+            current & 0xFF, (current >> 8) & 0xFF,
+            flags,
+            timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+            (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+        ])
+
+    def test_v07_basic_decode(self):
+        """12-byte v0x07 payload decodes with timestamp."""
+        raw = self._make_v07(j1772=3, voltage=1489, current=15000,
+                             flags=0x07, timestamp=86400)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result is not None
+        assert result["version"] == 0x07
+        assert result["j1772_state_code"] == 3
+        assert result["pilot_voltage_mv"] == 1489
+        assert result["current_ma"] == 15000
+        assert result["device_timestamp_epoch"] == 86400
+
+    def test_v07_timestamp_to_unix(self):
+        """device_timestamp_unix = epoch + SIDECHARGE_EPOCH_OFFSET."""
+        raw = self._make_v07(timestamp=86400)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["device_timestamp_unix"] == 86400 + decode.SIDECHARGE_EPOCH_OFFSET
+
+    def test_v07_timestamp_zero_means_not_synced(self):
+        """Timestamp=0 means device not yet synced."""
+        raw = self._make_v07(timestamp=0)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["device_timestamp_epoch"] == 0
+        assert result["device_timestamp_unix"] is None
+
+    def test_v07_charge_allowed_flag(self):
+        """Bit 2 of flags byte = charge_allowed."""
+        raw = self._make_v07(flags=0x04)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["charge_allowed"] is True
+        assert result["charge_now"] is False
+
+    def test_v07_charge_now_flag(self):
+        """Bit 3 of flags byte = charge_now."""
+        raw = self._make_v07(flags=0x08)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["charge_now"] is True
+        assert result["charge_allowed"] is False
+
+    def test_v07_all_flags_coexist(self):
+        """All flag bits: heat + cool + charge_allowed + charge_now + all faults."""
+        raw = self._make_v07(flags=0xFF)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_heat"] is True
+        assert result["thermostat_cool"] is True
+        assert result["charge_allowed"] is True
+        assert result["charge_now"] is True
+        assert result["fault_sensor"] is True
+        assert result["fault_clamp_mismatch"] is True
+        assert result["fault_interlock"] is True
+        assert result["fault_selftest_fail"] is True
+
+    def test_v07_thermostat_bits_only_bits_0_1(self):
+        """thermostat_bits should only contain bits 0-1, not control flags."""
+        raw = self._make_v07(flags=0x0F)  # heat + cool + charge_allowed + charge_now
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_bits"] == 0x03  # Only heat + cool
+
+    def test_v07_large_timestamp(self):
+        """Max 32-bit timestamp (year ~2162)."""
+        raw = self._make_v07(timestamp=0xFFFFFFFF)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["device_timestamp_epoch"] == 0xFFFFFFFF
+
+    def test_v06_backward_compat(self):
+        """8-byte v0x06 payload still decodes (no timestamp fields)."""
+        raw = bytes([0xE5, 0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
+        result = decode.decode_raw_evse_payload(raw)
+        assert result is not None
+        assert result["version"] == 0x06
+        assert "device_timestamp_epoch" not in result
+
+    def test_v07_via_b64(self):
+        """v0x07 payload through full base64 decode pipeline."""
+        raw = self._make_v07(j1772=2, voltage=2234, timestamp=1000)
+        result = decode.decode_payload(encode_b64(raw))
+        assert result["payload_type"] == "evse"
+        assert result["version"] == 0x07
+        assert result["device_timestamp_epoch"] == 1000

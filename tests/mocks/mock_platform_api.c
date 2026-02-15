@@ -119,6 +119,12 @@ static void stub_log_wrn(const char *fmt, ...)
 	mock_log_wrn_count++;
 }
 
+static void stub_led_set(int led_id, bool on)
+{
+	(void)led_id;
+	(void)on;
+}
+
 static void stub_shell_print(const char *fmt, ...)
 {
 	(void)fmt;
@@ -171,6 +177,7 @@ const struct platform_api *mock_platform_api_init(void)
 	mock_api.adc_read_mv = stub_adc_read_mv;
 	mock_api.gpio_get = stub_gpio_get;
 	mock_api.gpio_set = stub_gpio_set;
+	mock_api.led_set = stub_led_set;
 
 	mock_api.uptime_ms = stub_uptime_ms;
 	mock_api.reboot = stub_reboot;
