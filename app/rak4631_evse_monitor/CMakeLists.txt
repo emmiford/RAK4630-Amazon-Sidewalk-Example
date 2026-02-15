@@ -20,6 +20,8 @@ target_sources(app PRIVATE
     src/app_leds.c
     src/platform_api_impl.c
     src/ota_update.c
+    src/ota_signing.c
+    src/mfg_health.c
 )
 
 zephyr_include_directories(
