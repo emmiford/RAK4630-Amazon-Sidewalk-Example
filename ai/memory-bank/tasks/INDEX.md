@@ -27,16 +27,14 @@ Special: deferred, declined
 ## Open Tasks
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
-| TASK-041 | P0 | not started | Bobby | Commissioning checklist card | — |
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
 | TASK-049 | P0 | not started | Eliel | Deploy device registry | — |
 | TASK-022 | P1 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
 | TASK-029 | P1 | not started | Eliel | Production observability | — |
-| TASK-035 | P1 | not started | Eliel | Uplink payload v0x07 | — |
 | TASK-044 | P1 | not started | Pam | PRD update — commissioning + G = earth ground | — |
 | TASK-045 | P1 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | P1 | not started | Eero | Signed OTA E2E verification | TASK-045 |
-| TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | TASK-035 |
+| TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
 | TASK-001 | P2 | not started | Oliver | Merge feature/generic-platform to main | — |
 | TASK-026 | P2 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | P2 | not started | Eliel | Fleet command throttling | — |
@@ -47,7 +45,7 @@ Special: deferred, declined
 | TASK-048b | P2 | not started | Bobby | Charge Now single-press button | — |
 | TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 
-## Completed Tasks (31)
+## Completed Tasks (33)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-002 | Create CLAUDE.md | MERGED DONE | 2026-02-11 | — |
@@ -79,7 +77,9 @@ Special: deferred, declined
 | TASK-034 | Event buffer (ring buffer) | MERGED DONE | 2026-02-14 | Eliel |
 | TASK-036 | Device registry (DynamoDB) | MERGED DONE | 2026-02-14 | Eliel |
 | TASK-039 | Commissioning self-test | MERGED DONE | 2026-02-14 | Eero |
-| TASK-040 | Production self-test trigger | DONE | 2026-02-14 | Eero |
+| TASK-035 | Uplink payload v0x07 | MERGED DONE | 2026-02-14 | Eliel |
+| TASK-040 | Production self-test trigger | MERGED DONE | 2026-02-14 | Eero |
+| TASK-041 | Commissioning checklist card | MERGED DONE | 2026-02-14 | Bobby |
 | TASK-043 | Warranty/liability risk | MERGED DONE | 2026-02-13 | Pam |
 
 ## Related Documents
