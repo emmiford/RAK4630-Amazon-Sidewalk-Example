@@ -4,13 +4,19 @@
 
 #include <app_tx.h>
 #include <rak_sidewalk.h>
+#include <charge_control.h>
+#include <time_sync.h>
 #include <platform_api.h>
 #include <string.h>
 
 /* EVSE payload format constants */
 #define EVSE_MAGIC   0xE5
-#define EVSE_VERSION 0x06
-#define EVSE_PAYLOAD_SIZE 8
+#define EVSE_VERSION 0x07
+#define EVSE_PAYLOAD_SIZE 12
+
+/* Control flag bits in flags byte (byte 7), bits 2-3 */
+#define FLAG_CHARGE_ALLOWED  0x04   /* bit 2 */
+#define FLAG_CHARGE_NOW      0x08   /* bit 3 */
 
 /* Minimum interval between uplinks to avoid flooding on rapid state changes */
 #define MIN_SEND_INTERVAL_MS  5000
@@ -72,7 +78,17 @@ int app_tx_send_evse_data(void)
 	/* Read current sensor data */
 	evse_payload_t data = rak_sidewalk_get_payload();
 
-	/* Build 8-byte raw payload */
+	/* OR charge control flags into the flags byte (bits 2-3) */
+	uint8_t flags = data.thermostat_flags;
+	if (charge_control_is_allowed()) {
+		flags |= FLAG_CHARGE_ALLOWED;
+	}
+	/* FLAG_CHARGE_NOW: reserved for future Charge Now button (TASK-040) */
+
+	/* Get device-side timestamp (0 if not yet synced) */
+	uint32_t timestamp = time_sync_get_epoch();
+
+	/* Build 12-byte v0x07 payload */
 	uint8_t payload[EVSE_PAYLOAD_SIZE] = {
 		EVSE_MAGIC,
 		EVSE_VERSION,
@@ -81,12 +97,16 @@ int app_tx_send_evse_data(void)
 		(data.j1772_mv >> 8) & 0xFF,
 		data.current_ma & 0xFF,
 		(data.current_ma >> 8) & 0xFF,
-		data.thermostat_flags
+		flags,
+		timestamp & 0xFF,
+		(timestamp >> 8) & 0xFF,
+		(timestamp >> 16) & 0xFF,
+		(timestamp >> 24) & 0xFF,
 	};
 
-	api->log_inf("EVSE TX: state=%d, pilot=%dmV, current=%dmA, therm=0x%02x",
+	api->log_inf("EVSE TX v07: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u",
 		     data.j1772_state, data.j1772_mv, data.current_ma,
-		     data.thermostat_flags);
+		     flags, timestamp);
 
 	last_send_ms = now;
 	return api->send_msg(payload, sizeof(payload));

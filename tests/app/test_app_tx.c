@@ -1,5 +1,5 @@
 /*
- * Unit tests for app_tx.c — payload formatting and rate-limited sending
+ * Unit tests for app_tx.c — v0x07 payload formatting and rate-limited sending
  */
 
 #include "unity.h"
@@ -7,6 +7,8 @@
 #include "app_tx.h"
 #include "evse_sensors.h"
 #include "thermostat_inputs.h"
+#include "charge_control.h"
+#include "time_sync.h"
 #include "rak_sidewalk.h"
 
 static const struct platform_api *api;
@@ -22,6 +24,12 @@ void setUp(void)
 
 	thermostat_inputs_set_api(api);
 	thermostat_inputs_init();
+
+	charge_control_set_api(api);
+	charge_control_init();
+
+	time_sync_set_api(api);
+	time_sync_init();
 
 	rak_sidewalk_set_api(api);
 
@@ -41,16 +49,16 @@ void test_send_encodes_magic_0xE5(void)
 	TEST_ASSERT_EQUAL_UINT8(0xE5, mock_last_send_buf[0]);
 }
 
-void test_send_encodes_version_0x06(void)
+void test_send_encodes_version_0x07(void)
 {
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL_UINT8(0x06, mock_last_send_buf[1]);
+	TEST_ASSERT_EQUAL_UINT8(0x07, mock_last_send_buf[1]);
 }
 
-void test_send_8_bytes(void)
+void test_send_12_bytes(void)
 {
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL(8, mock_last_send_len);
+	TEST_ASSERT_EQUAL(12, mock_last_send_len);
 }
 
 void test_not_ready_skips(void)
@@ -86,7 +94,7 @@ void test_rate_limit_allows_after_interval(void)
 	TEST_ASSERT_EQUAL_INT(2, mock_send_count);
 }
 
-/* --- Payload field encoding --- */
+/* --- Payload field encoding (bytes 0-6: same as v0x06) --- */
 
 void test_j1772_state_at_byte2(void)
 {
@@ -122,14 +130,99 @@ void test_current_little_endian(void)
 	TEST_ASSERT_EQUAL_UINT16(15000, current);
 }
 
-void test_thermostat_flags_at_byte7(void)
+/* --- Flags byte (byte 7) --- */
+
+void test_thermostat_flags_in_byte7_bits_0_1(void)
 {
 	mock_gpio_values[1] = 1; /* heat */
 	mock_gpio_values[2] = 1; /* cool */
 	mock_adc_values[0] = 3000;
 
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL_UINT8(0x03, mock_last_send_buf[7]);
+	TEST_ASSERT_EQUAL_UINT8(0x03, mock_last_send_buf[7] & 0x03);
+}
+
+void test_charge_allowed_flag_bit2(void)
+{
+	/* Default is allowed after init */
+	charge_control_set(true, 0);
+
+	app_tx_send_evse_data();
+	TEST_ASSERT_TRUE(mock_last_send_buf[7] & 0x04);
+}
+
+void test_charge_not_allowed_clears_bit2(void)
+{
+	charge_control_set(false, 0);
+
+	app_tx_send_evse_data();
+	TEST_ASSERT_FALSE(mock_last_send_buf[7] & 0x04);
+}
+
+void test_charge_allowed_coexists_with_thermostat(void)
+{
+	mock_gpio_values[1] = 1; /* heat */
+	mock_gpio_values[2] = 1; /* cool */
+	mock_adc_values[0] = 3000;
+	charge_control_set(true, 0);
+
+	app_tx_send_evse_data();
+	/* heat(0x01) + cool(0x02) + charge_allowed(0x04) = 0x07 */
+	TEST_ASSERT_EQUAL_UINT8(0x07, mock_last_send_buf[7] & 0x0F);
+}
+
+/* --- Timestamp (bytes 8-11) --- */
+
+void test_timestamp_zero_when_not_synced(void)
+{
+	/* time_sync not initialized with any sync data */
+	app_tx_send_evse_data();
+
+	uint32_t ts = mock_last_send_buf[8]
+		    | (mock_last_send_buf[9] << 8)
+		    | (mock_last_send_buf[10] << 16)
+		    | (mock_last_send_buf[11] << 24);
+	TEST_ASSERT_EQUAL_UINT32(0, ts);
+}
+
+void test_timestamp_reflects_synced_time(void)
+{
+	/* Simulate a TIME_SYNC at uptime=1000ms with epoch=86400 */
+	mock_uptime_ms = 1000;
+	uint8_t sync_cmd[] = {
+		0x30,
+		0x80, 0x51, 0x01, 0x00,  /* epoch=86400 LE */
+		0x00, 0x00, 0x00, 0x00,  /* watermark=0 */
+	};
+	time_sync_process_cmd(sync_cmd, sizeof(sync_cmd));
+
+	/* Send at uptime=3000ms (2 seconds later) → epoch should be 86402 */
+	mock_uptime_ms = 3000;
+	app_tx_send_evse_data();
+
+	uint32_t ts = mock_last_send_buf[8]
+		    | (mock_last_send_buf[9] << 8)
+		    | (mock_last_send_buf[10] << 16)
+		    | (mock_last_send_buf[11] << 24);
+	TEST_ASSERT_EQUAL_UINT32(86402, ts);
+}
+
+void test_timestamp_little_endian_encoding(void)
+{
+	/* Sync with epoch=0x01020304 */
+	mock_uptime_ms = 0;
+	uint8_t sync_cmd[] = {
+		0x30,
+		0x04, 0x03, 0x02, 0x01,  /* epoch=0x01020304 LE */
+		0x00, 0x00, 0x00, 0x00,
+	};
+	time_sync_process_cmd(sync_cmd, sizeof(sync_cmd));
+
+	app_tx_send_evse_data();
+	TEST_ASSERT_EQUAL_UINT8(0x04, mock_last_send_buf[8]);
+	TEST_ASSERT_EQUAL_UINT8(0x03, mock_last_send_buf[9]);
+	TEST_ASSERT_EQUAL_UINT8(0x02, mock_last_send_buf[10]);
+	TEST_ASSERT_EQUAL_UINT8(0x01, mock_last_send_buf[11]);
 }
 
 /* --- Edge cases --- */
@@ -155,19 +248,33 @@ int main(void)
 {
 	UNITY_BEGIN();
 
+	/* Payload format */
 	RUN_TEST(test_send_encodes_magic_0xE5);
-	RUN_TEST(test_send_encodes_version_0x06);
-	RUN_TEST(test_send_8_bytes);
+	RUN_TEST(test_send_encodes_version_0x07);
+	RUN_TEST(test_send_12_bytes);
 	RUN_TEST(test_not_ready_skips);
 
+	/* Rate limiting */
 	RUN_TEST(test_rate_limit_blocks);
 	RUN_TEST(test_rate_limit_allows_after_interval);
 
+	/* Field encoding */
 	RUN_TEST(test_j1772_state_at_byte2);
 	RUN_TEST(test_voltage_little_endian);
 	RUN_TEST(test_current_little_endian);
-	RUN_TEST(test_thermostat_flags_at_byte7);
 
+	/* Flags byte */
+	RUN_TEST(test_thermostat_flags_in_byte7_bits_0_1);
+	RUN_TEST(test_charge_allowed_flag_bit2);
+	RUN_TEST(test_charge_not_allowed_clears_bit2);
+	RUN_TEST(test_charge_allowed_coexists_with_thermostat);
+
+	/* Timestamp */
+	RUN_TEST(test_timestamp_zero_when_not_synced);
+	RUN_TEST(test_timestamp_reflects_synced_time);
+	RUN_TEST(test_timestamp_little_endian_encoding);
+
+	/* Edge cases */
 	RUN_TEST(test_no_api_returns_error);
 	RUN_TEST(test_set_ready_flag);
 
