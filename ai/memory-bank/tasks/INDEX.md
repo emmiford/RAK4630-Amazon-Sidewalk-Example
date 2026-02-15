@@ -28,7 +28,7 @@ Special: deferred, declined
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
-| TASK-049 | P0 | not started | Eliel | Deploy device registry | — |
+| TASK-049 | P0 | coded | Eliel | Deploy device registry (infra deployed, awaiting physical verify) | — |
 | TASK-022 | P1 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
 | TASK-029 | P1 | not started | Eliel | Production observability | — |
 | TASK-044 | P1 | not started | Pam | PRD update — commissioning + G = earth ground | — |
