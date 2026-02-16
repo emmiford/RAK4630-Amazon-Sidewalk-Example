@@ -43,13 +43,13 @@ Special: deferred, declined
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | — |
 | TASK-048b | P2 | not started | Bobby | Charge Now single-press button | — |
-| TASK-056 | P1 | not started | Eliel | Break up app.c into focused platform modules | TASK-050 |
+| TASK-056 | P1 | not started | Eliel | Break up app.c into focused platform modules | — |
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 
-## Completed Tasks (34)
+## Completed Tasks (37)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-002 | Create CLAUDE.md | MERGED DONE | 2026-02-11 | — |
