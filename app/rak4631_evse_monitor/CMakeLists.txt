@@ -14,6 +14,8 @@ project(evse_monitoring)
 target_sources(app PRIVATE
     src/main.c
     src/app.c
+    src/sidewalk_dispatch.c
+    src/platform_shell.c
     src/sidewalk.c
     src/sidewalk_events.c
     src/tx_state.c

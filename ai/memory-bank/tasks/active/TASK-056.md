@@ -1,9 +1,9 @@
 # TASK-056: Break up app.c into focused platform modules
 
-**Status**: not started
+**Status**: in progress (2026-02-15, Eliel)
 **Priority**: P1
 **Owner**: Eliel
-**Branch**: —
+**Branch**: task/056-breakup-app-c
 **Size**: L (5 points)
 
 ## Description
