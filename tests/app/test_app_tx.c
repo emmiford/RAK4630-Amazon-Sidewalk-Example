@@ -9,7 +9,7 @@
 #include "thermostat_inputs.h"
 #include "charge_control.h"
 #include "time_sync.h"
-#include "rak_sidewalk.h"
+#include "evse_payload.h"
 
 static const struct platform_api *api;
 
@@ -31,7 +31,7 @@ void setUp(void)
 	time_sync_set_api(api);
 	time_sync_init();
 
-	rak_sidewalk_set_api(api);
+	evse_payload_set_api(api);
 
 	app_tx_set_api(api);
 	app_tx_set_ready(false);

@@ -65,10 +65,10 @@ add_unit_test(test_thermostat_inputs
     ${APP_SRC}/thermostat_inputs.c
 )
 
-# app_tx tests (needs evse_sensors + thermostat_inputs + rak_sidewalk + charge_control + time_sync)
+# app_tx tests (needs evse_sensors + thermostat_inputs + evse_payload + charge_control + time_sync)
 add_unit_test(test_app_tx
     ${APP_SRC}/app_tx.c
-    ${APP_SRC}/rak_sidewalk.c
+    ${APP_SRC}/evse_payload.c
     ${APP_SRC}/evse_sensors.c
     ${APP_SRC}/thermostat_inputs.c
     ${APP_SRC}/selftest.c
@@ -109,7 +109,7 @@ add_executable(test_shell_commands
     ${APP_SRC}/evse_sensors.c
     ${APP_SRC}/charge_control.c
     ${APP_SRC}/thermostat_inputs.c
-    ${APP_SRC}/rak_sidewalk.c
+    ${APP_SRC}/evse_payload.c
     ${APP_SRC}/app_tx.c
     ${APP_SRC}/app_rx.c
     ${APP_SRC}/selftest.c

@@ -115,7 +115,7 @@ The app build is completely decoupled from Zephyr. The test build compiles the s
 | `evse_sensors.c` | 165 | J1772 pilot ADC → state classification + current clamp scaling |
 | `charge_control.c` | 113 | GPIO relay control + auto-resume timer |
 | `thermostat_inputs.c` | 57 | GPIO heat/cool call reading |
-| `rak_sidewalk.c` | 86 | **Misnamed.** Aggregates sensor data into payload struct |
+| `evse_payload.c` | 86 | Aggregates sensor data into payload struct |
 | `app_tx.c` | 113 | 12-byte uplink encoding (magic + version + sensors + timestamp) |
 | `app_rx.c` | 56 | Downlink dispatch (CHARGE_CONTROL, TIME_SYNC) |
 | `event_buffer.c` | 144 | Ring buffer of 50 timestamped EVSE snapshots |
@@ -167,7 +167,7 @@ Three files in the platform layer import app-layer headers:
 
 - `evse_shell.c` includes `evse_sensors.h` and `charge_control.h`
 - `hvac_shell.c` includes `thermostat_inputs.h`
-- `rak_sidewalk.h` (platform include/) defines EVSE payload struct
+- ~~`rak_sidewalk.h` (platform include/) defines EVSE payload struct~~ (fixed: TASK-051/052)
 
 This means the "generic Sidewalk sensor platform" actually has EVSE-specific knowledge compiled in. If you wanted to reuse the platform for a different sensor type, you'd have to gut these files. More practically, it means platform builds break if you change app-layer headers.
 
@@ -191,7 +191,7 @@ It's internally consistent, but its size makes it intimidating. A developer look
 
 | Name | What you'd expect | What it actually does |
 |------|--------------------|----------------------|
-| `rak_sidewalk.c` | Sidewalk protocol handling | Aggregates sensor data into a struct |
+| ~~`rak_sidewalk.c`~~ `evse_payload.c` | Sidewalk protocol handling | Aggregates sensor data into a struct (renamed: TASK-052) |
 | `app_tx.c` (platform) | Transmit logic | State holder + empty stub |
 | `app_tx.c` (app) | Transmit logic | Actual payload encoding |
 | `evse_shell.c` (platform) | Platform shell | EVSE-specific shell (app concern) |
@@ -206,7 +206,7 @@ Two files named `app_tx.c` in different directories doing different things is a 
 evse_sensors_set_api(api);
 charge_control_set_api(api);
 thermostat_inputs_set_api(api);
-rak_sidewalk_set_api(api);
+evse_payload_set_api(api);
 app_tx_set_api(api);
 app_rx_set_api(api);
 time_sync_set_api(api);
@@ -245,22 +245,13 @@ Ordered by impact-to-effort ratio. Each change is independent — they can be do
 
 **Effort:** Small (delete 2 files, remove 2 lines from CMakeLists.txt).
 
-### Change 2: Move rak_sidewalk.h payload struct to app layer
+### ~~Change 2: Move rak_sidewalk.h payload struct to app layer~~ DONE (TASK-051)
 
-**Move:** EVSE payload struct from `include/rak_sidewalk.h` to a new `include/evse_payload.h` (or inline it into `rak_sidewalk.c` if nothing outside the app uses it).
+Completed. `evse_payload_t` struct now lives in `include/evse_payload.h`.
 
-**Why:** The platform has no business defining EVSE payload formats. The platform sends raw bytes via `send_msg()` — it doesn't need to know what's in them.
+### ~~Change 3: Rename rak_sidewalk.c → evse_payload.c~~ DONE (TASK-052)
 
-**Effort:** Small (move a struct, update includes).
-
-### Change 3: Rename rak_sidewalk.c → evse_payload.c
-
-**Rename:** `src/app_evse/rak_sidewalk.c` → `src/app_evse/evse_payload.c`
-**Rename:** `include/rak_sidewalk.h` → `include/evse_payload.h`
-
-**Why:** The module aggregates sensor readings into a payload struct. It has nothing to do with the Sidewalk protocol. The name should describe what it does.
-
-**Effort:** Small (rename + update includes across ~4 files).
+Completed. `rak_sidewalk.c` → `evse_payload.c`, `rak_sidewalk.h` merged into `evse_payload.h`. Functions renamed: `evse_payload_set_api()`, `evse_payload_get()`, `evse_payload_init()`.
 
 ### Change 4: Resolve the two app_tx.c files
 
@@ -445,8 +436,8 @@ Selftest reads sensor values passed by `app_entry.c`, no direct hardware access:
 | # | Change | Effort | Impact |
 |---|--------|--------|--------|
 | 1 | Delete evse_shell.c + hvac_shell.c from platform | Small | Removes boundary violations |
-| 2 | Move EVSE payload struct to app layer | Small | Cleans platform/app boundary |
-| 3 | Rename rak_sidewalk → evse_payload | Small | Name matches responsibility |
+| 2 | ~~Move EVSE payload struct to app layer~~ | Small | ~~Cleans platform/app boundary~~ DONE (TASK-051) |
+| 3 | ~~Rename rak_sidewalk → evse_payload~~ | Small | ~~Name matches responsibility~~ DONE (TASK-052) |
 | 4 | Resolve two app_tx.c files | Small | Eliminates naming trap |
 | 5 | Shared platform pointer (replace 10 setters) | Medium | Reduces ceremony, simpler init |
 | 6 | Split ota_update.c → ota_flash.c + ota_update.c | Medium | Separates stable flash layer from evolving protocol |

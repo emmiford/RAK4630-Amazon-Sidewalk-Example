@@ -1,10 +1,8 @@
 /*
- * RAK Sidewalk EVSE Payload Implementation
- *
- * App-side: aggregates sensor data through API.
+ * EVSE Payload — aggregates sensor data through platform API
  */
 
-#include <rak_sidewalk.h>
+#include <evse_payload.h>
 #include <evse_sensors.h>
 #include <thermostat_inputs.h>
 #include <selftest.h>
@@ -13,12 +11,12 @@
 static const struct platform_api *api;
 static bool evse_initialized;
 
-void rak_sidewalk_set_api(const struct platform_api *platform)
+void evse_payload_set_api(const struct platform_api *platform)
 {
 	api = platform;
 }
 
-int rak_sidewalk_evse_init(void)
+int evse_payload_init(void)
 {
 	int err;
 
@@ -39,7 +37,7 @@ int rak_sidewalk_evse_init(void)
 	return 0;
 }
 
-evse_payload_t rak_sidewalk_get_payload(void)
+evse_payload_t evse_payload_get(void)
 {
 	evse_payload_t payload = {0};
 	j1772_state_t state;
@@ -48,7 +46,7 @@ evse_payload_t rak_sidewalk_get_payload(void)
 	int err;
 
 	if (!evse_initialized) {
-		err = rak_sidewalk_evse_init();
+		err = evse_payload_init();
 		if (err) {
 			payload.payload_type = EVSE_PAYLOAD_TYPE;
 			payload.j1772_state = J1772_STATE_UNKNOWN;
