@@ -16,7 +16,7 @@ target_sources(app PRIVATE
     src/app.c
     src/sidewalk.c
     src/sidewalk_events.c
-    src/app_tx.c
+    src/tx_state.c
     src/app_leds.c
     src/platform_api_impl.c
     src/ota_update.c

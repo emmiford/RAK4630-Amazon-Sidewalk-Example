@@ -7,7 +7,7 @@
 
 #include <platform_api.h>
 #include <sidewalk.h>
-#include <app_tx.h>
+#include <tx_state.h>
 #include <app_leds.h>
 #include <sid_hal_memory_ifc.h>
 #include <sid_pal_mfg_store_ifc.h>
@@ -162,7 +162,7 @@ static int platform_send_msg(const uint8_t *data, size_t len)
 	}
 	memcpy(sid_msg->msg.data, data, len);
 
-	uint32_t link_mask = app_tx_get_link_mask();
+	uint32_t link_mask = tx_state_get_link_mask();
 	sid_msg->desc.link_type = link_mask;
 	sid_msg->desc.type = SID_MSG_TYPE_NOTIFY;
 	sid_msg->desc.link_mode = SID_LINK_MODE_CLOUD;
@@ -185,17 +185,17 @@ static int platform_send_msg(const uint8_t *data, size_t len)
 
 static bool platform_is_ready(void)
 {
-	return app_tx_is_ready();
+	return tx_state_is_ready();
 }
 
 static int platform_get_link_mask(void)
 {
-	return (int)app_tx_get_link_mask();
+	return (int)tx_state_get_link_mask();
 }
 
 static int platform_set_link_mask(uint32_t mask)
 {
-	app_tx_set_link_mask(mask);
+	tx_state_set_link_mask(mask);
 	sidewalk_event_send(sidewalk_event_set_link,
 			    (void *)(uintptr_t)mask, NULL);
 	return 0;

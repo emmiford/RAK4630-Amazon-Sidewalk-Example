@@ -6,7 +6,7 @@
 
 #include <zephyr/shell/shell.h>
 #include <zephyr/logging/log.h>
-#include <app_tx.h>
+#include <tx_state.h>
 #include <sidewalk.h>
 #include <sid_pal_mfg_store_ifc.h>
 #include <sid_pal_crypto_ifc.h>
@@ -26,8 +26,8 @@ static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	bool ready = app_tx_is_ready();
-	uint32_t link_mask = app_tx_get_link_mask();
+	bool ready = tx_state_is_ready();
+	uint32_t link_mask = tx_state_get_link_mask();
 	sid_init_status_t init = sidewalk_get_init_status();
 
 	shell_print(sh, "Sidewalk Status:");
@@ -181,7 +181,7 @@ static int cmd_sid_send(const struct shell *sh, size_t argc, char **argv)
 
 	shell_print(sh, "Triggering manual sensor read and transmit...");
 
-	int err = app_tx_send_evse_data();
+	int err = tx_state_send_evse_data();
 	if (err) {
 		shell_error(sh, "Send failed: %d", err);
 		return err;
@@ -198,7 +198,7 @@ static int cmd_sid_lora(const struct shell *sh, size_t argc, char **argv)
 
 	uint32_t mask = SID_LINK_TYPE_3;
 
-	app_tx_set_link_mask(mask);
+	tx_state_set_link_mask(mask);
 	sidewalk_event_send(sidewalk_event_set_link,
 			    (void *)(uintptr_t)mask, NULL);
 
@@ -213,7 +213,7 @@ static int cmd_sid_ble(const struct shell *sh, size_t argc, char **argv)
 
 	uint32_t mask = SID_LINK_TYPE_1;
 
-	app_tx_set_link_mask(mask);
+	tx_state_set_link_mask(mask);
 	sidewalk_event_send(sidewalk_event_set_link,
 			    (void *)(uintptr_t)mask, NULL);
 

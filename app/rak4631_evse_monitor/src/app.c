@@ -6,7 +6,7 @@
  */
 
 #include <sidewalk.h>
-#include <app_tx.h>
+#include <tx_state.h>
 #include <app_rx.h>
 #include <app_leds.h>
 #include <app_ble_config.h>
@@ -191,7 +191,7 @@ static void on_sidewalk_status_changed(const struct sid_status *status, void *co
 	sidewalk_event_send(sidewalk_event_new_status, new_status, sid_hal_free);
 
 	/* Update platform TX module */
-	app_tx_set_link_mask(status->detail.link_status_mask);
+	tx_state_set_link_mask(status->detail.link_status_mask);
 
 	/* Determine ready state */
 	bool ready = false;
@@ -204,7 +204,7 @@ static void on_sidewalk_status_changed(const struct sid_status *status, void *co
 		break;
 	}
 
-	app_tx_set_ready(ready);
+	tx_state_set_ready(ready);
 
 	/* Notify app */
 	if (app_image_valid() && app_cb->on_ready) {
@@ -353,8 +353,8 @@ static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc); ARG_UNUSED(argv);
 
-	bool ready = app_tx_is_ready();
-	uint32_t link_mask = app_tx_get_link_mask();
+	bool ready = tx_state_is_ready();
+	uint32_t link_mask = tx_state_get_link_mask();
 	sid_init_status_t init = sidewalk_get_init_status();
 
 	shell_print(sh, "Sidewalk Status:");
@@ -436,7 +436,7 @@ static int cmd_sid_lora(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc); ARG_UNUSED(argv);
 	uint32_t mask = SID_LINK_TYPE_3;
-	app_tx_set_link_mask(mask);
+	tx_state_set_link_mask(mask);
 	sidewalk_event_send(sidewalk_event_set_link, (void *)(uintptr_t)mask, NULL);
 	shell_print(sh, "Switching to LoRa...");
 	return 0;
@@ -446,7 +446,7 @@ static int cmd_sid_ble(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc); ARG_UNUSED(argv);
 	uint32_t mask = SID_LINK_TYPE_1;
-	app_tx_set_link_mask(mask);
+	tx_state_set_link_mask(mask);
 	sidewalk_event_send(sidewalk_event_set_link, (void *)(uintptr_t)mask, NULL);
 	shell_print(sh, "Switching to BLE...");
 	return 0;
