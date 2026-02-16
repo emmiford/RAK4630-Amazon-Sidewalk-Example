@@ -35,7 +35,7 @@ Special: deferred, declined
 | TASK-045 | P1 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | P1 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
-| TASK-056 | P1 | committed | Eliel | Break up app.c into focused platform modules | — |
+| TASK-058 | P1 | not started | Eero | On-device shell verification (post app.c refactor) | — |
 | TASK-026 | P2 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | P2 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | P2 | not started | Eliel | Cloud command authentication | — |
@@ -89,6 +89,7 @@ Special: deferred, declined
 | TASK-051 | Move EVSE payload struct to app layer | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-052 | Rename rak_sidewalk → evse_payload | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-053 | Resolve two app_tx.c naming collision | MERGED DONE | 2026-02-15 | Eliel |
+| TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design-rak-firmware.md`
