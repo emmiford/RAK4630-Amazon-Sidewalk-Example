@@ -1,6 +1,6 @@
 # TASK-056: Break up app.c into focused platform modules
 
-**Status**: committed (2026-02-16, Eliel)
+**Status**: merged done (2026-02-16, Eliel)
 **Priority**: P1
 **Owner**: Eliel
 **Branch**: task/056-breakup-app-c
