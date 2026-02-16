@@ -3,7 +3,7 @@
  */
 
 #include <app_tx.h>
-#include <rak_sidewalk.h>
+#include <evse_payload.h>
 #include <charge_control.h>
 #include <time_sync.h>
 #include <platform_api.h>
@@ -76,7 +76,7 @@ int app_tx_send_evse_data(void)
 	}
 
 	/* Read current sensor data */
-	evse_payload_t data = rak_sidewalk_get_payload();
+	evse_payload_t data = evse_payload_get();
 
 	/* OR charge control flags into the flags byte (bits 2-3) */
 	uint8_t flags = data.thermostat_flags;

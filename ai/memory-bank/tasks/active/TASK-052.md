@@ -1,9 +1,9 @@
 # TASK-052: Rename rak_sidewalk → evse_payload
 
-**Status**: not started
+**Status**: in progress (2026-02-15, Eliel)
 **Priority**: P1
 **Owner**: Eliel
-**Branch**: —
+**Branch**: `task/052-rename-evse-payload`
 **Size**: S (1 point)
 
 ## Description

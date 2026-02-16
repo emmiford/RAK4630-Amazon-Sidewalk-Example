@@ -14,7 +14,7 @@
 #include <evse_sensors.h>
 #include <charge_control.h>
 #include <thermostat_inputs.h>
-#include <rak_sidewalk.h>
+#include <evse_payload.h>
 #include <app_tx.h>
 #include <app_rx.h>
 #include <selftest.h>
@@ -94,7 +94,7 @@ static int app_init(const struct platform_api *platform)
 	evse_sensors_set_api(api);
 	charge_control_set_api(api);
 	thermostat_inputs_set_api(api);
-	rak_sidewalk_set_api(api);
+	evse_payload_set_api(api);
 	app_tx_set_api(api);
 	app_rx_set_api(api);
 	selftest_set_api(api);

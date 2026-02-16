@@ -356,7 +356,7 @@ Bit  Mask  Name              Source                    Current  v0x07
 7    0x80  SELFTEST_FAIL     on-demand self-test flag    NO       YES (stub: always 0 until self-test impl)
 ```
 
-Concrete change: `rak_sidewalk_get_payload()` currently calls only `thermostat_flags_get()` which returns bits 0-1. For v0x07, it needs to OR in the charge control bit:
+Concrete change: `evse_payload_get()` currently calls only `thermostat_flags_get()` which returns bits 0-1. For v0x07, it needs to OR in the charge control bit:
 
 ```c
 payload.thermostat_flags = thermostat_flags_get();
@@ -404,7 +404,7 @@ No breaking change. Old devices continue to send v0x06 and are decoded correctly
 
 int app_tx_send_evse_data(void)
 {
-    evse_payload_t data = rak_sidewalk_get_payload();
+    evse_payload_t data = evse_payload_get();
     uint32_t ts = time_sync_now();
 
     uint8_t payload[EVSE_PAYLOAD_SIZE] = {
@@ -633,7 +633,7 @@ TASK-034 (Event Buffer)  -- needs v0x07 entry format from 035
 | Task | Device changes | Cloud changes | Estimated size |
 |------|---------------|---------------|----------------|
 | TASK-033 | `time_sync.c/h` (~80 LOC), `app_rx.c` handler (~15 LOC) | `decode_evse_lambda.py` sync trigger (~30 LOC), `charge_scheduler_lambda.py` daily sync (~20 LOC) | Small (S) |
-| TASK-035 | `app_tx.c` format change (~20 LOC), `rak_sidewalk.c` thermostat byte (~5 LOC) | `decode_evse_lambda.py` v7 decoder (~40 LOC) | Small (S) |
+| TASK-035 | `app_tx.c` format change (~20 LOC), `evse_payload.c` thermostat byte (~5 LOC) | `decode_evse_lambda.py` v7 decoder (~40 LOC) | Small (S) |
 | TASK-034 | `event_buffer.c/h` (~120 LOC), `app_entry.c` integration (~15 LOC), `app_tx.c` buffer write (~10 LOC) | None (buffer is device-only; cloud already handles watermark via TIME_SYNC) | Medium (M) |
 
 ### 6.3 Branch Strategy
@@ -708,8 +708,8 @@ The `app_callbacks` struct (version 3) does not need changes. The platform alrea
 | `src/app_evse/app_rx.c` | Add 0x30 TIME_SYNC handler |
 | `src/app_evse/app_tx.c` | Bump to v0x07 (12B payload), add event buffer write |
 | `src/app_evse/app_entry.c` | Init time_sync and event_buffer modules, set_api calls |
-| `src/app_evse/rak_sidewalk.c` | OR charge_control bit into thermostat_flags |
-| `include/rak_sidewalk.h` | No change (evse_payload_t stays 7 bytes; timestamp appended in app_tx.c) |
+| `src/app_evse/evse_payload.c` | OR charge_control bit into thermostat_flags |
+| `include/evse_payload.h` | Payload struct + function declarations |
 | `app_evse/CMakeLists.txt` | Add time_sync.c, event_buffer.c to sources |
 
 ### 8.3 Modified Cloud Files

@@ -22,7 +22,7 @@ SRCS = \
     $(APP_SRC)/evse_sensors.c \
     $(APP_SRC)/charge_control.c \
     $(APP_SRC)/thermostat_inputs.c \
-    $(APP_SRC)/rak_sidewalk.c \
+    $(APP_SRC)/evse_payload.c \
     $(APP_SRC)/app_tx.c \
     $(APP_SRC)/app_rx.c \
     $(APP_SRC)/selftest.c \
