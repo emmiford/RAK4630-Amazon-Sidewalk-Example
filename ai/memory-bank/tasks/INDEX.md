@@ -43,7 +43,6 @@ Special: deferred, declined
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | — |
 | TASK-048b | P2 | not started | Bobby | Charge Now single-press button | — |
-| TASK-052 | P1 | not started | Eliel | Rename rak_sidewalk → evse_payload | TASK-051 |
 | TASK-056 | P1 | not started | Eliel | Break up app.c into focused platform modules | TASK-050 |
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
@@ -88,6 +87,7 @@ Special: deferred, declined
 | TASK-043 | Warranty/liability risk | MERGED DONE | 2026-02-13 | Pam |
 | TASK-050 | Delete platform-side EVSE shell files | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-051 | Move EVSE payload struct to app layer | MERGED DONE | 2026-02-15 | Eliel |
+| TASK-052 | Rename rak_sidewalk → evse_payload | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-053 | Resolve two app_tx.c naming collision | MERGED DONE | 2026-02-15 | Eliel |
 
 ## Related Documents
