@@ -35,7 +35,7 @@ Also delete `sid_shell.c` (253 lines) — its functionality moves into `platform
 Reference: `docs/technical-design-rak-firmware.md`, Change 7.
 
 ## Dependencies
-**Blocked by**: TASK-050 (delete platform EVSE shell files first, so we don't move dead code into new files)
+**Blocked by**: TASK-050 (DONE — platform EVSE shell files deleted)
 **Blocks**: none
 
 ## Acceptance Criteria

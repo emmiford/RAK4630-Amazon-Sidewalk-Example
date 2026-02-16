@@ -24,34 +24,34 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks
+## Open Tasks (20)
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
-| TASK-049 | P0 | coded | Eliel | Deploy device registry (infra deployed, awaiting physical verify) | — |
+| TASK-049 | P0 | coded | Eliel | Deploy device registry (awaiting physical verify) | — |
 | TASK-022 | P1 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
 | TASK-029 | P1 | not started | Eliel | Production observability | — |
 | TASK-044 | P1 | not started | Pam | PRD update — commissioning + G = earth ground | — |
 | TASK-045 | P1 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | P1 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
-| TASK-001 | P2 | not started | Oliver | Merge feature/generic-platform to main | — |
+| TASK-056 | P1 | not started | Eliel | Break up app.c into focused platform modules | — |
 | TASK-026 | P2 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | P2 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | P2 | not started | Eliel | Cloud command authentication | — |
-| TASK-037 | P2 | planned | Pam | Utility identification (PRD scoping done) | — |
+| TASK-037 | P2 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
-| TASK-042 | P2 | not started | Pam | Privacy agent | — |
+| TASK-042 | P2 | not started | Pam | Privacy agent | TASK-038 |
 | TASK-048b | P2 | not started | Bobby | Charge Now single-press button | — |
-| TASK-056 | P1 | not started | Eliel | Break up app.c into focused platform modules | — |
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 
-## Completed Tasks (37)
+## Completed Tasks (38)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
 | TASK-002 | Create CLAUDE.md | MERGED DONE | 2026-02-11 | — |
 | TASK-003 | Update README.md | MERGED DONE | 2026-02-11 | Eero |
 | TASK-004 | Charge scheduler Lambda tests | MERGED DONE | 2026-02-11 | — |

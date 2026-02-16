@@ -11,7 +11,7 @@ Per PRD 6.4.2, SideCharge stores behavioral telemetry (AC/EV patterns revealing 
 
 ## Dependencies
 **Blocked by**: none
-**Blocks**: TASK-042 (privacy agent needs the draft policy to review/finalize)
+**Blocks**: TASK-042 (privacy agent reviews/finalizes the drafts from this task)
 
 ## Acceptance Criteria
 - [ ] Data retention policy defined: raw telemetry TTL (e.g., 90 days), aggregated statistics retention period

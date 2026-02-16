@@ -10,7 +10,7 @@
 Combined device verification for TASK-033 (TIME_SYNC), TASK-034 (event buffer), and TASK-035 (uplink v0x07). All three features have host-side tests passing but need physical device verification. Requires platform + app rebuild and reflash.
 
 ## Dependencies
-**Blocked by**: TASK-033 (DONE), TASK-034 (DONE), TASK-035 (in progress)
+**Blocked by**: TASK-033 (DONE), TASK-034 (DONE), TASK-035 (DONE) — all deps resolved, ready to go
 **Blocks**: none
 
 ## Acceptance Criteria

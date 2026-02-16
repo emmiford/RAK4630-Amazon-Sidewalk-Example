@@ -10,7 +10,7 @@
 Per PRD 6.4.2, no one currently owns privacy policy, CCPA compliance, data retention rules, or customer data deletion procedures. This task identifies and assigns a dedicated privacy/legal agent, drafts the initial privacy policy using TASK-038's framework, conducts a CCPA compliance review, and establishes ongoing privacy governance.
 
 ## Dependencies
-**Blocked by**: none (can proceed in parallel with TASK-038; uses TASK-038 draft if available)
+**Blocked by**: TASK-038 (needs the draft privacy policy, retention rules, and CCPA checklist)
 **Blocks**: none
 
 ## Acceptance Criteria
