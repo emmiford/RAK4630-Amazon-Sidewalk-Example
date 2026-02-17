@@ -78,7 +78,6 @@ static int shell_hvac_status(void (*print)(const char *, ...), void (*error)(con
 	(void)error;
 	uint8_t flags = thermostat_flags_get();
 	print("Thermostat flags: 0x%02x", flags);
-	print("  Heat: %s", (flags & 0x01) ? "ON" : "OFF");
 	print("  Cool: %s", (flags & 0x02) ? "ON" : "OFF");
 	return 0;
 }
@@ -206,8 +205,7 @@ static void app_on_timer(void)
 	/* Thermostat inputs */
 	uint8_t flags = thermostat_flags_get();
 	if (flags != last_thermostat_flags) {
-		api->log_inf("Thermostat: heat=%d cool=%d",
-			     (flags & 0x01) ? 1 : 0, (flags & 0x02) ? 1 : 0);
+		api->log_inf("Thermostat: cool=%d", (flags & 0x02) ? 1 : 0);
 		last_thermostat_flags = flags;
 		changed = true;
 	}

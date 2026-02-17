@@ -200,27 +200,15 @@ static void test_simulation_overrides_adc(void)
 static void test_thermostat_no_calls(void)
 {
 	mock_reset();
-	mock_get()->gpio_values[1] = 0;  /* heat off */
 	mock_get()->gpio_values[2] = 0;  /* cool off */
 	thermostat_inputs_set_api(mock_api());
 
 	assert(thermostat_flags_get() == 0x00);
 }
 
-static void test_thermostat_heat_only(void)
-{
-	mock_reset();
-	mock_get()->gpio_values[1] = 1;  /* heat on */
-	mock_get()->gpio_values[2] = 0;  /* cool off */
-	thermostat_inputs_set_api(mock_api());
-
-	assert(thermostat_flags_get() == 0x01);
-}
-
 static void test_thermostat_cool_only(void)
 {
 	mock_reset();
-	mock_get()->gpio_values[1] = 0;  /* heat off */
 	mock_get()->gpio_values[2] = 1;  /* cool on */
 	thermostat_inputs_set_api(mock_api());
 
@@ -230,11 +218,10 @@ static void test_thermostat_cool_only(void)
 static void test_thermostat_both_calls(void)
 {
 	mock_reset();
-	mock_get()->gpio_values[1] = 1;
 	mock_get()->gpio_values[2] = 1;
 	thermostat_inputs_set_api(mock_api());
 
-	assert(thermostat_flags_get() == 0x03);
+	assert(thermostat_flags_get() == 0x02);
 }
 
 /* ================================================================== */
@@ -323,7 +310,6 @@ static void test_app_tx_sends_12_byte_payload(void)
 	mock_reset();
 	mock_get()->adc_values[0] = 2980;  /* State A */
 	mock_get()->adc_values[1] = 0;     /* 0 current */
-	mock_get()->gpio_values[1] = 0;    /* no heat */
 	mock_get()->gpio_values[2] = 0;    /* no cool */
 	mock_get()->uptime = 10000;
 	mock_get()->ready = true;
@@ -340,7 +326,7 @@ static void test_app_tx_sends_12_byte_payload(void)
 
 	/* Check magic and version bytes */
 	assert(mock_get()->sends[0].data[0] == 0xE5);  /* EVSE_MAGIC */
-	assert(mock_get()->sends[0].data[1] == 0x07);  /* EVSE_VERSION v0x07 */
+	assert(mock_get()->sends[0].data[1] == 0x08);  /* EVSE_VERSION v0x08 */
 }
 
 static void test_app_tx_rate_limits(void)
@@ -396,7 +382,6 @@ static void init_app_for_timer_tests(void)
 	mock_reset();
 	mock_get()->adc_values[0] = 2980;  /* State A */
 	mock_get()->adc_values[1] = 0;     /* no current */
-	mock_get()->gpio_values[1] = 0;    /* no heat */
 	mock_get()->gpio_values[2] = 0;    /* no cool */
 	mock_get()->uptime = timer_test_base;
 	mock_get()->ready = true;
@@ -442,8 +427,8 @@ static void test_on_timer_thermostat_change_triggers_send(void)
 {
 	init_app_for_timer_tests();
 
-	/* Turn on heat call */
-	mock_get()->gpio_values[1] = 1;
+	/* Turn on cool call */
+	mock_get()->gpio_values[2] = 1;
 	mock_get()->uptime = timer_test_base + 1000;
 	app_cb.on_timer();
 	assert(mock_get()->send_count == 1);
@@ -475,7 +460,7 @@ static void test_on_timer_multiple_changes_one_send(void)
 
 	/* Change J1772 AND thermostat in the same tick */
 	mock_get()->adc_values[0] = 1489;  /* A -> C */
-	mock_get()->gpio_values[1] = 1;    /* heat on */
+	mock_get()->gpio_values[2] = 1;    /* cool on */
 	mock_get()->uptime = timer_test_base + 1000;
 	app_cb.on_timer();
 	assert(mock_get()->send_count == 1);  /* one send, not two */
@@ -517,7 +502,6 @@ static void init_selftest(void)
 	mock_get()->adc_values[0] = 2980;  /* pilot OK (State A) */
 	mock_get()->adc_values[1] = 0;     /* current OK (0 mA, consistent with State A) */
 	mock_get()->gpio_values[0] = 1;    /* charge enable */
-	mock_get()->gpio_values[1] = 0;    /* heat */
 	mock_get()->gpio_values[2] = 0;    /* cool */
 	mock_get()->uptime = 1000000;      /* high base */
 	selftest_set_api(mock_api());
@@ -531,7 +515,6 @@ static void test_selftest_boot_all_pass(void)
 	assert(selftest_boot(&result) == 0);
 	assert(result.adc_pilot_ok == true);
 	assert(result.adc_current_ok == true);
-	assert(result.gpio_heat_ok == true);
 	assert(result.gpio_cool_ok == true);
 	assert(result.charge_en_ok == true);
 	assert(result.all_pass == true);
@@ -556,16 +539,6 @@ static void test_selftest_boot_adc_current_fail(void)
 	selftest_boot_result_t result;
 	assert(selftest_boot(&result) == -1);
 	assert(result.adc_current_ok == false);
-	assert(result.all_pass == false);
-}
-
-static void test_selftest_boot_gpio_heat_fail(void)
-{
-	init_selftest();
-	mock_get()->gpio_fail[1] = true;
-	selftest_boot_result_t result;
-	assert(selftest_boot(&result) == -1);
-	assert(result.gpio_heat_ok == false);
 	assert(result.all_pass == false);
 }
 
@@ -856,10 +829,9 @@ static void test_selftest_fault_flags_coexist_with_thermostat(void)
 {
 	init_selftest();
 	/* Set thermostat bits */
-	mock_get()->gpio_values[1] = 1;  /* heat */
 	mock_get()->gpio_values[2] = 1;  /* cool */
 	thermostat_inputs_set_api(mock_api());
-	uint8_t therm = thermostat_flags_get();  /* 0x03 */
+	uint8_t therm = thermostat_flags_get();  /* 0x02 */
 
 	/* Cause selftest fault */
 	mock_get()->adc_fail[0] = true;
@@ -869,7 +841,7 @@ static void test_selftest_fault_flags_coexist_with_thermostat(void)
 
 	/* Combined byte should have both */
 	uint8_t combined = therm | fault;
-	assert((combined & 0x03) == 0x03);  /* thermostat bits preserved */
+	assert((combined & 0x02) == 0x02);  /* thermostat bits preserved */
 	assert((combined & 0x80) == 0x80);  /* fault bit set */
 }
 
@@ -883,7 +855,6 @@ static void init_diag(void)
 	mock_get()->adc_values[0] = 2980;  /* pilot OK */
 	mock_get()->adc_values[1] = 0;
 	mock_get()->gpio_values[0] = 1;    /* charge enable */
-	mock_get()->gpio_values[1] = 0;
 	mock_get()->gpio_values[2] = 0;
 	mock_get()->uptime = 120000;       /* 120 seconds */
 	mock_get()->ready = true;
@@ -1154,7 +1125,6 @@ int main(void)
 
 	printf("\nthermostat_inputs:\n");
 	RUN_TEST(test_thermostat_no_calls);
-	RUN_TEST(test_thermostat_heat_only);
 	RUN_TEST(test_thermostat_cool_only);
 	RUN_TEST(test_thermostat_both_calls);
 
@@ -1185,7 +1155,6 @@ int main(void)
 	RUN_TEST(test_selftest_boot_all_pass);
 	RUN_TEST(test_selftest_boot_adc_pilot_fail);
 	RUN_TEST(test_selftest_boot_adc_current_fail);
-	RUN_TEST(test_selftest_boot_gpio_heat_fail);
 	RUN_TEST(test_selftest_boot_gpio_cool_fail);
 	RUN_TEST(test_selftest_boot_charge_en_toggle_pass);
 	RUN_TEST(test_selftest_boot_charge_en_readback_fail);
