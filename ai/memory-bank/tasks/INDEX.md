@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (20)
+## Open Tasks (21)
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
@@ -46,7 +46,9 @@ Special: deferred, declined
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
-| TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | — |
+| TASK-062 | P2 | not started | Eliel | Wire up Charge Now button GPIO end-to-end | — |
+| TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
+| TASK-061 | P2 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
 
 ## Completed Tasks (39)
 | ID | Title | Status | Date | Agent |
