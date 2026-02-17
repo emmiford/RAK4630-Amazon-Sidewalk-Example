@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
+## Open Tasks (25)
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
@@ -36,7 +36,6 @@ Special: deferred, declined
 | TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
 | TASK-058 | P1 | not started | Eero | On-device shell verification (post app.c refactor) | — |
 | TASK-060 | P1 | not started | Eliel | Uplink payload v0x08 — remove pilot voltage, remove heat call | — |
-| TASK-065 | P1 | in progress | Pam | TDD §6.5 self-test rewrite + PRD fault lifecycle | — |
 | TASK-066 | P1 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | TASK-065 |
 | TASK-067 | P1 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |
 | TASK-026 | P2 | not started | Eero | Boot path + app discovery tests | — |
@@ -55,7 +54,7 @@ Special: deferred, declined
 | TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
 | TASK-061 | P2 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
 
-## Completed Tasks (39)
+## Completed Tasks (41)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -99,6 +98,7 @@ Special: deferred, declined
 | TASK-044 | PRD update — commissioning + G = earth ground | MERGED DONE | 2026-02-16 | Pam |
 | TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
 | TASK-065 | AC-priority software interlock + charge_block rename | MERGED DONE | 2026-02-17 | Eliel |
+| TASK-065 | TDD §6.5 self-test rewrite + PRD fault lifecycle | MERGED DONE | 2026-02-17 | Pam |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design-rak-firmware.md`
