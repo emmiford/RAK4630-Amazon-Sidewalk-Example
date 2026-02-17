@@ -36,6 +36,7 @@ Special: deferred, declined
 | TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
 | TASK-058 | P1 | not started | Eero | On-device shell verification (post app.c refactor) | — |
 | TASK-060 | P1 | not started | Eliel | Uplink payload v0x08 — remove pilot voltage, remove heat call | — |
+| TASK-063 | P1 | not started | Eliel | Delay window support (device + cloud) | — |
 | TASK-066 | P1 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | TASK-065 |
 | TASK-067 | P1 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |
 | TASK-026 | P2 | not started | Eero | Boot path + app discovery tests | — |
@@ -44,15 +45,14 @@ Special: deferred, declined
 | TASK-037 | P2 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | TASK-038 |
-| TASK-048b | P2 | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-062, TASK-065 |
+| TASK-048b | P2 | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-065 |
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
-| TASK-062 | P2 | not started | Eliel | Wire up Charge Now button GPIO end-to-end | — |
-| TASK-063 | P1 | not started | Eliel | Delay window support (device + cloud) | — |
-| TASK-064 | P2 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | TASK-048b |
-| TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
 | TASK-061 | P2 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
+| TASK-064 | P2 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | TASK-048b |
+| TASK-072 | P2 | not started | — | On-device Charge Now button GPIO verification | — |
+| TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 
 ## Completed Tasks (41)
 | ID | Title | Status | Date | Agent |
@@ -99,6 +99,7 @@ Special: deferred, declined
 | TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
 | TASK-065 | AC-priority software interlock + charge_block rename | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-065 | TDD §6.5 self-test rewrite + PRD fault lifecycle | MERGED DONE | 2026-02-17 | Pam |
+| TASK-062 | Wire up Charge Now button GPIO end-to-end | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design-rak-firmware.md`
