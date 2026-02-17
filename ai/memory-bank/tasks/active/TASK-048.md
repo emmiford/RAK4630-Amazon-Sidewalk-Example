@@ -1,9 +1,9 @@
 # TASK-048: On-device verification — commissioning self-test
 
-**Status**: not started
+**Status**: coded (E2E runbook + results template ready; awaiting physical device verification)
 **Priority**: P0
 **Owner**: Eero
-**Branch**: N/A (device testing, no code changes expected)
+**Branch**: `task/048-selftest-verify-stale-flash`
 **Size**: S (2 points)
 
 ## Description
