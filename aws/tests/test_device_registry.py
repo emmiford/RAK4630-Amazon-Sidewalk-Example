@@ -80,12 +80,12 @@ class TestGetOrCreateDevice:
         self.table.put_item.assert_called_once()
 
     def test_new_device_defaults(self):
-        """New device has empty owner_email and location."""
+        """New device omits owner_email/location (empty strings break GSI keys)."""
         self.table.get_item.return_value = {}
 
         result = reg.get_or_create_device(self.table, self.device_id)
-        assert result["owner_email"] == ""
-        assert result["location"] == ""
+        assert "owner_email" not in result
+        assert "location" not in result
         assert result["sidewalk_id"] == ""
 
 

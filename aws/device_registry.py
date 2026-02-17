@@ -42,13 +42,14 @@ def get_or_create_device(table, wireless_device_id, sidewalk_id=""):
         return resp["Item"]
 
     # Auto-provision new device
+    # Note: owner_email omitted — DynamoDB rejects empty strings for GSI keys.
+    # The owner_email-index GSI is sparse: items without owner_email are excluded,
+    # which is correct (unowned devices shouldn't appear in owner queries).
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     item = {
         "device_id": sc_id,
         "wireless_device_id": wireless_device_id,
         "sidewalk_id": sidewalk_id,
-        "owner_email": "",
-        "location": "",
         "status": "active",
         "last_seen": now_iso,
         "app_version": 0,
