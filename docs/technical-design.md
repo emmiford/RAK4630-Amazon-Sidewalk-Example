@@ -583,10 +583,17 @@ typedef struct {
 each 500ms poll cycle whether the duration has elapsed. If so, it sets
 `charging_allowed = true` and drives the GPIO high.
 
-**Command sources**: Charge control can be set by:
-1. Cloud downlink (0x10 command) — processed in `app_rx.c`
-2. Shell command (`app evse allow` / `app evse pause`)
-3. Auto-resume timer expiry
+**Command sources** (in priority order):
+1. **Charge Now button** (TASK-048) — 30-min latch, overrides cloud and AC priority.
+   Sets `charge_now_active = true` and a 30-min countdown. During the latch:
+   charging is forced on, AC compressor call is suppressed, cloud pause commands
+   are ignored, and `FLAG_CHARGE_NOW` is set in uplinks. On expiry (or unplug/full),
+   the latch clears and normal interlock rules resume. The active delay window
+   is deleted (not paused) — see PRD 4.4.5.
+2. Cloud downlink (0x10 command) — processed in `app_rx.c`. Ignored while
+   Charge Now latch is active.
+3. Shell command (`app evse allow` / `app evse pause`)
+4. Auto-resume timer expiry
 
 ### 6.4 Thermostat Inputs
 
@@ -734,7 +741,10 @@ everything up to now").
 4. Fall back to legacy sid_demo format
 5. Store decoded telemetry in DynamoDB (`sidewalk-v1-device_events_v2`)
 6. Call `maybe_send_time_sync()` — sends TIME_SYNC if sentinel is >24h old or missing
-7. Update device registry (best-effort)
+7. Check `FLAG_CHARGE_NOW` in uplink — if set, write `charge_now_override_until`
+   to the scheduler sentinel (`timestamp=0`) with the end of the current peak
+   window. This tells the scheduler to suppress pause commands (see ADR-002).
+8. Update device registry (best-effort)
 
 **DynamoDB item structure** (EVSE telemetry):
 ```
@@ -762,6 +772,12 @@ seq:           Sidewalk sequence number
 
 **State tracking**: Sentinel key (`device_id` + `timestamp=0`) stores last command.
 Skips downlink if command hasn't changed (avoids redundant transmissions).
+
+**Charge Now opt-out**: The sentinel may contain a `charge_now_override_until` field
+(set by `decode_evse_lambda` when it sees `FLAG_CHARGE_NOW=1` in an uplink). If
+`now < charge_now_override_until`, the scheduler suppresses pause commands — the
+user has opted out of demand response for the remainder of this peak window. After
+the timestamp passes, normal scheduling resumes. See ADR-002.
 
 **Downlink**: Sends charge control command (0x10) with `duration_min=0` (indefinite).
 
@@ -792,11 +808,22 @@ only changed chunks with absolute indices. Device writes to staging at the corre
 
 **Sentinel keys** (reserved timestamp values):
 
-| Timestamp | Purpose |
-|-----------|---------|
-| 0 | Charge scheduler state (last command, reason, TOU/MOER) |
-| -1 | OTA session state (phase, chunks, firmware key, delta info) |
-| -2 | TIME_SYNC state (last sync time, epoch) |
+Real events always have positive timestamps (Unix milliseconds). Non-positive
+values are reserved as fixed sort keys for mutable per-device state, so Lambdas
+can read both event history and current state from a single partition.
+
+| Timestamp | Purpose | Writer | Delivery guarantee |
+|-----------|---------|--------|--------------------|
+| 0 | Charge scheduler state (last command, reason, TOU/MOER) | `charge_scheduler_lambda` | Fire-and-forget — no device ACK (see caveat below) |
+| -1 | OTA session state (phase, chunks, firmware key, delta info) | `ota_sender_lambda` | ACK-driven — advances only on device `OTA_ACK` uplink |
+| -2 | TIME_SYNC state (last sync time, epoch) | `decode_evse_lambda` | Fire-and-forget — self-corrects on next 24h cycle |
+
+**Caveat — charge scheduler sentinel (timestamp=0):** The scheduler records
+the sent command immediately and suppresses re-sends when the sentinel matches
+the current decision. If the LoRa downlink is lost, the sentinel and device
+state diverge silently. A future improvement is to compare the sentinel's
+`last_command` against the device's `charge_allowed` bit reported in v0x07
+uplinks; on mismatch, the decode Lambda would re-trigger the scheduler.
 
 ### 8.5 Infrastructure
 
@@ -954,6 +981,7 @@ Architecture Decision Records are immutable once accepted. See `docs/adr/README.
 | ADR | Decision | Status |
 |-----|----------|--------|
 | [ADR-001](adr/001-version-mismatch-hard-stop.md) | API version mismatch is a hard stop (not a warning). Platform refuses to load app if version != APP_CALLBACK_VERSION. | Accepted 2026-02-11 |
+| [ADR-002](adr/002-charge-now-cancels-demand-response.md) | Charge Now cancels the active demand response window for the remainder of the peak period. Scheduler checks `charge_now_override_until` before sending pause. | Accepted 2026-02-16 |
 
 ## Appendix B: Known Issues
 

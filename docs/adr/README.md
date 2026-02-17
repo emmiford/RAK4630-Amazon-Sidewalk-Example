@@ -32,3 +32,4 @@ What other approaches were evaluated?
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
 | [001](001-version-mismatch-hard-stop.md) | API version mismatch is a hard stop | Accepted | 2026-02-11 |
+| [002](002-charge-now-cancels-demand-response.md) | Charge Now cancels demand response window | Accepted | 2026-02-16 |

@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (21)
+## Open Tasks (23)
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
@@ -42,11 +42,13 @@ Special: deferred, declined
 | TASK-037 | P2 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | TASK-038 |
-| TASK-048b | P2 | not started | Bobby | Charge Now single-press button | — |
+| TASK-048b | P2 | not started | Eliel | Charge Now 30-min latch (ADR-002) | TASK-062 |
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-062 | P2 | not started | Eliel | Wire up Charge Now button GPIO end-to-end | — |
+| TASK-063 | P1 | not started | Eliel | Delay window support (device + cloud) | — |
+| TASK-064 | P2 | not started | Eliel | Cloud Charge Now protocol (ADR-002) | TASK-048b |
 | TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
 | TASK-061 | P2 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
 

@@ -1,33 +1,59 @@
-# TASK-048b: Charge Now single-press — implement FLAG_CHARGE_NOW button handler
+# TASK-048b: Charge Now 30-minute latch — device-side override logic
 
 **Status**: not started
 **Priority**: P2
-**Owner**: Bobby
-**Branch**: `task/048-charge-now-button`
-**Size**: S (2 points)
+**Owner**: Eliel
+**Branch**: —
+**Size**: M (5 points)
 
 ## Description
-The `FLAG_CHARGE_NOW` bit (bit 3 of uplink byte 7) is reserved in app_tx.c but not yet implemented. TASK-040 added the button GPIO polling infrastructure (`EVSE_PIN_BUTTON`, pin 3). This task implements single-press behavior: a single press of the Charge Now button toggles charging (if paused → allow). Sets `FLAG_CHARGE_NOW` in the next uplink so the cloud knows it was a local override. Must coexist with 5-press self-test trigger.
+Implement the Charge Now 30-minute latch per ADR-002 and PRD 2.0.1.1. When the
+Charge Now button is single-pressed, the device enters a 30-minute override mode:
 
-Note: This was originally numbered TASK-048 in the monolithic task list (duplicate ID). Renamed to TASK-048b to resolve the conflict.
+1. **Charging forced on** — `charge_allowed = true`, relay held closed
+2. **AC suppressed** — thermostat cool call is blocked for 30 minutes
+3. **Cloud pause commands ignored** — incoming charge control (0x10) pause
+   commands are discarded while the latch is active
+4. **FLAG_CHARGE_NOW set** — bit 3 of uplink flags byte is held high for the
+   duration (not auto-cleared after one uplink)
+5. **Delay window deleted** — once delay window support exists (TASK-063), the
+   stored window is deleted on Charge Now press
+
+On expiry (or early cancel via unplug / car full / long-press):
+- AC priority restored, normal interlock rules resume
+- FLAG_CHARGE_NOW cleared in next uplink
+- No demand response window reinstated — cloud handles opt-out (TASK-064)
+
+This replaces the earlier "toggle + auto-clear" scope that was in the original
+TASK-048b. See ADR-002 for the decision rationale.
 
 ## Dependencies
-**Blocked by**: TASK-040 (button GPIO infrastructure — DONE)
-**Blocks**: none
+**Blocked by**: TASK-062 (button GPIO wiring)
+**Blocks**: TASK-064 (cloud Charge Now protocol — needs FLAG_CHARGE_NOW in uplinks)
 
 ## Acceptance Criteria
-- [ ] Single press on Charge Now button toggles charging allowed state
-- [ ] FLAG_CHARGE_NOW (bit 3) set in uplink byte 7 on next send after button press
-- [ ] Flag auto-clears after one uplink
-- [ ] Coexists with 5-press self-test trigger (no false triggers in either direction)
-- [ ] Debounce: rapid presses within 200ms treated as one press
+- [ ] Single press activates 30-min Charge Now latch
+- [ ] During latch: charging forced on, cool call suppressed, cloud pause ignored
+- [ ] FLAG_CHARGE_NOW (bit 3) set in uplinks for full 30-min duration
+- [ ] FLAG_CHARGE_NOW clears when latch expires or is cancelled
+- [ ] Unplug (J1772 → state A) cancels latch immediately
+- [ ] Long-press (3s) cancels latch early
+- [ ] Coexists with 5-press self-test trigger (no false triggers)
+- [ ] Power loss = latch lost (RAM-only), safe default restored
+- [ ] LED feedback: 3 rapid blinks on press, then 0.5Hz slow blink during override
 
 ## Testing Requirements
-- [ ] C unit tests: single-press toggles charge state
-- [ ] C unit tests: FLAG_CHARGE_NOW set and auto-cleared
-- [ ] C unit tests: 5-press still triggers self-test (no regression)
+- [ ] C unit tests: single press activates latch, sets FLAG_CHARGE_NOW
+- [ ] C unit tests: cloud pause command ignored during latch
+- [ ] C unit tests: cool call suppressed during latch, restored after expiry
+- [ ] C unit tests: unplug cancels latch
+- [ ] C unit tests: 30-min expiry restores normal operation
+- [ ] C unit tests: 5-press self-test still works (no regression)
+- [ ] On-device: button press → LED feedback → charging starts
 
 ## Deliverables
-- Modified `selftest_trigger.c` or new `charge_now_button.c`
-- Modified `app_tx.c`
+- New `charge_now.c` / `charge_now.h` (latch state machine, timer, cancel logic)
+- Modified `charge_control.c` (check latch before processing cloud commands)
+- Modified `app_tx.c` (FLAG_CHARGE_NOW from latch state, not auto-clear)
+- Modified thermostat handling (suppress cool call during latch)
 - Unit tests
