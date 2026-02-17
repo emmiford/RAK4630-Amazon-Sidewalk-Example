@@ -27,6 +27,14 @@
 		};
 	};
 
+	charge_now_button {
+		compatible = "gpio-keys";
+		charge_now: charge_now {
+			gpios = <&gpio0 7 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+			label = "Charge Now Button";
+		};
+	};
+
 	evse_outputs {
 		compatible = "gpio-leds";
 		charge_enable: charge_enable {

@@ -55,23 +55,23 @@ Special: deferred, declined
 | TASK-037 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
 | TASK-038 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | not started | Pam | Privacy agent | TASK-038 |
-| TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-062, TASK-065 |
+| TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-065 |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
-| TASK-062 | not started | Eliel | Wire up Charge Now button GPIO end-to-end | — |
 | TASK-064 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | TASK-048b |
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-071 | not started | Eliel | Scheduler sentinel divergence detection | — |
+| TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
+| TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 
-## Completed Tasks (42)
+## Completed Tasks (43)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -116,6 +116,7 @@ Special: deferred, declined
 | TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
 | TASK-065 | AC-priority software interlock + charge_block rename | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-068 | charge_block rename propagation + stale status updates | MERGED DONE | 2026-02-17 | Pam |
+| TASK-062 | Wire up Charge Now button GPIO end-to-end | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`

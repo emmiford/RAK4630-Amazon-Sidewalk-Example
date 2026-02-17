@@ -976,6 +976,7 @@ Components:
 | GPIO 0 | P0.06 | `charge_block` | Output | Charge block (HIGH=block, LOW=not blocking — hardware safety gate controls) |
 | GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand (pull-down, active-high) |
 | GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand (pull-down, active-high) |
+| GPIO 3 | P0.07 | `charge_now_button` | Input | Charge Now button / 5-press self-test trigger (pull-down, active-high) |
 
 | ADC Channel | nRF52840 Pin | Function | Range | Calibration |
 |-------------|-------------|----------|-------|-------------|
