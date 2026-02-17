@@ -472,7 +472,7 @@ Two LEDs eliminate ambiguity. Green answers "is the device healthy and connected
 | Requirement | Status |
 |-------------|--------|
 | LED control via app_leds module | IMPLEMENTED |
-| Priority-based blink state machine (highest active state wins) | NOT STARTED |
+| Priority-based blink state machine (highest active state wins) | NOT STARTED (TASK-067) |
 | Prototype single-LED patterns per 2.5.1 matrix | NOT STARTED |
 | Production dual-LED patterns per 2.5.1.1 matrix | NOT STARTED (requires TASK-019 PCB) |
 | "Charge Now" button press acknowledgment (3 rapid blinks) | NOT STARTED |
@@ -544,6 +544,12 @@ These checks run on every 500ms sensor poll cycle. They detect faults that devel
 
 During development, `sid selftest` triggers a full self-test cycle (boot checks + one pass of continuous checks) and prints results to the shell. In production (no USB), the same test is triggered by pressing the Charge Now button 5 times within 5 seconds. Results are reported via LED blink codes: green rapid-blinks the count of passed tests, then pauses, then red/both rapid-blinks the count of failed tests (0 blinks = all passed). Results are also sent as a special uplink with the SELFTEST_FAIL flag if any test fails.
 
+**FAULT_SELFTEST lifecycle**: The boot self-test fault flag (0x80) is latched on failure and included in every subsequent uplink. Unlike the continuous fault flags (which self-heal on the next clean poll cycle), FAULT_SELFTEST persists because the boot checks are not re-evaluated during normal operation. The flag clears in two ways:
+1. **Device reboot** (power cycle or OTA apply) — all fault flags are RAM-only; on reboot, `selftest_boot()` re-evaluates from scratch. A transient boot glitch self-heals on the next clean boot.
+2. **Button-triggered re-test** — if the installer presses the button 5 times and all 5 checks pass, FAULT_SELFTEST is cleared (TASK-066). This lets the installer verify a fix in the field without power-cycling the device.
+
+There is no remote reboot or remote fault-clear command. The continuous monitors (FAULT_SENSOR, FAULT_CLAMP, FAULT_INTERLOCK) cover the same failure modes at runtime, so a latched FAULT_SELFTEST with clean continuous flags means the boot failure was transient.
+
 **Button detection limitation (v1.0)**: The app layer has no GPIO interrupt path — button state is read by polling `gpio_get()` inside `app_on_timer()`, which fires every 500ms. Each press must be held long enough to span at least one polling tick to be detected. With 500ms resolution, five deliberate press-and-release cycles require ~5 seconds, so the original 3-second window was impractical. The 5-second window accommodates this. Quick taps shorter than 500ms may be missed entirely. This is adequate for production use (installers press deliberately), but TASK-049 would add a platform-side GPIO interrupt callback (`on_button_press`) that delivers sub-millisecond press timestamps, enabling the tighter 3-second window and natural quick presses. TASK-049 requires an `APP_CALLBACK_VERSION` bump (v3 → v4) per ADR-001.
 
 **What can vs. cannot be automated**
@@ -569,6 +575,8 @@ During development, `sid selftest` triggers a full self-test cycle (boot checks 
 | Production 5-press button trigger for self-test (5s window, polling-based — see limitation note above) | IMPLEMENTED (SW) (TASK-040) | P1 |
 | Platform GPIO interrupt callback for tighter 3s button detection | NOT STARTED (TASK-049) | P3 |
 | Self-test results in uplink fault flags (byte 7, bits 4-7) | IMPLEMENTED (SW) (TASK-039) | P0 |
+| Button re-test clears FAULT_SELFTEST on all-pass | NOT STARTED (TASK-066) | P1 |
+| LED blink priority state machine (§2.5.1 patterns) | NOT STARTED (TASK-067) | P1 |
 
 #### 2.5.4 Installation Failure Modes
 

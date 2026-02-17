@@ -220,8 +220,8 @@ Bit  Mask  Name              Source
 3    0x08  CHARGE_NOW        reserved (TASK-040, always 0)
 4    0x10  FAULT_SENSOR      ADC/GPIO read failure or pilot out-of-range
 5    0x20  FAULT_CLAMP       current vs. J1772 state disagreement
-6    0x40  FAULT_INTERLOCK   charge enable ineffective / relay stuck
-7    0x80  FAULT_SELFTEST    boot self-test failure (latched until reset)
+6    0x40  FAULT_INTERLOCK   current flowing while charge_allowed=false (relay not cutting power)
+7    0x80  FAULT_SELFTEST    boot self-test failure (latched until reboot, see §6.5.4)
 ```
 
 Bit 0 is reserved for future heat pump support (always 0 in v1.0). Bit 1 comes from
@@ -608,28 +608,96 @@ The flags byte packs these inputs as:
 
 ### 6.5 Self-Test
 
-Two phases: boot-time checks and continuous monitoring.
+Three layers: boot-time hardware check, production button trigger with LED
+feedback, and continuous runtime monitoring.
 
-**Boot self-test** (`selftest_boot()`, <100ms):
-1. ADC pilot channel readable and returns a value in range
-2. ADC current channel readable
-3. GPIO cool call readable
-4. GPIO charge enable writable (write + readback verify)
+#### 6.5.1 Boot Self-Test
+
+`selftest_boot()` runs once during `app_init()` (<100ms). It verifies that all
+hardware paths are functional before the device begins normal operation.
+
+**Checks** (5 total):
+1. ADC pilot channel readable (channel 0 returns >= 0)
+2. ADC current channel readable (channel 1 returns >= 0)
+3. GPIO heat input readable
+4. GPIO cool input readable
+5. GPIO charge enable writable (toggle HIGH → readback → toggle LOW → readback → restore)
 
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
-(0x80) is latched in the fault flags and included in every subsequent uplink until
-explicitly reset.
+(0x80) is set in the fault flags.
 
-**Continuous fault monitors** (`selftest_continuous_tick()`, called every 500ms):
+**Boot LED feedback**: On failure, LED 2 (red) flashes once. This is a brief
+diagnostic indicator; the production-visible feedback comes from the button-triggered
+self-test (§6.5.2) and from the FAULT_SELFTEST bit in uplinks.
 
-| Monitor | Flag | Condition |
-|---------|------|-----------|
-| Sensor fault | 0x10 | J1772 state == UNKNOWN for >5s (ADC read failure or pilot signal out of valid range) |
-| Clamp mismatch | 0x20 | Current >500mA but J1772 state != C/D, **or** current <500mA but state == C/D |
-| Interlock fault | 0x40 | charge_allowed=true but conditions suggest relay isn't working |
-| Self-test fail | 0x80 | Boot self-test failed (latched) |
+**Why boot-only for check 5**: The charge enable toggle test physically
+actuates the relay. This is safe at boot (relay state is undefined, no active
+charge session) but unsafe during operation — it would momentarily interrupt an
+active charge. The continuous monitors (§6.5.3) detect relay failures at runtime
+without toggling.
+
+#### 6.5.2 Production Self-Test Trigger (Button + LED Blink Codes)
+
+In production there is no USB/serial connection. The installer triggers and reads
+the self-test via the **Charge Now button** and **LED blink codes**.
+
+**Trigger**: 5 presses of the Charge Now button (GPIO pin 3, active-high) within
+5 seconds. The 5-second window accommodates the 500ms GPIO polling resolution.
+Normal single-press behavior (Charge Now) is not affected.
+
+**Execution** (`selftest_trigger.c`): On trigger, `selftest_boot()` re-runs all
+5 hardware checks. Results are reported as LED blink codes:
+
+| Phase | LED | Meaning |
+|-------|-----|---------|
+| Green blinks | LED 0 (green) | Count of **passed** checks (0–5). Each blink = 500ms on + 500ms off. |
+| Pause | All off | 1-second pause (2 ticks). Skipped if all passed or all failed. |
+| Red blinks | LED 2 (red) | Count of **failed** checks (0–5). Same blink timing. |
+
+**Examples**:
+- All pass: 5 green blinks (5 seconds), no red → installer sees solid green sequence
+- 4 pass / 1 fail: 4 green blinks, 1s pause, 1 red blink
+- All fail: 5 red blinks (5 seconds), no green
+
+**Uplink**: If any check fails, a fault uplink is automatically sent with
+`FAULT_SELFTEST` (0x80) set, so the cloud sees the failure even without serial.
+
+#### 6.5.3 Continuous Fault Monitors
+
+`selftest_continuous_tick()` is called every 500ms from `app_on_timer()`. These
+monitors detect runtime fault conditions and are **self-healing** — when the
+fault condition clears, the flag clears on the next tick.
+
+| Monitor | Flag | Set condition | Clear condition |
+|---------|------|--------------|-----------------|
+| Sensor fault | 0x10 | ADC read failure or J1772 state == UNKNOWN for >5s | ADC readable and J1772 state != UNKNOWN |
+| Clamp mismatch | 0x20 | Current >500mA but J1772 state != C, **or** current <500mA but state == C, sustained >10s | Condition no longer present |
+| Interlock fault | 0x40 | `charge_allowed` is false but current >500mA persists for >30s (relay not cutting power) | Current drops or charging re-allowed |
+| Thermostat chatter | 0x10 | Cool call toggled >10 times within 60s window | Toggle rate drops below threshold |
 
 Fault flags are OR'd into byte 5 (bits 4-7) of every uplink.
+
+#### 6.5.4 FAULT_SELFTEST Lifecycle
+
+`FAULT_SELFTEST` (0x80) differs from the continuous fault flags: it is only
+evaluated at boot or on button trigger, not every 500ms.
+
+| Event | Behavior |
+|-------|----------|
+| Boot (`app_init`) | `selftest_boot()` runs. Sets 0x80 on failure. Does NOT clear 0x80 on pass. |
+| Button trigger (5-press) | Re-runs `selftest_boot()`. Sets 0x80 on failure. **Clears 0x80 on all-pass** (TASK-066). |
+| Device reboot | All fault flags are RAM-only and reset to 0. `selftest_boot()` re-evaluates. A transient boot failure self-heals on reboot. |
+
+**Production recovery paths** (no remote reboot or remote fault-clear command exists):
+1. **Power cycle** — installer power-cycles the device; self-test re-evaluates on boot
+2. **OTA update** — applying an OTA triggers a reboot; self-test re-evaluates on next boot
+3. **Button re-test** — installer presses button 5 times; if all 5 checks pass,
+   FAULT_SELFTEST clears and a clean uplink is sent (TASK-066, not yet implemented)
+
+**Rationale**: The continuous monitors already cover the same failure modes at
+runtime. A latched FAULT_SELFTEST with clean continuous flags means the boot
+failure was transient. Letting the button re-test clear the flag gives the
+installer a field-verifiable recovery path without requiring a power cycle.
 
 ### 6.6 Event Buffer
 

@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (23)
+## Open Tasks (26)
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
@@ -36,6 +36,9 @@ Special: deferred, declined
 | TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
 | TASK-058 | P1 | not started | Eero | On-device shell verification (post app.c refactor) | — |
 | TASK-060 | P1 | not started | Eliel | Uplink payload v0x08 — remove pilot voltage, remove heat call | — |
+| TASK-065 | P1 | in progress | Pam | TDD §6.5 self-test rewrite + PRD fault lifecycle | — |
+| TASK-066 | P1 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | TASK-065 |
+| TASK-067 | P1 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |
 | TASK-026 | P2 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | P2 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | P2 | not started | Eliel | Cloud command authentication | — |
