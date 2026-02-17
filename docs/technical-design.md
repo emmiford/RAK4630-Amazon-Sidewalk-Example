@@ -767,19 +767,52 @@ Skips downlink if command hasn't changed (avoids redundant transmissions).
 
 ### 8.3 ota_sender_lambda
 
-**Triggers**:
-1. S3 PutObject → new firmware uploaded → start OTA session (send OTA_START)
-2. Async invoke from decode Lambda → device ACK received → send next chunk
+This is the most stateful Lambda in the cloud triad (§8.1 decode, §8.2 charge
+scheduler, §8.3 OTA sender). It manages a multi-step firmware update session over
+an unreliable LoRa link where any message — downlink or uplink — can be silently
+dropped. The retry logic is designed around this reality: resilience matters more
+than throughput, and the 19-byte LoRa MTU means each chunk is tiny.
 
-**Session state**: DynamoDB sentinel (`device_id` + `timestamp=-1`)
+**Two triggers:**
 
-**Delta computation**: Compares S3 baseline against new firmware chunk-by-chunk. Sends
-only changed chunks with absolute indices. Device writes to staging at the correct offset.
+1. **S3 upload** — When new firmware is uploaded to the S3 bucket, S3 fires a
+   PutObject event that invokes this Lambda. It kicks off an OTA session by sending
+   an `OTA_START` downlink to the device.
+2. **Device ACK** — When the device acknowledges a chunk (uplink decoded by the
+   decode Lambda), the decode Lambda async-invokes this one again to send the next
+   chunk.
 
-**Retry/recovery**:
-- 5 retries per chunk before abort
-- On NO_SESSION (code 3): resend OTA_START, up to 3 restarts
-- EventBridge retry rule re-invokes the Lambda if no ACK arrives within timeout
+The flow is a ping-pong: **sender → device → decode → sender → device → …** until
+all chunks are delivered. Each round-trip is dominated by LoRa latency (uplink +
+downlink windows), not compute.
+
+**Delta OTA:**
+
+Rather than sending the entire firmware image, the Lambda compares the S3 **baseline**
+(captured via `ota_deploy.py baseline`) against the new firmware chunk-by-chunk. Only
+**changed chunks** are sent, each tagged with its absolute index so the device can
+write it to the correct offset in staging flash. This is critical for keeping update
+times practical — a full-image OTA sends all ~276 chunks (~69 minutes), while a
+typical one-function code change sends 2–3 chunks (~5 minutes). See §5.3 for the
+device-side delta merge logic.
+
+**Session state:**
+
+Progress is tracked in DynamoDB using a **sentinel record** — same `device_id` as
+partition key but with a special `timestamp = -1` sort key (see §8.4). This record
+holds the current phase, which chunks have been ACK'd, the S3 firmware key, and
+delta info. See §5.7 for the full list of session state fields.
+
+**Retry and recovery:**
+
+- **Per-chunk**: Up to 5 retries before aborting the session.
+- **Session restart**: If the device responds with `NO_SESSION` (error code 3 —
+  meaning it rebooted or lost OTA state mid-session), the Lambda resends `OTA_START`
+  and restarts the session from scratch, up to 3 times. This handles the common case
+  of a device power-cycling during a long update.
+- **Timeout**: An EventBridge rule re-invokes the Lambda if no ACK arrives within a
+  timeout window (30s stale threshold, 1-minute retry interval), so the process
+  doesn't stall if a downlink or uplink gets lost over LoRa.
 
 ### 8.4 DynamoDB Schema
 

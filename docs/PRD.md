@@ -824,7 +824,8 @@ For a typical one-function code change, this means 2-3 chunks over LoRa — abou
 | Session state tracked in DynamoDB (sentinel key timestamp=-1) | IMPLEMENTED |
 | EventBridge retry timer (1-minute interval) | IMPLEMENTED |
 | Stale session detection (30s threshold) | IMPLEMENTED |
-| Max 5 retries before abort | IMPLEMENTED |
+| Max 5 retries per chunk before abort | IMPLEMENTED |
+| NO_SESSION restart: if device reboots mid-OTA, resend OTA_START (up to 3 restarts) | IMPLEMENTED |
 | CloudWatch alarms for Lambda errors and missing invocations | IMPLEMENTED |
 | Deploy CLI: `ota_deploy.py baseline/deploy/preview/status/abort` | IMPLEMENTED |
 
