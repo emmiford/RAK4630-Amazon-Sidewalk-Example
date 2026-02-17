@@ -9,6 +9,7 @@
 #include <app_rx.h>
 #include <charge_control.h>
 #include <time_sync.h>
+#include <diag_request.h>
 #include <event_buffer.h>
 #include <platform_api.h>
 #include <string.h>
@@ -48,6 +49,15 @@ void app_rx_process_msg(const uint8_t *data, size_t len)
 		} else {
 			/* Trim event buffer with new ACK watermark */
 			event_buffer_trim(time_sync_get_ack_watermark());
+		}
+		return;
+	}
+
+	/* Diagnostics request (0x40) */
+	if (data[0] == DIAG_REQUEST_CMD_TYPE) {
+		int ret = diag_request_process_cmd(data, len);
+		if (ret < 0) {
+			api->log_err("Diagnostics request failed: %d", ret);
 		}
 		return;
 	}

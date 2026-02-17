@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
+## Open Tasks (28)
 
 ### P0 — Must-have before field install
 | ID | Status | Owner | Title | Blocked By |
@@ -36,7 +36,7 @@ Special: deferred, declined
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-022 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
-| TASK-029 | not started | Eliel | Production observability | — |
+| TASK-029 | in progress | Eliel | Production observability | — |
 | TASK-045 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
@@ -65,11 +65,13 @@ Special: deferred, declined
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-071 | not started | Eliel | Scheduler sentinel divergence detection | — |
+| TASK-073 | not started | Eliel | Automate remote diagnostic queries from health digest | TASK-029 |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
+| TASK-072 | not started | Eliel | Device registry GSI for fleet-scale health queries | TASK-029 |
 
 ## Completed Tasks (42)
 | ID | Title | Status | Date | Agent |

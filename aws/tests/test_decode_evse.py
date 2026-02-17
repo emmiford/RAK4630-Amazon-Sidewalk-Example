@@ -347,3 +347,136 @@ class TestDecodeV07Payload:
         assert result["payload_type"] == "evse"
         assert result["version"] == 0x07
         assert result["device_timestamp_epoch"] == 1000
+
+
+# --- Diagnostics payload decoding (0xE6) ---
+
+class TestDecodeDiagPayload:
+    @staticmethod
+    def _make_diag(diag_ver=1, app_ver=3, uptime=120, boot_count=0,
+                   error_code=0, state_flags=0x43, pending=5):
+        """Build a 14-byte diagnostics payload."""
+        return bytes([
+            0xE6, diag_ver,
+            app_ver & 0xFF, (app_ver >> 8) & 0xFF,
+            uptime & 0xFF, (uptime >> 8) & 0xFF,
+            (uptime >> 16) & 0xFF, (uptime >> 24) & 0xFF,
+            boot_count & 0xFF, (boot_count >> 8) & 0xFF,
+            error_code,
+            state_flags,
+            pending,
+            0x00,
+        ])
+
+    def test_valid_diag_payload(self):
+        """Basic diagnostics decode with all fields."""
+        raw = self._make_diag(app_ver=3, uptime=120, state_flags=0x43, pending=5)
+        result = decode.decode_diag_payload(raw)
+        assert result is not None
+        assert result["payload_type"] == "diagnostics"
+        assert result["diag_version"] == 1
+        assert result["app_version"] == 3
+        assert result["uptime_seconds"] == 120
+        assert result["boot_count"] == 0
+        assert result["last_error_code"] == 0
+        assert result["last_error_name"] == "none"
+        assert result["event_buffer_pending"] == 5
+
+    def test_state_flags_decode(self):
+        """State flags 0x43 = SIDEWALK_READY | CHARGE_ALLOWED | TIME_SYNCED."""
+        raw = self._make_diag(state_flags=0x43)
+        result = decode.decode_diag_payload(raw)
+        assert result["sidewalk_ready"] is True
+        assert result["charge_allowed"] is True
+        assert result["charge_now"] is False
+        assert result["interlock_active"] is False
+        assert result["selftest_pass"] is False
+        assert result["ota_in_progress"] is False
+        assert result["time_synced"] is True
+
+    def test_all_state_flags_set(self):
+        """All state flags set (0x7F)."""
+        raw = self._make_diag(state_flags=0x7F)
+        result = decode.decode_diag_payload(raw)
+        assert result["sidewalk_ready"] is True
+        assert result["charge_allowed"] is True
+        assert result["charge_now"] is True
+        assert result["interlock_active"] is True
+        assert result["selftest_pass"] is True
+        assert result["ota_in_progress"] is True
+        assert result["time_synced"] is True
+
+    def test_error_code_sensor(self):
+        """Error code 1 = sensor fault."""
+        raw = self._make_diag(error_code=1)
+        result = decode.decode_diag_payload(raw)
+        assert result["last_error_code"] == 1
+        assert result["last_error_name"] == "sensor"
+
+    def test_error_code_selftest(self):
+        """Error code 4 = selftest failure."""
+        raw = self._make_diag(error_code=4)
+        result = decode.decode_diag_payload(raw)
+        assert result["last_error_code"] == 4
+        assert result["last_error_name"] == "selftest"
+
+    def test_error_code_unknown(self):
+        """Unknown error code falls back to 'unknown_N'."""
+        raw = self._make_diag(error_code=99)
+        result = decode.decode_diag_payload(raw)
+        assert result["last_error_name"] == "unknown_99"
+
+    def test_large_uptime(self):
+        """Large uptime value (27 hours = 97200s)."""
+        raw = self._make_diag(uptime=97200)
+        result = decode.decode_diag_payload(raw)
+        assert result["uptime_seconds"] == 97200
+
+    def test_too_short_returns_none(self):
+        """Payload shorter than 14 bytes returns None."""
+        raw = bytes([0xE6, 0x01, 0x03, 0x00])
+        result = decode.decode_diag_payload(raw)
+        assert result is None
+
+    def test_wrong_magic_returns_none(self):
+        """Non-0xE6 magic byte returns None."""
+        raw = bytes([0xE5]) + bytes(13)
+        result = decode.decode_diag_payload(raw)
+        assert result is None
+
+    def test_diag_via_b64_pipeline(self):
+        """Diagnostics payload through full base64 decode pipeline."""
+        raw = self._make_diag(app_ver=5, uptime=1000, state_flags=0x13, pending=2)
+        result = decode.decode_payload(encode_b64(raw))
+        assert result["payload_type"] == "diagnostics"
+        assert result["app_version"] == 5
+        assert result["uptime_seconds"] == 1000
+
+    def test_handler_stores_as_device_diagnostics(self):
+        """Lambda handler stores diagnostics as event_type='device_diagnostics'."""
+        raw = self._make_diag()
+        event = {
+            "WirelessDeviceId": "test-device-123",
+            "PayloadData": encode_b64(raw),
+            "WirelessMetadata": {
+                "Sidewalk": {
+                    "LinkType": "LORA",
+                    "Rssi": -85,
+                    "Seq": 42,
+                    "Timestamp": "2026-02-17T12:00:00Z",
+                    "SidewalkId": "sid-001",
+                }
+            },
+        }
+
+        with patch.object(decode.table, "put_item") as mock_put, \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch("device_registry.get_or_create_device"), \
+             patch("device_registry.update_last_seen"):
+            decode.lambda_handler(event, None)
+
+        mock_put.assert_called_once()
+        item = mock_put.call_args[1]["Item"]
+        assert item["event_type"] == "device_diagnostics"
+        assert "diagnostics" in item["data"]
+        assert item["data"]["diagnostics"]["app_version"] == 3

@@ -1,7 +1,7 @@
 # SideCharge Technical Design Document
 
 **Status**: Living document — updated as the implementation evolves
-**Last updated**: 2026-02-16
+**Last updated**: 2026-02-17
 
 This is the single authoritative reference for how the SideCharge firmware and cloud
 systems work at the wire format, state machine, and protocol level. For *why* decisions
@@ -238,6 +238,7 @@ The decode Lambda handles three payload formats, identified by byte 0 and byte 1
 | **v0x07** | 0xE5 | 0x07 | 12B | Includes pilot voltage (bytes 3-4); HEAT flag active. |
 | **v0x06** | 0xE5 | 0x06 | 8B | No timestamp (bytes 8-11). Flags byte has thermostat bits only. |
 | **sid_demo legacy** | varies | — | 7B+ | Wrapped in demo protocol headers. Inner payload: type(1)+j1772(1)+voltage(2)+current(2)+therm(1). Offset-scanned. |
+| **0xE6 diag** | 0xE6 | 0x01 | 14B | Extended diagnostics (on-demand only, see §3.5) |
 
 Backward-compatible: version byte (byte 1) dispatches to the correct decoder. Old
 devices sending v0x07 or v0x06 continue to be decoded correctly.
@@ -255,7 +256,61 @@ The app sends an uplink on **any state change** or on **heartbeat expiry**, whic
 comes first. Rate limiting prevents flooding during rapid state transitions (e.g.,
 vehicle plug wiggle).
 
-### 3.5 OTA Uplinks
+### 3.5 Extended Diagnostics Payload (0xE6)
+
+14 bytes. Sent only on demand in response to a 0x40 diagnostics request (see §4.4).
+Not included in regular heartbeats.
+
+```
+Offset  Size  Field               Type          Description
+------  ----  -----               ----          -----------
+0       1     Magic               uint8         0xE6 (diagnostics)
+1       1     Diag version        uint8         0x01
+2-3     2     App version         uint16_le     APP_CALLBACK_VERSION
+4-7     4     Uptime              uint32_le     Seconds since boot (uptime_ms()/1000)
+8-9     2     Boot count          uint16_le     0 until persistent storage (future)
+10      1     Last error code     uint8         Highest active fault (see below)
+11      1     State flags         uint8         Live state snapshot (see below)
+12      1     Event buf pending   uint8         Unsent events in ring buffer
+13      1     Reserved            uint8         0x00
+```
+
+**Last error code** (byte 10): Returns the highest-priority active fault flag from
+`selftest_get_fault_flags()`, mapped to a single code:
+
+| Code | Meaning            | Source flag     |
+|------|--------------------|-----------------|
+| 0    | No fault           | —               |
+| 1    | Sensor fault       | FAULT_SENSOR    |
+| 2    | Clamp mismatch     | FAULT_CLAMP     |
+| 3    | Interlock fault    | FAULT_INTERLOCK |
+| 4    | Self-test failure  | FAULT_SELFTEST  |
+
+**State flags** (byte 11) bit map:
+
+```
+Bit  Mask  Name              Source
+---  ----  ----              ------
+0    0x01  SIDEWALK_READY    app_tx_is_ready()
+1    0x02  CHARGE_ALLOWED    charge_control_is_allowed()
+2    0x04  CHARGE_NOW        (reserved, always 0 in v1.0)
+3    0x08  INTERLOCK_ACTIVE  thermostat_cool_call_get()
+4    0x10  SELFTEST_PASS     !(selftest_get_fault_flags() & FAULT_SELFTEST)
+5    0x20  OTA_IN_PROGRESS   (reserved, always 0 — no OTA state getter yet)
+6    0x40  TIME_SYNCED       time_sync_is_synced()
+7    0x80  (reserved)        always 0
+```
+
+Encoding example:
+```
+E6 01 03 00 A0 86 01 00 00 00 00 43 05 00
+│  │  └───┘ └──────────┘ └───┘ │  │  │  │
+│  │  v3    100000s (~27h) 0   │  │  5  reserved
+│  Diag v1                 no err │ events pending
+Magic 0xE6            flags=0x43: SIDEWALK_READY|CHARGE_ALLOWED|TIME_SYNCED
+```
+
+### 3.6 OTA Uplinks
 
 OTA uplinks use command type 0x20 with device→cloud subtypes:
 
@@ -367,6 +422,30 @@ the complete assembly after all chunks are received.
 Byte 0: 0x20
 Byte 1: 0x03
 ```
+
+### 4.4 Diagnostics Request (0x40)
+
+1 byte. Triggers an immediate extended diagnostics uplink (§3.5).
+
+```
+Byte 0:   0x40  (DIAG_REQUEST_CMD_TYPE)
+```
+
+No arguments. The device responds with a single 0xE6 diagnostics payload within
+the next poll cycle (≤500ms). Rate-limited by the standard 5-second minimum
+uplink interval (`MIN_SEND_INTERVAL_MS`).
+
+Manual trigger via CLI:
+```bash
+# Send 0x40 to the default device
+python3 -c "from sidewalk_utils import send_sidewalk_msg; send_sidewalk_msg(bytes([0x40]))"
+```
+
+The decode Lambda detects magic 0xE6 and stores the diagnostics as
+`event_type: 'device_diagnostics'` in DynamoDB with decoded fields.
+
+Automated triggering (health digest sends 0x40 to unhealthy devices) is
+deferred to TASK-073.
 
 ---
 

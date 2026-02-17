@@ -1123,11 +1123,13 @@ Once deployed, the device has no USB port, no serial console, and no local inter
 | CloudWatch alarms for OTA sender errors and stalls | IMPLEMENTED |
 | Cloud-side OTA status monitoring (`ota_deploy.py status`) | IMPLEMENTED |
 | DynamoDB event history (queryable per device) | IMPLEMENTED |
-| Device heartbeat (detects liveness via periodic uplinks) | IMPLEMENTED (interval TBD for production) |
+| Device heartbeat (detects liveness via periodic uplinks) | IMPLEMENTED (15-min production via TASK-070, 60s development) |
 | Dashboard or alerting for device offline detection | NOT STARTED |
 | Remote device state query (request status uplink on demand) | NOT STARTED |
 | OTA failure alerting (notify operator when OTA stalls or aborts) | NOT STARTED |
 | Interlock state change logging (cloud-side, from uplink payload) | NOT STARTED |
+
+> **Note:** See TASK-029 (in progress) — Tier 1 + Tier 2 being implemented together.
 
 The production observability story is thin. Today, if a deployed device stops reporting, nobody gets notified until someone manually checks DynamoDB. The heartbeat confirms liveness, but there is no alerting when it stops. We also cannot remotely query the device -- we can only wait for the next uplink.
 
@@ -1148,14 +1150,41 @@ No device firmware changes. Uses existing uplink data and AWS infrastructure.
 
 **Tier 2 — Remote Status Query (requires device firmware change)**
 
-Adds a new downlink command type that triggers an on-demand uplink with extended diagnostics.
+Adds a new downlink command `0x40` that triggers an on-demand uplink with extended diagnostics. For v1.0, triggering is manual only — operator sends `0x40` via `aws iot` CLI or `sidewalk_utils.send_sidewalk_msg()`. Automated triggering (health digest sends `0x40` to unhealthy devices) deferred to TASK-073.
 
 | Capability | How | Effort |
 |------------|-----|--------|
-| **Remote status request** | New downlink command (0x40) that triggers an immediate uplink with extended payload: firmware version, uptime, Sidewalk state, last error code, interlock state, Charge Now override active, boot count. (0x30 is reserved for TIME_SYNC.) | M — firmware + decode Lambda + CLI |
-| **Extended diagnostics payload** | Second payload type (magic 0xE6?) with 16 bytes of diagnostics. Sent only on request, not on every heartbeat. Fits within 19-byte MTU. | M — firmware + decode Lambda |
+| **Remote status request** | New downlink command `0x40` (1 byte, no arguments). Device responds immediately with an extended diagnostics uplink (magic `0xE6`). Manual trigger only for v1.0. | M — firmware + decode Lambda + CLI |
+| **Extended diagnostics payload** | Magic `0xE6`, 14 bytes total. Sent only on request, not on every heartbeat. Fits within 19-byte MTU. | M — firmware + decode Lambda |
 
-**Recommendation**: Tier 1 infrastructure should be deployed early but with alarms initially disabled (or set to very generous thresholds) until there's a stable deployment to calibrate against — otherwise every development reboot and test cycle fires alerts. Enable alarms once the first field installation is live. Tier 2 is a natural v1.1 feature once the production heartbeat interval is established. BLE diagnostics are out of scope — BLE stays disabled post-registration (see 6.3.2). See TASK-029.
+Extended diagnostics wire format (`0xE6`, 14 bytes):
+
+| Byte(s) | Field | Type | Description |
+|---------|-------|------|-------------|
+| 0 | magic | uint8 | `0xE6` |
+| 1 | diag_version | uint8 | `0x01` |
+| 2–3 | app_version | uint16_le | `APP_CALLBACK_VERSION` |
+| 4–7 | uptime_seconds | uint32_le | from `uptime_ms()/1000` |
+| 8–9 | boot_count | uint16_le | 0 until persistent storage added (TASK-072+) |
+| 10 | last_error_code | uint8 | Highest-priority active fault flag, or 0 |
+| 11 | state_flags | uint8 | Live device state snapshot (see below) |
+| 12 | event_buffer_pending | uint8 | Unsent events in ring buffer |
+| 13 | reserved | uint8 | `0x00` |
+
+`state_flags` bit definitions:
+
+| Bit | Meaning |
+|-----|---------|
+| 0 | Sidewalk connected |
+| 1 | Charge allowed (relay state) |
+| 2 | Charge Now active |
+| 3 | Interlock active (AC demand blocking charge) |
+| 4 | Selftest passed |
+| 5 | OTA in progress |
+| 6 | Time synced (has valid epoch) |
+| 7 | Reserved |
+
+**Recommendation**: Tier 1 infrastructure should be deployed early but with alarms initially disabled (or set to very generous thresholds) until there's a stable deployment to calibrate against — otherwise every development reboot and test cycle fires alerts. Enable alarms once the first field installation is live. Tier 2 remote diagnostics is implemented alongside Tier 1 with manual triggering. Automated diagnostic queries (health digest sends `0x40` to unhealthy devices) deferred to TASK-073. BLE diagnostics are out of scope — BLE stays disabled post-registration (see 6.3.2). See TASK-029.
 
 ### 5.4 Testing
 

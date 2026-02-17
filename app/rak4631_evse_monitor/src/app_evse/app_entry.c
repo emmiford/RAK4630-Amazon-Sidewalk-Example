@@ -17,6 +17,7 @@
 #include <evse_payload.h>
 #include <app_tx.h>
 #include <app_rx.h>
+#include <diag_request.h>
 #include <selftest.h>
 #include <selftest_trigger.h>
 #include <time_sync.h>
@@ -97,6 +98,7 @@ static int app_init(const struct platform_api *platform)
 	evse_payload_set_api(api);
 	app_tx_set_api(api);
 	app_rx_set_api(api);
+	diag_request_set_api(api);
 	selftest_set_api(api);
 	selftest_trigger_set_api(api);
 	time_sync_set_api(api);
