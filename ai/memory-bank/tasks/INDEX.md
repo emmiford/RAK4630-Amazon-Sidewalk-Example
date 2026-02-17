@@ -24,39 +24,55 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
-| ID | P | Status | Owner | Title | Blocked By |
-|----|---|--------|-------|-------|------------|
-| TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
-| TASK-049 | P0 | coded | Eliel | Deploy device registry (awaiting physical verify) | — |
-| TASK-022 | P1 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
-| TASK-029 | P1 | not started | Eliel | Production observability | — |
-| TASK-045 | P1 | not started | Eliel | ED25519 verify library integration | — |
-| TASK-046 | P1 | not started | Eero | Signed OTA E2E verification | TASK-045 |
-| TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
-| TASK-058 | P1 | not started | Eero | On-device shell verification (post app.c refactor) | — |
-| TASK-060 | P1 | not started | Eliel | Uplink payload v0x08 — remove pilot voltage, remove heat call | — |
-| TASK-065 | P1 | in progress | Pam | TDD §6.5 self-test rewrite + PRD fault lifecycle | — |
-| TASK-066 | P1 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | TASK-065 |
-| TASK-067 | P1 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |
-| TASK-026 | P2 | not started | Eero | Boot path + app discovery tests | — |
-| TASK-030 | P2 | not started | Eliel | Fleet command throttling | — |
-| TASK-032 | P2 | not started | Eliel | Cloud command authentication | — |
-| TASK-037 | P2 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
-| TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
-| TASK-042 | P2 | not started | Pam | Privacy agent | TASK-038 |
-| TASK-048b | P2 | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-062, TASK-065 |
-| TASK-065 | P1 | not started | Eliel | AC-priority software interlock + doc corrections | — |
-| TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
-| TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
-| TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
-| TASK-062 | P2 | not started | Eliel | Wire up Charge Now button GPIO end-to-end | — |
-| TASK-063 | P1 | not started | Eliel | Delay window support (device + cloud) | — |
-| TASK-064 | P2 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | TASK-048b |
-| TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
-| TASK-061 | P2 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
+## Open Tasks (27)
 
-## Completed Tasks (39)
+### P0 — Must-have before field install
+| ID | Status | Owner | Title | Blocked By |
+|----|--------|-------|-------|------------|
+| TASK-048 | not started | Eero | On-device selftest verification | — |
+| TASK-049 | coded | Eliel | Deploy device registry (awaiting physical verify) | — |
+
+### P1 — Required for v1.0
+| ID | Status | Owner | Title | Blocked By |
+|----|--------|-------|-------|------------|
+| TASK-022 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
+| TASK-029 | not started | Eliel | Production observability | — |
+| TASK-045 | not started | Eliel | ED25519 verify library integration | — |
+| TASK-046 | not started | Eero | Signed OTA E2E verification | TASK-045 |
+| TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
+| TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
+| TASK-060 | not started | Eliel | Uplink payload v0x08 — remove pilot voltage, remove heat call | — |
+| TASK-063 | not started | Eliel | Delay window support (device + cloud) | — |
+| TASK-066 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | TASK-068 |
+| TASK-067 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |
+| TASK-068 | in progress | Pam | TDD §6.5 self-test rewrite + PRD fault lifecycle | — |
+
+### P2 — Important but not blocking v1.0
+| ID | Status | Owner | Title | Blocked By |
+|----|--------|-------|-------|------------|
+| TASK-026 | not started | Eero | Boot path + app discovery tests | — |
+| TASK-030 | not started | Eliel | Fleet command throttling | — |
+| TASK-032 | not started | Eliel | Cloud command authentication | — |
+| TASK-037 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
+| TASK-038 | not started | Pam | Data privacy — policy + retention + CCPA | — |
+| TASK-042 | not started | Pam | Privacy agent | TASK-038 |
+| TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-062, TASK-065 |
+| TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
+| TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
+| TASK-057 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
+| TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
+| TASK-062 | not started | Eliel | Wire up Charge Now button GPIO end-to-end | — |
+| TASK-064 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | TASK-048b |
+| TASK-069 | not started | Eliel | Interlock transition event logging | — |
+| TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
+| TASK-071 | not started | Eliel | Scheduler sentinel divergence detection | — |
+
+### P3 — Nice-to-have
+| ID | Status | Owner | Title | Blocked By |
+|----|--------|-------|-------|------------|
+| TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
+
+## Completed Tasks (40)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -99,9 +115,10 @@ Special: deferred, declined
 | TASK-053 | Resolve two app_tx.c naming collision | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-044 | PRD update — commissioning + G = earth ground | MERGED DONE | 2026-02-16 | Pam |
 | TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
+| TASK-065 | AC-priority software interlock + charge_block rename | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
-- RAK Firmware Technical Design: `docs/technical-design-rak-firmware.md`
+- RAK Firmware Technical Design: `docs/technical-design.md`
 - Experiment Log: `experiment-log.md`
 - MOER Threshold Analysis: `moer-threshold-analysis.md`
 - OTA Field Test Results: `ota-field-test-results.md`
