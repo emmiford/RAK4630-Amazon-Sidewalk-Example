@@ -27,9 +27,9 @@ Special: deferred, declined
 ## Open Tasks (26)
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
-| TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
+| TASK-048 | P0 | coded | Eero | On-device selftest verification | — |
 | TASK-049 | P0 | coded | Eliel | Deploy device registry (awaiting physical verify) | — |
-| TASK-022 | P1 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
+| TASK-022 | P1 | coded | Eero | BUG: Stale flash inflates OTA delta baselines | — |
 | TASK-029 | P1 | not started | Eliel | Production observability | — |
 | TASK-045 | P1 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | P1 | not started | Eero | Signed OTA E2E verification | TASK-045 |

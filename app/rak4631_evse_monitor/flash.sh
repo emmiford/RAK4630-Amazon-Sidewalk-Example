@@ -45,7 +45,10 @@ warn_huk() {
 
 flash_app() {
     echo "=== Flashing App Image ==="
-    python3 -m pyocd flash --target $TARGET "$APP_HEX"
+    echo "  Erasing app partition (0x90000-0xCEFFF)..."
+    python3 -m pyocd cmd -t $TARGET -c "erase 0x90000 0x3F000"
+    echo "  Writing app hex..."
+    python3 -m pyocd flash --target $TARGET --no-erase "$APP_HEX"
 }
 
 case "${1:-all}" in

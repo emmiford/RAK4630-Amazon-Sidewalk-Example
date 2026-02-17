@@ -1,9 +1,9 @@
 # TASK-022: BUG — Stale flash data inflates OTA delta baselines
 
-**Status**: not started
+**Status**: coded
 **Priority**: P1
-**Owner**: —
-**Branch**: `fix/stale-flash-erase`
+**Owner**: Eero
+**Branch**: `task/048-selftest-verify-stale-flash`
 **Size**: M (3 points)
 
 ## Description

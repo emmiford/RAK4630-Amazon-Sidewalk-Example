@@ -2,6 +2,8 @@
 
 import os
 import sys
+import tempfile
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import ota_deploy as deploy  # noqa: E402
@@ -93,3 +95,84 @@ class TestFormatDuration:
 
     def test_exactly_one_minute(self):
         assert deploy.format_duration(60) == "1m 0s"
+
+
+# --- Baseline stale flash warning ---
+
+class TestPyocdDumpStaleWarning:
+    """Test that pyocd_dump warns when dump is much larger than app.bin."""
+
+    def _run_dump(self, dump_data, app_bin_size=None, capsys=None):
+        """Helper: call pyocd_dump with mocked subprocess and flash file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dump_path = os.path.join(tmpdir, "dump.bin")
+
+            # Mock subprocess to write dump_data to the output file
+            def fake_run(cmd, **kwargs):
+                with open(dump_path, "wb") as f:
+                    f.write(dump_data)
+
+            # Create fake app.bin at the expected path
+            if app_bin_size is not None:
+                # The code computes: os.path.join(dirname(__file__), "..", BUILD_APP_DIR, "app.bin")
+                # We patch os.path.exists and os.path.getsize for the bin_path
+                real_exists = os.path.exists
+                real_getsize = os.path.getsize
+
+                def mock_exists(path):
+                    if path.endswith(os.path.join(deploy.BUILD_APP_DIR, "app.bin")):
+                        return True
+                    return real_exists(path)
+
+                def mock_getsize(path):
+                    if path.endswith(os.path.join(deploy.BUILD_APP_DIR, "app.bin")):
+                        return app_bin_size
+                    return real_getsize(path)
+
+                with patch("subprocess.run", side_effect=fake_run), \
+                     patch("os.path.exists", side_effect=mock_exists), \
+                     patch("os.path.getsize", side_effect=mock_getsize):
+                    result = deploy.pyocd_dump(0x90000, 256 * 1024, dump_path)
+            else:
+                with patch("subprocess.run", side_effect=fake_run):
+                    result = deploy.pyocd_dump(0x90000, 256 * 1024, dump_path)
+
+            return result
+
+    def test_no_warning_when_no_app_bin(self, capsys):
+        """No app.bin exists — no warning emitted."""
+        dump = b"\x42" * 200 + b"\xFF" * 100
+        result = self._run_dump(dump, app_bin_size=None)
+        captured = capsys.readouterr()
+        assert "WARNING" not in captured.out
+        assert len(result) == 200
+
+    def test_no_warning_when_sizes_match(self, capsys):
+        """Dump size close to app.bin — no warning."""
+        dump = b"\x42" * 200 + b"\xFF" * 100
+        result = self._run_dump(dump, app_bin_size=200)
+        captured = capsys.readouterr()
+        assert "WARNING" not in captured.out
+
+    def test_warning_when_dump_much_larger(self, capsys):
+        """Dump is >2x app.bin — stale flash warning emitted."""
+        dump = b"\x42" * 4524 + b"\xFF" * 100
+        result = self._run_dump(dump, app_bin_size=239)
+        captured = capsys.readouterr()
+        assert "WARNING" in captured.out
+        assert "4524" in captured.out
+        assert "239" in captured.out
+
+    def test_no_warning_when_exactly_2x(self, capsys):
+        """Dump is exactly 2x app.bin — no warning (must be >2x)."""
+        dump = b"\x42" * 478 + b"\xFF" * 100
+        result = self._run_dump(dump, app_bin_size=239)
+        captured = capsys.readouterr()
+        assert "WARNING" not in captured.out
+
+    def test_warning_when_just_over_2x(self, capsys):
+        """Dump is just over 2x app.bin — warning emitted."""
+        dump = b"\x42" * 479 + b"\xFF" * 100
+        result = self._run_dump(dump, app_bin_size=239)
+        captured = capsys.readouterr()
+        assert "WARNING" in captured.out
