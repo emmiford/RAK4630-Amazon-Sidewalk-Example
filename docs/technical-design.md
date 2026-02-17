@@ -718,6 +718,13 @@ Re-sync triggers:
 After 24h without re-sync, worst-case drift is ~8.6 seconds — well within the
 5-minute accuracy target.
 
+**Accuracy summary**: The uplink timestamp has 1-second wire resolution (whole-second
+`uint32_le`), with ±8.6 s worst-case drift between daily re-syncs. This far exceeds
+actual requirements — minute-level accuracy would suffice for TOU scheduling and
+telemetry logging — but the 4-byte field is the smallest practical container for a
+multi-year epoch counter, so finer resolution costs nothing extra on the wire. See
+[ADR-002](../adr/002-time-sync-second-resolution.md) for the full rationale.
+
 ### 7.4 ACK Watermark
 
 The watermark field in TIME_SYNC tells the device which data the cloud has successfully

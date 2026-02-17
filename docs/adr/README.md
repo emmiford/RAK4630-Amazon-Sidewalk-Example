@@ -32,3 +32,4 @@ What other approaches were evaluated?
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
 | [001](001-version-mismatch-hard-stop.md) | API version mismatch is a hard stop | Accepted | 2026-02-11 |
+| [002](002-time-sync-second-resolution.md) | Time sync uses second resolution in a 4-byte field | Accepted | 2026-02-16 |
