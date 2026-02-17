@@ -71,3 +71,21 @@ variable "device_registry_table_name" {
   type        = string
   default     = "sidecharge-device-registry"
 }
+
+variable "alert_email" {
+  description = "Email address for operational alerts (leave empty to skip subscription)"
+  type        = string
+  default     = ""
+}
+
+variable "alarms_enabled" {
+  description = "Whether CloudWatch alarm actions are enabled. Set false during development to avoid noise."
+  type        = bool
+  default     = false
+}
+
+variable "heartbeat_interval_s" {
+  description = "Device heartbeat interval in seconds. 60 for dev, 900 for production."
+  type        = number
+  default     = 900
+}

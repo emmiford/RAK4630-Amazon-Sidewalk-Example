@@ -28,7 +28,8 @@ SRCS = \
     $(APP_SRC)/selftest.c \
     $(APP_SRC)/selftest_trigger.c \
     $(APP_SRC)/time_sync.c \
-    $(APP_SRC)/event_buffer.c
+    $(APP_SRC)/event_buffer.c \
+    $(APP_SRC)/diag_request.c
 
 OUT = test_app
 

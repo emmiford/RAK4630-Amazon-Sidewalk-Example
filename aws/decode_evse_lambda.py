@@ -45,6 +45,10 @@ EVSE_MAGIC = 0xE5
 EVSE_PAYLOAD_SIZE_V06 = 8
 EVSE_PAYLOAD_SIZE_V07 = 12
 
+# Diagnostics payload (TASK-029 Tier 2)
+DIAG_MAGIC = 0xE6
+DIAG_PAYLOAD_SIZE = 14
+
 # Legacy payload type
 LEGACY_EVSE_TYPE = 0x01
 
@@ -277,6 +281,51 @@ def decode_ota_uplink(raw_bytes):
     }
 
 
+def decode_diag_payload(raw_bytes):
+    """
+    Decode extended diagnostics payload (magic 0xE6, 14 bytes).
+
+    Sent by the device in response to a 0x40 diagnostics request.
+    See TDD §3.5.
+    """
+    if len(raw_bytes) < DIAG_PAYLOAD_SIZE:
+        return None
+
+    if raw_bytes[0] != DIAG_MAGIC:
+        return None
+
+    diag_version = raw_bytes[1]
+    app_version = int.from_bytes(raw_bytes[2:4], 'little')
+    uptime_s = int.from_bytes(raw_bytes[4:8], 'little')
+    boot_count = int.from_bytes(raw_bytes[8:10], 'little')
+    last_error = raw_bytes[10]
+    state_flags = raw_bytes[11]
+    event_buf_pending = raw_bytes[12]
+
+    # Map error code to name
+    error_names = {0: 'none', 1: 'sensor', 2: 'clamp', 3: 'interlock', 4: 'selftest'}
+    error_name = error_names.get(last_error, f'unknown_{last_error}')
+
+    return {
+        'payload_type': 'diagnostics',
+        'diag_version': diag_version,
+        'app_version': app_version,
+        'uptime_seconds': uptime_s,
+        'boot_count': boot_count,
+        'last_error_code': last_error,
+        'last_error_name': error_name,
+        'state_flags': state_flags,
+        'sidewalk_ready': bool(state_flags & 0x01),
+        'charge_allowed': bool(state_flags & 0x02),
+        'charge_now': bool(state_flags & 0x04),
+        'interlock_active': bool(state_flags & 0x08),
+        'selftest_pass': bool(state_flags & 0x10),
+        'ota_in_progress': bool(state_flags & 0x20),
+        'time_synced': bool(state_flags & 0x40),
+        'event_buffer_pending': event_buf_pending,
+    }
+
+
 def decode_payload(raw_payload_b64):
     """
     Decode EVSE payload from base64-encoded Sidewalk message.
@@ -302,6 +351,13 @@ def decode_payload(raw_payload_b64):
             decoded = decode_ota_uplink(raw_bytes)
             if decoded:
                 print(f"Decoded as OTA uplink: {decoded.get('ota_type')}")
+                return decoded
+
+        # Check for diagnostics response (magic 0xE6)
+        if len(raw_bytes) >= DIAG_PAYLOAD_SIZE and raw_bytes[0] == DIAG_MAGIC:
+            decoded = decode_diag_payload(raw_bytes)
+            if decoded:
+                print("Decoded as diagnostics response")
                 return decoded
 
         # Try new raw format first (magic byte 0xE5)
@@ -389,6 +445,10 @@ def lambda_handler(event, context):
                     print(f"Forwarded OTA {ota_type} to {ota_lambda_name}")
                 except Exception as e:
                     print(f"Failed to invoke OTA Lambda: {e}")
+
+        elif decoded.get('payload_type') == 'diagnostics':
+            item['event_type'] = 'device_diagnostics'
+            item['data'] = {'diagnostics': decoded}
 
         elif decoded.get('payload_type') == 'evse':
             evse_data = {

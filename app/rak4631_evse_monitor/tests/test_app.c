@@ -18,7 +18,10 @@
 #include <charge_control.h>
 #include <thermostat_inputs.h>
 #include <selftest.h>
+#include <diag_request.h>
 #include <app_tx.h>
+#include <time_sync.h>
+#include <event_buffer.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -871,6 +874,264 @@ static void test_selftest_fault_flags_coexist_with_thermostat(void)
 }
 
 /* ================================================================== */
+/*  diag_request: 0x40 downlink and 0xE6 response                      */
+/* ================================================================== */
+
+static void init_diag(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;  /* pilot OK */
+	mock_get()->adc_values[1] = 0;
+	mock_get()->gpio_values[0] = 1;    /* charge enable */
+	mock_get()->gpio_values[1] = 0;
+	mock_get()->gpio_values[2] = 0;
+	mock_get()->uptime = 120000;       /* 120 seconds */
+	mock_get()->ready = true;
+
+	selftest_set_api(mock_api());
+	selftest_reset();
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	charge_control_set(true, 0);  /* Ensure clean state after prior tests */
+	app_tx_set_api(mock_api());
+	app_tx_set_ready(true);
+	time_sync_set_api(mock_api());
+	time_sync_init();
+	event_buffer_init();
+	diag_request_set_api(mock_api());
+}
+
+static void test_diag_build_response_format(void)
+{
+	init_diag();
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+	int ret = diag_request_build_response(buf);
+	assert(ret == DIAG_PAYLOAD_SIZE);
+	assert(buf[0] == DIAG_MAGIC);       /* 0xE6 */
+	assert(buf[1] == DIAG_VERSION);     /* 0x01 */
+}
+
+static void test_diag_app_version(void)
+{
+	init_diag();
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+	diag_request_build_response(buf);
+
+	uint16_t ver = buf[2] | (buf[3] << 8);
+	assert(ver == APP_CALLBACK_VERSION);
+}
+
+static void test_diag_uptime(void)
+{
+	init_diag();
+	mock_get()->uptime = 300000;  /* 300 seconds */
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+	diag_request_build_response(buf);
+
+	uint32_t uptime = buf[4] | (buf[5] << 8) | (buf[6] << 16) | (buf[7] << 24);
+	assert(uptime == 300);
+}
+
+static void test_diag_boot_count_zero(void)
+{
+	init_diag();
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+	diag_request_build_response(buf);
+
+	uint16_t boot = buf[8] | (buf[9] << 8);
+	assert(boot == 0);  /* No persistent storage yet */
+}
+
+static void test_diag_no_fault_error_code(void)
+{
+	init_diag();
+
+	/* No faults active */
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+	assert(result.all_pass == true);
+
+	uint8_t err = diag_request_get_error_code();
+	assert(err == DIAG_ERR_NONE);
+}
+
+static void test_diag_selftest_error_code(void)
+{
+	init_diag();
+
+	/* Cause selftest failure */
+	mock_get()->adc_fail[0] = true;
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+
+	uint8_t err = diag_request_get_error_code();
+	assert(err == DIAG_ERR_SELFTEST);
+}
+
+static void test_diag_sensor_error_code(void)
+{
+	init_diag();
+
+	/* Trigger sensor fault via continuous tick */
+	mock_get()->adc_fail[0] = true;
+	mock_get()->uptime = 8000000;
+	selftest_continuous_tick(6, 0, 0, true, false);
+	mock_get()->uptime = 8005000;
+	selftest_continuous_tick(6, 0, 0, true, false);
+	assert(selftest_get_fault_flags() & FAULT_SENSOR);
+
+	uint8_t err = diag_request_get_error_code();
+	assert(err == DIAG_ERR_SENSOR);
+}
+
+static void test_diag_state_flags_sidewalk_ready(void)
+{
+	init_diag();
+
+	uint8_t flags = diag_request_get_state_flags();
+	assert(flags & DIAG_FLAG_SIDEWALK_READY);
+}
+
+static void test_diag_state_flags_charge_allowed(void)
+{
+	init_diag();
+
+	/* Default is allowed */
+	uint8_t flags = diag_request_get_state_flags();
+	assert(flags & DIAG_FLAG_CHARGE_ALLOWED);
+
+	/* Pause charging */
+	charge_control_set(false, 0);
+	flags = diag_request_get_state_flags();
+	assert(!(flags & DIAG_FLAG_CHARGE_ALLOWED));
+}
+
+static void test_diag_state_flags_selftest_pass(void)
+{
+	init_diag();
+
+	/* Boot passes → selftest pass flag set */
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+
+	uint8_t flags = diag_request_get_state_flags();
+	assert(flags & DIAG_FLAG_SELFTEST_PASS);
+}
+
+static void test_diag_state_flags_selftest_fail(void)
+{
+	init_diag();
+
+	/* Cause boot failure */
+	mock_get()->adc_fail[0] = true;
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+
+	uint8_t flags = diag_request_get_state_flags();
+	assert(!(flags & DIAG_FLAG_SELFTEST_PASS));
+}
+
+static void test_diag_state_flags_time_synced(void)
+{
+	init_diag();
+
+	/* Not synced initially */
+	uint8_t flags = diag_request_get_state_flags();
+	assert(!(flags & DIAG_FLAG_TIME_SYNCED));
+
+	/* Sync time */
+	uint8_t sync_cmd[] = {0x30,
+		0x39, 0xA2, 0x04, 0x00,   /* epoch = 304697 */
+		0x00, 0x00, 0x00, 0x00};  /* watermark = 0 */
+	time_sync_process_cmd(sync_cmd, sizeof(sync_cmd));
+
+	flags = diag_request_get_state_flags();
+	assert(flags & DIAG_FLAG_TIME_SYNCED);
+}
+
+static void test_diag_event_buffer_pending(void)
+{
+	init_diag();
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+
+	/* Empty buffer */
+	diag_request_build_response(buf);
+	assert(buf[12] == 0);
+
+	/* Add an event */
+	struct event_snapshot snap = {
+		.timestamp = 1000,
+		.j1772_state = 3,
+		.current_ma = 5000,
+	};
+	event_buffer_add(&snap);
+
+	diag_request_build_response(buf);
+	assert(buf[12] == 1);
+}
+
+static void test_diag_process_cmd_sends_response(void)
+{
+	init_diag();
+	mock_get()->send_count = 0;
+
+	uint8_t cmd[] = {DIAG_REQUEST_CMD_TYPE};
+	int ret = diag_request_process_cmd(cmd, sizeof(cmd));
+	assert(ret == 0);
+	assert(mock_get()->send_count == 1);
+	assert(mock_get()->sends[0].len == DIAG_PAYLOAD_SIZE);
+	assert(mock_get()->sends[0].data[0] == DIAG_MAGIC);
+}
+
+static void test_diag_process_cmd_wrong_type(void)
+{
+	init_diag();
+
+	uint8_t cmd[] = {0x99};
+	int ret = diag_request_process_cmd(cmd, sizeof(cmd));
+	assert(ret < 0);
+}
+
+static void test_diag_process_cmd_null_data(void)
+{
+	init_diag();
+
+	int ret = diag_request_process_cmd(NULL, 0);
+	assert(ret < 0);
+}
+
+static void test_diag_reserved_byte_zero(void)
+{
+	init_diag();
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+	diag_request_build_response(buf);
+	assert(buf[13] == 0x00);
+}
+
+static void test_diag_rx_dispatches_0x40(void)
+{
+	/* Full integration: app_rx dispatches 0x40 to diag_request */
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;
+	mock_get()->uptime = 1000000;
+	mock_get()->ready = true;
+
+	app_cb.init(mock_api());
+	mock_get()->send_count = 0;
+
+	uint8_t cmd[] = {0x40};
+	app_cb.on_msg_received(cmd, sizeof(cmd));
+	assert(mock_get()->send_count == 1);
+	assert(mock_get()->sends[0].data[0] == DIAG_MAGIC);
+}
+
+/* ================================================================== */
 /*  Main                                                               */
 /* ================================================================== */
 
@@ -948,6 +1209,26 @@ int main(void)
 	RUN_TEST(test_selftest_shell_all_pass);
 	RUN_TEST(test_selftest_fault_flags_in_uplink_byte7);
 	RUN_TEST(test_selftest_fault_flags_coexist_with_thermostat);
+
+	printf("\ndiag_request:\n");
+	RUN_TEST(test_diag_build_response_format);
+	RUN_TEST(test_diag_app_version);
+	RUN_TEST(test_diag_uptime);
+	RUN_TEST(test_diag_boot_count_zero);
+	RUN_TEST(test_diag_no_fault_error_code);
+	RUN_TEST(test_diag_selftest_error_code);
+	RUN_TEST(test_diag_sensor_error_code);
+	RUN_TEST(test_diag_state_flags_sidewalk_ready);
+	RUN_TEST(test_diag_state_flags_charge_allowed);
+	RUN_TEST(test_diag_state_flags_selftest_pass);
+	RUN_TEST(test_diag_state_flags_selftest_fail);
+	RUN_TEST(test_diag_state_flags_time_synced);
+	RUN_TEST(test_diag_event_buffer_pending);
+	RUN_TEST(test_diag_process_cmd_sends_response);
+	RUN_TEST(test_diag_process_cmd_wrong_type);
+	RUN_TEST(test_diag_process_cmd_null_data);
+	RUN_TEST(test_diag_reserved_byte_zero);
+	RUN_TEST(test_diag_rx_dispatches_0x40);
 
 	printf("\n=== %d/%d tests passed ===\n\n", tests_passed, tests_run);
 	return (tests_passed == tests_run) ? 0 : 1;

@@ -1,9 +1,9 @@
 # TASK-029: Production observability — CloudWatch alerting and remote status query
 
-**Status**: not started
+**Status**: in progress (2026-02-17, Eliel)
 **Priority**: P1
 **Owner**: Eliel
-**Branch**: `feature/prod-observability`
+**Branch**: `task/029-prod-observability`
 **Size**: L (5 points)
 
 ## Description

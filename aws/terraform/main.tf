@@ -514,6 +514,9 @@ resource "aws_cloudwatch_metric_alarm" "ota_sender_errors" {
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
+  actions_enabled     = var.alarms_enabled
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     FunctionName = aws_lambda_function.ota_sender.function_name
@@ -536,6 +539,9 @@ resource "aws_cloudwatch_metric_alarm" "ota_retry_not_firing" {
   threshold           = 1
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
+  actions_enabled     = var.alarms_enabled
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     FunctionName = aws_lambda_function.ota_sender.function_name
@@ -545,4 +551,214 @@ resource "aws_cloudwatch_metric_alarm" "ota_retry_not_firing" {
     Project     = "evse-monitor"
     Environment = var.environment
   }
+}
+
+# --- Production Observability (TASK-029 Tier 1) ---
+
+# SNS topic for all operational alerts
+resource "aws_sns_topic" "alerts" {
+  name = "sidecharge-alerts"
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# Email subscription (operator notification)
+resource "aws_sns_topic_subscription" "alert_email" {
+  count     = var.alert_email != "" ? 1 : 0
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+# --- Device Offline Detection ---
+# Metric filter: count uplinks per device from decode Lambda logs.
+# The decode Lambda logs "Stored decoded EVSE data" on every successful write.
+# Alarm fires when no uplink for 2x heartbeat (30 min at 15-min heartbeat).
+
+resource "aws_cloudwatch_log_metric_filter" "device_uplink" {
+  name           = "device-uplink-count"
+  log_group_name = aws_cloudwatch_log_group.evse_decoder_logs.name
+  pattern        = "\"Stored decoded EVSE data\""
+
+  metric_transformation {
+    name          = "DeviceUplinkCount"
+    namespace     = "SideCharge"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "device_offline" {
+  alarm_name          = "device-offline"
+  alarm_description   = "No device uplink received for 30 min (2x heartbeat). Device may be offline or out of range."
+  namespace           = "SideCharge"
+  metric_name         = "DeviceUplinkCount"
+  statistic           = "Sum"
+  period              = 1800  # 30 minutes (2x 15-min heartbeat)
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching"
+  actions_enabled     = var.alarms_enabled
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# --- Interlock State Change Logging ---
+# Metric filter: count interlock activations (cool_call transitions) from
+# decode Lambda logs. The Lambda logs thermostat_cool_active for every uplink.
+
+resource "aws_cloudwatch_log_metric_filter" "interlock_activation" {
+  name           = "interlock-activation-count"
+  log_group_name = aws_cloudwatch_log_group.evse_decoder_logs.name
+  pattern        = "{ $.thermostat_cool = true }"
+
+  metric_transformation {
+    name          = "InterlockActivationCount"
+    namespace     = "SideCharge"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+# --- Health Digest Lambda ---
+
+# Package health digest Lambda
+data "archive_file" "health_digest_zip" {
+  type        = "zip"
+  output_path = "${path.module}/../health_digest_lambda.zip"
+
+  source {
+    content  = file("${path.module}/../health_digest_lambda.py")
+    filename = "health_digest_lambda.py"
+  }
+  source {
+    content  = file("${path.module}/../device_registry.py")
+    filename = "device_registry.py"
+  }
+}
+
+# IAM role for health digest Lambda
+resource "aws_iam_role" "health_digest_role" {
+  name = "health-digest-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy: CloudWatch logs + DynamoDB read + SNS publish
+resource "aws_iam_role_policy" "health_digest_policy" {
+  name = "health-digest-lambda-policy"
+  role = aws_iam_role.health_digest_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Scan",
+          "dynamodb:Query",
+          "dynamodb:GetItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.device_registry.arn,
+          "arn:aws:dynamodb:${var.aws_region}:*:table/${var.dynamodb_table_name}"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:Publish"
+        ]
+        Resource = aws_sns_topic.alerts.arn
+      }
+    ]
+  })
+}
+
+# Health digest Lambda function
+resource "aws_lambda_function" "health_digest" {
+  filename         = data.archive_file.health_digest_zip.output_path
+  function_name    = "health-digest"
+  role             = aws_iam_role.health_digest_role.arn
+  handler          = "health_digest_lambda.lambda_handler"
+  source_code_hash = data.archive_file.health_digest_zip.output_base64sha256
+  runtime          = "python3.11"
+  timeout          = 60
+  memory_size      = 128
+
+  environment {
+    variables = {
+      DEVICE_REGISTRY_TABLE = var.device_registry_table_name
+      DYNAMODB_TABLE        = var.dynamodb_table_name
+      SNS_TOPIC_ARN         = aws_sns_topic.alerts.arn
+      HEARTBEAT_INTERVAL_S  = tostring(var.heartbeat_interval_s)
+    }
+  }
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch Log Group for health digest
+resource "aws_cloudwatch_log_group" "health_digest_logs" {
+  name              = "/aws/lambda/health-digest"
+  retention_in_days = 14
+}
+
+# EventBridge rule — daily at 08:00 UTC
+resource "aws_cloudwatch_event_rule" "health_digest_schedule" {
+  name                = "health-digest-daily"
+  schedule_expression = "cron(0 8 * * ? *)"
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
+  }
+}
+
+# EventBridge target → health digest Lambda
+resource "aws_cloudwatch_event_target" "health_digest_target" {
+  rule      = aws_cloudwatch_event_rule.health_digest_schedule.name
+  target_id = "health-digest-lambda"
+  arn       = aws_lambda_function.health_digest.arn
+}
+
+# Permission for EventBridge to invoke health digest Lambda
+resource "aws_lambda_permission" "eventbridge_invoke_health_digest" {
+  statement_id  = "AllowEventBridgeInvokeHealthDigest"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.health_digest.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.health_digest_schedule.arn
 }
