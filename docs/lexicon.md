@@ -100,6 +100,12 @@ SideCharge intercepts low-voltage thermostat wiring (24VAC) to detect when the A
 - **Context**: Installation guides, power supply discussions. If a home has no C wire, it may need to be added -- this is a common issue with older thermostat installations.
 - **Do NOT use**: "Ground wire" (the C wire is a circuit common, not an earth ground -- confusing these is dangerous), "neutral" (24VAC control circuits do not use the term "neutral" the way 120V/240V circuits do).
 
+### G Terminal (Earth Ground)
+
+- **Definition**: The G terminal on the SideCharge device accepts an earth ground conductor from the AC compressor's outdoor junction box ground screw. This provides a ground reference for signal integrity and fault detection. **This is NOT the thermostat G wire.** On a standard thermostat, the G wire controls the indoor blower fan — SideCharge repurposes this terminal label for a completely different function. The fan wire from the thermostat cable bundle is not connected to SideCharge; it remains connected to the air handler (or is capped).
+- **Context**: Installation guides, wiring diagrams, commissioning checklist (C-03), terminal reference (PRD 2.0.3.1). Critical to get right — an installer accustomed to HVAC wiring may instinctively connect the thermostat's G (fan) wire to this terminal.
+- **Do NOT use**: "Fan wire" (SideCharge does not use or control the fan), "G wire" without specifying the source (ambiguous — could mean thermostat fan or earth ground), "ground wire" alone in formal docs (specify "earth ground from compressor junction box").
+
 ### Cool Call / Heat Call
 
 - **Definition**: The thermostat request signals. A "cool call" means the thermostat is asking the AC compressor to run. A "heat call" means it is asking the furnace/heat strips to run. These are binary signals: active (24VAC present on the wire) or inactive (no voltage).

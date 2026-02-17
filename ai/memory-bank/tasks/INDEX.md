@@ -31,7 +31,7 @@ Special: deferred, declined
 | TASK-049 | P0 | coded | Eliel | Deploy device registry (awaiting physical verify) | — |
 | TASK-022 | P1 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
 | TASK-029 | P1 | not started | Eliel | Production observability | — |
-| TASK-044 | P1 | not started | Pam | PRD update — commissioning + G = earth ground | — |
+| TASK-044 | P1 | done | Pam | PRD update — commissioning + G = earth ground | — |
 | TASK-045 | P1 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | P1 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |

@@ -1,6 +1,6 @@
 # TASK-044: PRD update — add commissioning sections, update wiring to G = earth ground
 
-**Status**: not started
+**Status**: done (2026-02-16, Pam)
 **Priority**: P1
 **Owner**: Pam
 **Branch**: `task/044-prd-commissioning`
@@ -23,13 +23,27 @@ Key content to add/update:
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] PRD sections 2.5.1, 2.5.2, 2.5.3, 2.5.4 added with full content
-- [ ] All 12 commissioning steps (C-01 through C-12) documented with pass criteria
-- [ ] G terminal defined as earth ground (from compressor junction box), not fan
-- [ ] C-03 references earth ground from compressor, not thermostat
-- [ ] EVSE connector selection guidance included
-- [ ] Zero references to fan wire or G = fan anywhere in PRD
-- [ ] Known gaps table updated for commissioning card (TASK-041) and self-test (TASK-039)
+- [x] PRD sections 2.5.1, 2.5.2, 2.5.3, 2.5.4 added with full content
+- [x] All 12 commissioning steps (C-01 through C-12) documented with pass criteria
+- [x] G terminal defined as earth ground (from compressor junction box), not fan
+- [x] C-03 references earth ground from compressor, not thermostat
+- [x] EVSE connector selection guidance included
+- [x] Zero references to fan wire or G = fan anywhere in PRD
+- [x] Known gaps table updated for commissioning card (TASK-041) and self-test (TASK-039)
 
 ## Deliverables
 - Updated `docs/PRD.md`
+- Updated `docs/lexicon.md` (added G terminal definition)
+
+## Changes Made
+1. **New section 2.0.3.1**: Wiring Terminal Definitions — full installer-facing terminal reference table (R, C, Y, G, PILOT, CT+/CT-) with explicit explanation of why G = earth ground and not fan
+2. **New section 2.2.1**: EVSE Connector Selection Guidance — hard requirements (J1772, hardwired, current limits, pilot access) and recommendations for specific charger models
+3. **C-03 pass criteria updated**: Now references earth ground from compressor junction box ground screw with pointer to 2.0.3.1
+4. **Section 2.5.2 status**: TASK-041 commissioning card design marked as done
+5. **Section 2.5.3 status**: All TASK-039 self-test items (boot, continuous, shell command, fault flags) marked IMPLEMENTED (SW)
+6. **Section 2.5.4**: Thermostat failure mode row updated with G terminal clarification; P0 items updated with TASK-039/041 done status
+7. **Known gaps table**: TASK-039 and TASK-041 marked as resolved with strikethrough
+8. **Isolation table**: Earth ground reference updated from "EV charger enclosure" to "AC compressor junction box ground screw (G terminal)"
+9. **PCB wiring diagram deliverable**: Terminal mapping updated with all 6 terminals and cross-reference to 2.0.3.1
+10. **Lexicon**: Added G Terminal (Earth Ground) entry with definition, context, and "do not use" guidance
+11. **PRD status line**: Updated to reflect TASK-044 changes

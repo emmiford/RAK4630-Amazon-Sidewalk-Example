@@ -1,6 +1,6 @@
 # SideCharge Product Requirements -- v1.5
 
-**Status**: Active -- terminology aligned with lexicon (docs/lexicon.md); commissioning test sequence, self-test/fault detection, installation failure modes (sections 2.5.2-2.5.4); uplink fault flags (byte 7 bits 4-7); self-test 5-press trigger implemented with 500ms polling limitation documented (TASK-040 done, TASK-049 scoped)
+**Status**: Active -- terminology aligned with lexicon (docs/lexicon.md); commissioning test sequence, self-test/fault detection, installation failure modes (sections 2.5.2-2.5.4); uplink fault flags (byte 7 bits 4-7); self-test 5-press trigger implemented with 500ms polling limitation documented (TASK-040 done, TASK-049 scoped); G terminal redefined as earth ground from compressor junction box (not fan wire), wiring terminal definitions added (2.0.3.1), EVSE connector selection guidance added (2.2.1), TASK-039/041 statuses updated to done (TASK-044)
 **Hardware**: RAK4631 (nRF52840 + Semtech SX1262 LoRa)
 **Connectivity**: Amazon Sidewalk (LoRa 915MHz) -- no WiFi, no cellular, no monthly fees
 **Cloud**: AWS (Lambda, DynamoDB, S3, IoT Wireless, EventBridge)
@@ -224,6 +224,23 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 
 AIN0 serves double duty: the same pin reads both the Cp voltage level (implemented) and the Cp PWM duty cycle (not yet implemented). The voltage level tells us the car's state; the duty cycle tells us the maximum current the charger is offering. These are two different measurements of the same physical signal.
 
+#### 2.0.3.1 Wiring Terminal Definitions (Installer-Facing)
+
+These are the terminal labels on the SideCharge device as the electrician sees them during installation. Three terminals are thermostat wires from the indoor air handler; one is an earth ground from the AC compressor's outdoor junction box; two are from the EV charger.
+
+| Terminal | Wire Source | Signal | Description |
+|----------|------------|--------|-------------|
+| **R** | Thermostat (air handler) | 24VAC hot | Production power source — always connected to the HVAC transformer |
+| **C** | Thermostat (air handler) | 24VAC common | Power return — completes the 24VAC circuit back to the transformer |
+| **Y** | Thermostat (air handler) | Cool call | Signal input — goes HIGH (24VAC present) when the thermostat calls for cooling. Primary interlock trigger in v1.0 |
+| **G** | AC compressor junction box | Earth ground | Reference ground from the equipment grounding conductor (EGC) at the compressor's junction box ground screw. **This is NOT the thermostat fan wire.** The G terminal on a standard thermostat controls the indoor fan — SideCharge repurposes this terminal for earth ground because the device needs a ground reference and does not control the indoor fan. The fan wire from the thermostat bundle is not connected to SideCharge; it either remains connected directly to the air handler (normal operation) or is capped if not needed |
+| **PILOT** | EV charger (EVSE) | J1772 Cp | Signal input — 1 kHz +/-12V square wave from the charger's control pilot pin. Used to detect car presence and charging state |
+| **CT+/CT-** | Current clamp leads | Analog current | Two-wire analog input from the current clamp wrapped around one 240V conductor on the EV charger leg. Voltage proportional to charging current (0–3.3V = 0–48A target range) |
+
+**Why G = earth ground, not fan**: A standard thermostat cable bundles R, Y, C, G, and W wires in a single sheath. In a typical HVAC installation, the G wire controls the indoor blower fan. SideCharge does not need or use the fan signal — the indoor fan continues to operate normally under thermostat control, independent of SideCharge. Instead, the G terminal on the SideCharge device accepts an earth ground conductor from the AC compressor's outdoor junction box. The installer routes this ground wire from the compressor's ground screw to the SideCharge G terminal. This ground reference is used for signal integrity and fault detection, not for safety grounding of the device enclosure (which is handled by the branch circuit EGC per NEC 250).
+
+**Installation note**: The earth ground wire from the compressor junction box is a separate conductor — it does not travel in the thermostat cable bundle. It is typically a short run of 18-22 AWG green or bare copper wire from the nearest ground screw on the compressor's junction box to the SideCharge device.
+
 #### 2.0.4 Isolation and Safety
 
 As stated in the design principles above: SideCharge only touches low-voltage control wires (24VAC thermostat, +/-12V J1772 pilot). The only contact with 240V is a read-only current clamp. We do not switch, interrupt, or connect to mains power.
@@ -232,7 +249,7 @@ As stated in the design principles above: SideCharge only touches low-voltage co
 |-------------|--------|
 | Microcontroller isolated from 24VAC thermostat circuit | IMPLEMENTED (HW) |
 | Microcontroller isolated from J1772 pilot circuit (+/-12V) | IMPLEMENTED (HW) |
-| Earth ground reference from EV charger enclosure | IMPLEMENTED (HW) |
+| Earth ground reference from AC compressor junction box ground screw (G terminal — see 2.0.3.1) | IMPLEMENTED (HW) |
 | 24VAC AC power galvanically isolated from 240VAC charging circuit | IMPLEMENTED (HW) |
 | Fail-safe: if microcontroller loses power, basic interlock still functions | IMPLEMENTED (HW) |
 
@@ -291,6 +308,28 @@ We are targeting NEC and Colorado code compliance. However, no formal code compl
 | Transmit on change detection | IMPLEMENTED |
 
 The current scaling factor (0-30A) is too low for production. The v1.0 target is **48A** (a 60A circuit at 80% continuous). This covers all standard residential Level 2 chargers. Higher ranges (80A for Ford Charge Station Pro and similar high-power units) are a future iteration — they require a different clamp and resistor divider but no firmware architecture change. This is a clamp selection and resistor divider change -- the ADC and firmware are straightforward to update. No field calibration procedure exists yet; the scaling factor is a straight line from 0V to 3.3V, and real clamps have nonlinearities at the extremes.
+
+#### 2.2.1 EVSE Connector Selection Guidance
+
+SideCharge is compatible with any Level 2 J1772-compliant EV charger (EVSE). However, the shared-circuit installation creates constraints that narrow the field. This section guides the electrician on charger selection for a SideCharge installation.
+
+**Hard requirements:**
+
+| Requirement | Reason |
+|-------------|--------|
+| J1772 (SAE J1772) or NACS with J1772-compatible pilot signaling | SideCharge monitors the J1772 pilot signal to detect car presence and charging state. Chargers that do not implement standard J1772 pilot signaling are incompatible. Most NACS (Tesla-style) wall connectors still use J1772-compatible pilot circuitry — verify with the charger manufacturer. |
+| Hardwired connection (no NEMA 14-50 plug) | The branch circuit modification (section 1.4) terminates at a junction box, not a receptacle. The EVSE must be hardwired to the junction box via conduit and wire. Plug-in chargers (NEMA 14-50) are designed for dedicated circuits with a receptacle — they are not appropriate for a shared-circuit installation. |
+| Maximum rated current ≤ circuit breaker rating × 80% | NEC 625.41 requires continuous loads (EV charging qualifies) to not exceed 80% of the circuit breaker rating. A 40A breaker → 32A max charger. A 50A breaker → 40A max charger. The charger's rated current must be at or below this threshold. |
+| Accessible pilot wire tap point | The installer must be able to access the J1772 pilot signal wire inside the EVSE or at the EVSE's terminal block. Chargers with sealed, potted, or tamper-proof enclosures that prevent pilot wire access are incompatible without modification. |
+
+**Recommendations:**
+
+- **Preferred: 32A or 40A hardwired J1772 wall unit** — e.g., Grizzl-E, ChargePoint Home Flex (hardwired mode), Emporia, Wallbox Pulsar Plus. These are widely available, UL-listed, and designed for hardwired installation. The ChargePoint Home Flex is particularly good because its amperage is adjustable via the app, allowing the installer to set it to match the circuit.
+- **Tesla Wall Connector (Gen 3 or Universal)**: Compatible if the pilot signal follows J1772 conventions. The Gen 3 NACS connector still uses standard pilot signaling when a non-Tesla vehicle uses the J1772 adapter. The Universal Wall Connector supports both NACS and J1772 natively. Verify pilot access.
+- **Avoid: Portable/travel chargers** (NEMA 14-50 plug-in): These are designed for dedicated receptacle circuits. Even if hard-wired, their thermal design may assume the plug provides strain relief that a hardwired connection does not.
+- **Avoid: Smart chargers with proprietary load management**: Some smart EVSEs (e.g., Span integration, Emporia utility program mode) have their own current management that may conflict with SideCharge's interlock. Disable any built-in load management features — SideCharge is the load manager.
+
+**Pilot wire access**: The installer needs to tap the J1772 pilot signal from the EVSE. This is typically accessible at the charger's internal terminal block or PCB. The tap point depends on the specific EVSE model. A wiring diagram for each supported model is a future deliverable (not in v1.0 scope). For the initial deployment, the electrician must verify pilot access during charger selection.
 
 ### 2.3 Thermostat Input Monitoring
 
@@ -449,7 +488,7 @@ The full sequence takes 10-15 minutes. Steps C-01 through C-05 are visual/manual
 |----|------|--------|---------------|----------|
 | C-01 | Branch circuit wiring | Visual inspection: conductor gauge, breaker rating, junction box, EGC continuity | Conductors match breaker rating per NEC 240.4(D); EGC continuous from panel to both loads | P0 |
 | C-02 | Current clamp placement | Visual inspection | Clamp on correct conductor (EV charger leg, not AC leg), correct orientation (arrow toward load) | P0 |
-| C-03 | Thermostat wiring | Visual inspection | R, Y, G wires on correct terminals; no shorts between thermostat conductors | P0 |
+| C-03 | Thermostat and ground wiring | Visual inspection | R (24VAC), Y (cool call), C (common) on correct thermostat terminals; G terminal connected to earth ground from AC compressor junction box ground screw (see 2.0.3.1 terminal definitions); no shorts between conductors | P0 |
 | C-04 | J1772 pilot tap | Visual inspection | Pilot signal wire connected to correct terminal on EVSE side | P0 |
 | C-05 | Physical mounting | Visual inspection | Device secured, conduit entries sealed, no strain on low-voltage wires | P1 |
 | C-06 | Power-on | Apply power, observe LED | Green LED begins 1Hz flash (commissioning mode) within 5 seconds | P0 |
@@ -467,8 +506,8 @@ Card fields: installer name, date, device ID (printed on label), all 12 test res
 | Requirement | Status |
 |-------------|--------|
 | 12-step commissioning test sequence defined | DESIGNED |
-| Commissioning checklist card design | NOT STARTED (TASK-041) |
-| Commissioning card included in product packaging | NOT STARTED |
+| Commissioning checklist card design | DESIGNED (TASK-041 done — card spec, SVG sources, and PDF complete; see `docs/design/commissioning-card-spec.md`) |
+| Commissioning card included in product packaging | NOT STARTED (requires print production) |
 | Estimated commissioning time: 10-15 minutes | DESIGNED |
 
 #### 2.5.3 Self-Test and Fault Detection
@@ -519,15 +558,15 @@ During development, `sid selftest` triggers a full self-test cycle (boot checks 
 
 | Requirement | Status | Priority |
 |-------------|--------|----------|
-| Boot self-test (ADC, GPIO, charge enable toggle-and-verify) | NOT STARTED | P0 |
-| Current vs. J1772 cross-check (continuous) | NOT STARTED | P0 |
-| Charge enable effectiveness check (continuous) | NOT STARTED | P0 |
-| Pilot voltage range validation (continuous) | NOT STARTED | P1 |
-| Thermostat chatter detection (continuous) | NOT STARTED | P2 |
-| `sid selftest` shell command | NOT STARTED | P0 |
+| Boot self-test (ADC, GPIO, charge enable toggle-and-verify) | IMPLEMENTED (SW) (TASK-039) | P0 |
+| Current vs. J1772 cross-check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
+| Charge enable effectiveness check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
+| Pilot voltage range validation (continuous) | IMPLEMENTED (SW) (TASK-039) | P1 |
+| Thermostat chatter detection (continuous) | IMPLEMENTED (SW) (TASK-039) | P2 |
+| `sid selftest` shell command | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Production 5-press button trigger for self-test (5s window, polling-based — see limitation note above) | IMPLEMENTED (SW) (TASK-040) | P1 |
 | Platform GPIO interrupt callback for tighter 3s button detection | NOT STARTED (TASK-049) | P3 |
-| Self-test results in uplink fault flags (byte 7, bits 4-7) | NOT STARTED | P0 |
+| Self-test results in uplink fault flags (byte 7, bits 4-7) | IMPLEMENTED (SW) (TASK-039) | P0 |
 
 #### 2.5.4 Installation Failure Modes
 
@@ -540,15 +579,16 @@ This section catalogs the installation failure modes that commissioning and self
 | **Branch circuit** | Wrong breaker size, undersized conductors, missing EGC, loose connections in junction box | CRITICAL | No -- device has no 240V sensing | C-01 (visual inspection) | Most dangerous failures. Breaker is last line of defense. |
 | **Current clamp** | Wrong conductor (AC leg instead of EV leg), reversed orientation, loose or fallen off | HIGH | Yes -- J1772 cross-check detects current/state mismatch | C-10, C-11 | Backwards clamp reads zero or negative; wrong conductor reads AC current as EV current. Cross-check catches both. |
 | **J1772 pilot** | Disconnected pilot wire, wrong tap point, damaged signal | HIGH | Yes -- ADC reads out-of-range voltage | C-10, C-11 | Device sees State A (disconnected) or State E/F (error) when it should see State C. |
-| **Thermostat** | Reversed R/Y wires, loose connection, wrong terminals | MEDIUM | Partially -- detects signal presence and chatter, not correct wiring | C-08, C-09 (manual trigger required) | Reversed wires could mean AC runs when it shouldn't, but interlock still prevents double-load. Manual test is required to verify correct behavior. |
+| **Thermostat** | Reversed R/Y wires, loose connection, wrong terminals | MEDIUM | Partially -- detects signal presence and chatter, not correct wiring | C-03 (visual: R/Y/C on thermostat terminals, G on earth ground), C-08, C-09 (manual trigger required) | Reversed wires could mean AC runs when it shouldn't, but interlock still prevents double-load. G terminal connected to wrong source (e.g., thermostat fan wire instead of earth ground) would not cause a safety failure but defeats the ground reference function. Manual test is required to verify correct behavior. |
 | **Charge enable** | Relay wired backwards, stuck relay, disconnected relay output, failed J1772 spoof circuit | CRITICAL | Yes -- toggle-and-verify on boot, effectiveness check during operation | C-11 (interlock test) | If charge enable doesn't work, software interlock is defeated. Hardware interlock is the backstop. |
 | **Physical / power** | Device not secured, loose conduit, no power (LED dark) | LOW-MEDIUM | Partial -- power loss detected (device goes offline), mounting is visual only | C-05 (visual), C-06 (power-on) | Cloud detects offline device via missing heartbeats (section 5.3.2). |
 
 **P0 items (required before first field installation):**
-1. Boot self-test with charge enable toggle-and-verify (TASK-039)
-2. Current vs. J1772 cross-check in continuous monitoring (TASK-039)
-3. Charge enable effectiveness check in continuous monitoring (TASK-039)
-4. Commissioning checklist card printed and included in box (TASK-041)
+1. ~~Boot self-test with charge enable toggle-and-verify~~ — DONE (TASK-039, implemented + 23 unit tests)
+2. ~~Current vs. J1772 cross-check in continuous monitoring~~ — DONE (TASK-039)
+3. ~~Charge enable effectiveness check in continuous monitoring~~ — DONE (TASK-039)
+4. ~~Commissioning checklist card designed~~ — DONE (TASK-041, card spec + SVG + PDF complete). Print production and box inclusion pending.
+5. On-device verification of self-test on physical hardware (TASK-048, not started)
 
 ### 2.6 CLI Commands (Development and Testing Only)
 
@@ -1460,7 +1500,7 @@ Every requirement below is traced to a PRD section. The PCB must implement all h
 - MCU isolated from 24VAC thermostat circuit (optocouplers or magnetic couplers).
 - MCU isolated from J1772 pilot circuit (+/-12V).
 - 24VAC power galvanically isolated from 240VAC charging circuit.
-- Earth ground reference from EV charger enclosure.
+- Earth ground reference from AC compressor junction box ground screw (G terminal — see 2.0.3.1).
 - All isolation barriers are already implemented on the protoboard. The PCB must replicate them with proper creepage and clearance distances for the voltage classes involved.
 
 **Self-test support** (PRD 2.5.3)
@@ -1526,7 +1566,7 @@ These decisions and deliverables feed into PCB design. Some are already resolved
 
 6. **Wiring diagram** -- installer-facing diagram showing:
    - Current clamp connection (which conductor, orientation)
-   - Thermostat wire terminal mapping (R, Y, G, C)
+   - Terminal mapping: R (24VAC), Y (cool call), C (common), G (earth ground from compressor junction box), PILOT (J1772 Cp), CT (current clamp) — see section 2.0.3.1
    - J1772 pilot tap point
    - Earth ground connection
    - This diagram ships in the box and is printed on the commissioning checklist card (TASK-041).
@@ -1663,10 +1703,10 @@ We name our limitations. This table is the honest accounting of what is missing 
 | No per-device utility identification | Charge scheduler hardcodes Xcel Colorado; can't support multiple utilities without per-device config | TASK-037 |
 | No data privacy policy or retention rules | Behavioral telemetry (AC/EV patterns) and PII (address, meter number) stored indefinitely with no policy | TASK-038 |
 | **No UL listing or regulatory roadmap** | Cannot legally sell or install through electrician channel without third-party safety certification. First installer to pull a permit will be asked "Is this UL listed?" No timeline, no budget, no NRTL engagement. This is the biggest non-technical risk to the product. | Future (acknowledged, not addressed in v1.0) |
-| No commissioning self-test implementation | Boot self-test, continuous monitoring (current/J1772 cross-check, charge enable effectiveness), and `sid selftest` command not yet built. P0 for first field install. | TASK-039 |
+| ~~No commissioning self-test implementation~~ | ~~RESOLVED~~ — Boot self-test, continuous monitoring (4 fault categories), `sid selftest` shell command, and fault flags in uplink byte 7 all implemented. 23 C unit tests + 4 Python Lambda tests. On-device verification pending (TASK-048). | TASK-039 (done) |
 | ~~No production self-test trigger~~ | ~~RESOLVED~~ — 5-press button trigger with LED blink-code results implemented (TASK-040). Uses 500ms GPIO polling with 5-second detection window. Deliberate presses required. TASK-049 would add GPIO interrupt callback for tighter 3s window. | TASK-040 (done), TASK-049 (future) |
 | Button detection uses 500ms polling (no GPIO interrupts in app layer) | Quick button taps (<500ms) can be missed. 5-press self-test requires 5s window instead of 3s. Adequate for deliberate presses but not ideal UX. | TASK-049 (P3 — quality-of-life improvement) |
-| No commissioning checklist card | Printed card with 12-step checklist, wiring diagram, and installer sign-off fields. Only defense against 240V wiring errors. P0 for first field install. | TASK-041 |
+| ~~No commissioning checklist card~~ | ~~RESOLVED~~ — Full card design complete: 8.5"×11" quarter-fold, 12-step checklist with pass/fail checkboxes, LED quick reference, wiring diagram, installer sign-off. SVG sources and PDF produced. Print production pending. See `docs/design/commissioning-card-spec.md`. | TASK-041 (done) |
 | EVSE rear-entry wiring not supported | SideCharge assumes bottom-entry wiring to the EVSE. Many chargers also provide a rear knockout for back-of-wall wiring. Rear-entry installations require a different mounting approach and conduit routing that SideCharge does not accommodate. | Out of scope (acknowledged) |
 | No privacy agent or policy owner | Privacy policy, CCPA review, data retention, and customer data deletion need a dedicated privacy/legal agent. No one currently owns this. | TASK-042 |
 | **EVSE/vehicle warranty risk from pilot wire modification** | SideCharge intercepts the J1772 pilot wire and actively manipulates signals. EVSE and vehicle manufacturers could deny warranty claims. Relay wear from frequent cycling is a plausible SideCharge-caused defect. See section 6.4. | TASK-043 (scoped in 6.4) |
