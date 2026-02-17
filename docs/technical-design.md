@@ -760,10 +760,7 @@ is decoded and stored, and a time-sync downlink is sent if the device clock is s
 device_id:     wireless device ID (partition key)
 timestamp:     Unix timestamp in milliseconds (sort key)
 event_type:    "evse_telemetry"
-data.evse:     {format, version, pilot_state, current_draw_ma,
-                thermostat_bits, thermostat_cool_active,
-                charge_allowed, charge_now, fault_*, device_timestamp_epoch,
-                device_timestamp_unix}
+data.evse:     decoded payload fields (see §3.1 wire format, §3.2 flags byte)
 link_type:     LoRa/BLE/FSK
 rssi:          signal strength
 seq:           Sidewalk sequence number
