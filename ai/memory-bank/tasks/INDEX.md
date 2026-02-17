@@ -62,13 +62,13 @@ Special: deferred, declined
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-071 | not started | Eliel | Scheduler sentinel divergence detection | — |
 | TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
-| TASK-073 | not started | Eliel | Automate remote diagnostic queries from health digest | TASK-029 |
+| TASK-073 | not started | Eliel | Automate remote diagnostic queries from health digest | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
-| TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | TASK-029 |
+| TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
 
 ## Completed Tasks (46)
 | ID | Title | Status | Date | Agent |

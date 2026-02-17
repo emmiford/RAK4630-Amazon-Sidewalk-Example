@@ -10,7 +10,7 @@
 The health digest Lambda (TASK-029) currently scans the device registry table to enumerate all devices. This is fine for <100 devices but won't scale. Add a DynamoDB Global Secondary Index (GSI) on the `status` attribute to support efficient fleet-wide queries without full table scans.
 
 ## Dependencies
-**Blocked by**: TASK-029 (health digest Lambda must exist first)
+**Blocked by**: none (TASK-029 merged)
 **Blocks**: none
 
 ## Acceptance Criteria

@@ -10,7 +10,7 @@
 The remote diagnostics request (0x40 downlink, TASK-029 Tier 2) is initially manual — an operator triggers it via CLI. This task adds automated triggering: the daily health digest Lambda sends a 0x40 diagnostic request to any device that looks unhealthy (offline too long, has recent faults, or has a stale firmware version). Results are included in the next health digest report.
 
 ## Dependencies
-**Blocked by**: TASK-029 (both Tier 1 health digest and Tier 2 remote diagnostics must exist)
+**Blocked by**: none (TASK-029 merged)
 **Blocks**: none
 
 ## Acceptance Criteria
