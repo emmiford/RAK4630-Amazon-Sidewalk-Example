@@ -27,7 +27,7 @@ This document uses consistent terms (see `docs/lexicon.md` for the full referenc
 - **AC** (not "HVAC") when referring to the air conditioning compressor and its circuit. Heat pump support is a future goal, not current scope.
 - **EV charger** (not "EVSE") in user-facing context. "EVSE" appears only in J1772 technical sections.
 - **Interlock** — the hardware + software system that prevents simultaneous operation of AC and EV charger.
-- **Cool call** / **heat call** — the thermostat signals requesting AC or heat. Use "cool call" in spec/code context, "AC call" in user-facing context. Avoid "thermostat call" (ambiguous), "HVAC call", "AC demand" (as a signal name).
+- **Cool call** — the thermostat signal requesting AC. Use "cool call" in spec/code context, "AC call" in user-facing context. Avoid "thermostat call" (ambiguous), "HVAC call", "AC demand" (as a signal name). Heat call support is reserved for future heat pump compatibility.
 - **Pause** / **allow** — the canonical verbs for stopping and permitting EV charging. Avoid "block" (too harsh), "disable" (implies broken), "enable" (reserved for the `charge_enable` GPIO pin name).
 - **AC priority** — the default operating mode: when the thermostat calls for cooling, EV charging pauses.
 - **Cloud override** — a cloud-initiated charge control command. Avoid "force-block", "remote override".
@@ -206,7 +206,7 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 | AIN0 | J1772 Cp PWM | Pilot duty cycle — encodes max allowed current per J1772 | NOT STARTED |
 | AIN1 | Current clamp | Analog voltage proportional to EV charger current (0-3.3V) | IMPLEMENTED (HW) |
 | P0.05 | Cool call | Thermostat cooling request (active high, pull-down) | IMPLEMENTED (HW) |
-| P0.04 | Heat call | Thermostat heat request (active high, pull-down) | IMPLEMENTED (HW) |
+| P0.04 | (reserved) | Reserved for future heat pump support (wired, not read in v1.0) | DESIGNED (HW) |
 
 **Outputs**
 
@@ -336,11 +336,11 @@ SideCharge is compatible with any Level 2 J1772-compliant EV charger (EVSE). How
 | Requirement | Status |
 |-------------|--------|
 | Read cool call signal (GPIO P0.05, active high, pull-down) | IMPLEMENTED |
-| Read heat call signal (GPIO P0.04, active high, pull-down) | IMPLEMENTED (monitored but not used for interlock in v1.0) |
-| Pack as 2-bit flag field in uplink payload | IMPLEMENTED |
+| Heat call GPIO (P0.04) wired but not read in v1.0 | DESIGNED (reserved for future heat pump support) |
+| Pack cool call as flag in uplink payload (bit 1 of flags byte) | IMPLEMENTED |
 | Transmit on change detection | IMPLEMENTED |
 
-The cool call signal is the primary interlock trigger in v1.0 -- a rising edge on the cool call pauses EV charging if active. The heat call GPIO is wired and monitored (the bit is reported in the uplink payload), but it does not trigger the interlock in v1.0. Heat pump support is a future goal: heat pumps use the same compressor for both heating and cooling, so expanding the interlock to the heat call signal is a natural extension. For now, only the cool call matters.
+The cool call signal is the only thermostat input used in v1.0 -- a rising edge on the cool call pauses EV charging if active. The heat call GPIO (P0.04) is physically wired but not read or reported in v1.0. Heat pump support is a future goal: heat pumps use the same compressor for both heating and cooling, so expanding the interlock to the heat call signal is a natural extension. Bit 0 of the flags byte is reserved for this purpose.
 
 The interlock logic for the cool call can be implemented entirely in hardware (the thermostat signal routes through a circuit that physically blocks the compressor contactor when EV current is flowing, and vice versa). The software layer provides redundancy and adds cloud override, Charge Now, and logging on top of the hardware interlock. Both layers stay active in production -- see section 2.0.1.
 
@@ -629,7 +629,7 @@ All commands below are development/testing tools. They are not part of the produ
 
 | Command | Description | Status |
 |---------|-------------|--------|
-| `app hvac status` | Show thermostat heat and cool call flags (active/inactive) | IMPLEMENTED |
+| `app hvac status` | Show thermostat cool call flag (active/inactive) | IMPLEMENTED |
 
 #### Uplink Commands
 
@@ -691,29 +691,32 @@ The 100ms minimum TX rate limiter prevents the device from flooding the LoRa lin
 
 ```
 Byte 0:    0xE5                    Magic byte (EVSE_MAGIC)
-Byte 1:    Version                 Payload format version (bump to 0x07 for timestamp addition)
+Byte 1:    Version                 Payload format version (0x08)
 Byte 2:    J1772 state             Enum: 0=A (disconnected), 1=B (connected/not ready),
                                    2=C (charging), 3=D (charging+ventilation),
                                    4=E (error/short), 5=F (no pilot)
-Byte 3:    Pilot voltage, low      J1772 pilot voltage in millivolts, little-endian uint16
-Byte 4:    Pilot voltage, high     (e.g., 0x34 0x08 = 2100 mV = State B range)
-Byte 5:    Current, low            Charging current in milliamps, little-endian uint16
-Byte 6:    Current, high           (e.g., 0xD0 0x07 = 2000 mA = 2.0A)
-Byte 7:    Thermostat flags        Bitfield:
-             Bit 0 (0x01): HEAT    Heat call active (P0.04)
-             Bit 1 (0x02): COOL    Cool call active (P0.05)
+Byte 3:    Current, low            Charging current in milliamps, little-endian uint16
+Byte 4:    Current, high           (e.g., 0xD0 0x07 = 2000 mA = 2.0A)
+Byte 5:    Flags                   Bitfield:
+             Bit 0 (0x01): (reserved)      Reserved for future heat pump support (always 0)
+             Bit 1 (0x02): COOL            Cool call active (P0.05)
              Bit 2 (0x04): CHARGE_ALLOWED  Charge control state (1=allowed, 0=paused)
              Bit 3 (0x08): CHARGE_NOW      Charge Now override active
              Bit 4 (0x10): SENSOR_FAULT    ADC/GPIO read failure or pilot out-of-range (see 2.5.3)
              Bit 5 (0x20): CLAMP_MISMATCH  Current vs. J1772 state disagreement (see 2.5.3)
              Bit 6 (0x40): INTERLOCK_FAULT Charge enable ineffective or relay stuck (see 2.5.3)
              Bit 7 (0x80): SELFTEST_FAIL   On-demand self-test detected a failure (see 2.5.3)
-Bytes 8-11: Timestamp              SideCharge epoch: seconds since 2026-01-01 00:00:00 UTC,
+Bytes 6-9:  Timestamp              SideCharge epoch: seconds since 2026-01-01 00:00:00 UTC,
                                    little-endian uint32. 1-second granularity. Device computes
                                    from last time sync + local uptime offset.
 ```
 
-**Total: 12 bytes. Fits within 19-byte Sidewalk LoRa MTU with 7 bytes to spare.**
+**Total: 10 bytes. Fits within 19-byte Sidewalk LoRa MTU with 9 bytes to spare.**
+
+AC supply voltage is assumed to be 240V for all power calculations. The device does not
+measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is used internally for
+state classification (A-F) but is not included in the uplink — the J1772 state enum
+(byte 2) is sufficient.
 
 The timestamp uses a SideCharge-specific epoch (2026-01-01) rather than Unix epoch to avoid the 2038 overflow issue and to keep the values smaller and more debuggable. 4 bytes at 1-second granularity gives ~136 years of range. The device computes the current time as `sync_time + (current_uptime - sync_uptime)`, where `sync_time` is set by the TIME_SYNC downlink (see section 3.3). Clock drift on the nRF52840's 32.768 kHz RTC crystal is ~100 ppm, which is ~8.6 seconds per day — well within the 5-minute accuracy target.
 
@@ -1475,7 +1478,7 @@ Every requirement below is traced to a PRD section. The PCB must implement all h
 
 **Digital inputs** (PRD 2.3)
 - **Cool call** (P0.05): Thermostat cooling request. Active high with pull-down. This is the primary interlock trigger. The input circuit must condition the 24VAC thermostat signal to a 3.3V logic level with isolation (PRD 2.0.4).
-- **Heat call** (P0.04): Thermostat heat request. Active high with pull-down. Monitored but not used for interlock in v1.0. Heat pump support is a future goal (PRD 2.3).
+- **P0.04** (reserved): Wired for future heat pump support. Not read in v1.0.
 
 **Charge Now button** (PRD 2.0.1.1, PDL-001)
 - Physical momentary push button on the device enclosure. Single press = activate 30-minute override. Long press (3s) = cancel override. Long press (10s) = activate BLE diagnostics beacon (future). Requires one GPIO with debounce (hardware RC or firmware).

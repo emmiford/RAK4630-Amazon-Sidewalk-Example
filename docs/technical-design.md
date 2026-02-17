@@ -178,39 +178,43 @@ Per ADR-001, version mismatch is a **hard stop**:
 
 ## 3. Uplink Protocol
 
-### 3.1 EVSE Payload v0x07 (Current)
+### 3.1 EVSE Payload v0x08 (Current)
 
-12 bytes. Fits within the 19-byte LoRa uplink MTU with 7 bytes spare.
+10 bytes. Fits within the 19-byte LoRa uplink MTU with 9 bytes spare.
 
 ```
 Offset  Size  Field               Type          Description
 ------  ----  -----               ----          -----------
 0       1     Magic               uint8         0xE5 (constant)
-1       1     Version             uint8         0x07
+1       1     Version             uint8         0x08
 2       1     J1772 state         uint8         Enum 0-6 (see §6.1)
-3-4     2     Pilot voltage       uint16_le     Millivolts (0-3300 typical)
-5-6     2     Current draw        uint16_le     Milliamps (0-30000)
-7       1     Flags               uint8         Bitfield (see §3.2)
-8-11    4     Timestamp           uint32_le     SideCharge epoch (see §7.1)
+3-4     2     Current draw        uint16_le     Milliamps (0-30000)
+5       1     Flags               uint8         Bitfield (see §3.2)
+6-9     4     Timestamp           uint32_le     SideCharge epoch (see §7.1)
                                                 0 = not yet synced
 ```
 
+AC supply voltage is assumed to be 240V for all power calculations. The device does not
+measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is used internally for
+state classification (A-F) but is not included in the uplink — the J1772 state enum
+(byte 2) is sufficient.
+
 Encoding example:
 ```
-E5 07 03 34 08 D0 07 06 39 A2 04 00
-│  │  │  └─────┘ └─────┘ │  └──────────┘
-│  │  │  2100 mV  2000 mA │  SideCharge epoch 304697 (~3.5 days)
+E5 08 03 D0 07 06 39 A2 04 00
+│  │  │  └─────┘ │  └──────────┘
+│  │  │  2000 mA │  SideCharge epoch 304697 (~3.5 days)
 │  │  State C (charging)  Flags: COOL | CHARGE_ALLOWED
-│  Version 0x07
+│  Version 0x08
 Magic 0xE5
 ```
 
-### 3.2 Flags Byte (Byte 7) Bit Map
+### 3.2 Flags Byte (Byte 5) Bit Map
 
 ```
 Bit  Mask  Name              Source
 ---  ----  ----              ------
-0    0x01  HEAT              thermostat heat demand GPIO
+0    0x01  (reserved)        reserved for future heat pump support (always 0)
 1    0x02  COOL              thermostat cool demand GPIO
 2    0x04  CHARGE_ALLOWED    charge control relay state
 3    0x08  CHARGE_NOW        reserved (TASK-040, always 0)
@@ -220,21 +224,23 @@ Bit  Mask  Name              Source
 7    0x80  FAULT_SELFTEST    boot self-test failure (latched until reset)
 ```
 
-Bits 0-1 come from `thermostat_flags_get()`. Bit 2 is OR'd in by `app_tx.c` from
+Bit 0 is reserved for future heat pump support (always 0 in v1.0). Bit 1 comes from
+`thermostat_flags_get()`. Bit 2 is OR'd in by `app_tx.c` from
 `charge_control_is_allowed()`. Bits 4-7 come from `selftest_get_fault_flags()`.
 
 ### 3.3 Legacy Formats
 
 The decode Lambda handles three payload formats, identified by byte 0 and byte 1:
 
-| Format | Magic | Version | Size | Differences from v0x07 |
+| Format | Magic | Version | Size | Differences from v0x08 |
 |--------|-------|---------|------|------------------------|
-| **v0x07** (current) | 0xE5 | 0x07 | 12B | Full format |
+| **v0x08** (current) | 0xE5 | 0x08 | 10B | Full format. Pilot voltage removed; HEAT flag reserved. |
+| **v0x07** | 0xE5 | 0x07 | 12B | Includes pilot voltage (bytes 3-4); HEAT flag active. |
 | **v0x06** | 0xE5 | 0x06 | 8B | No timestamp (bytes 8-11). Flags byte has thermostat bits only. |
 | **sid_demo legacy** | varies | — | 7B+ | Wrapped in demo protocol headers. Inner payload: type(1)+j1772(1)+voltage(2)+current(2)+therm(1). Offset-scanned. |
 
 Backward-compatible: version byte (byte 1) dispatches to the correct decoder. Old
-devices sending v0x06 continue to be decoded correctly.
+devices sending v0x07 or v0x06 continue to be decoded correctly.
 
 ### 3.4 Rate Limiting and Heartbeat
 
@@ -588,10 +594,12 @@ Two GPIO inputs detect HVAC demand from a thermostat:
 
 | GPIO Pin | Flag | Bit | Meaning |
 |----------|------|-----|---------|
-| Pin 1 | `THERMOSTAT_FLAG_HEAT` | 0x01 | Heat demand active |
+| Pin 1 | (reserved) | 0x01 | Reserved for future heat pump support (always 0 in v1.0) |
 | Pin 2 | `THERMOSTAT_FLAG_COOL` | 0x02 | Cool demand active |
 
-`thermostat_flags_get()` returns both bits OR'd together. Changes trigger an uplink.
+`thermostat_flags_get()` returns the cool call bit. Changes trigger an uplink. The heat
+call GPIO (Pin 1) is physically wired but not read in v1.0 — heat pump support is a
+future extension.
 
 ### 6.5 Self-Test
 
@@ -600,9 +608,8 @@ Two phases: boot-time checks and continuous monitoring.
 **Boot self-test** (`selftest_boot()`, <100ms):
 1. ADC pilot channel readable and returns a value in range
 2. ADC current channel readable
-3. GPIO heat call readable
-4. GPIO cool call readable
-5. GPIO charge enable writable (write + readback verify)
+3. GPIO cool call readable
+4. GPIO charge enable writable (write + readback verify)
 
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
 (0x80) is latched in the fault flags and included in every subsequent uplink until
@@ -612,21 +619,20 @@ explicitly reset.
 
 | Monitor | Flag | Condition |
 |---------|------|-----------|
-| Sensor fault | 0x10 | J1772 state == UNKNOWN, or pilot voltage out of range (>15000mV) |
+| Sensor fault | 0x10 | J1772 state == UNKNOWN for >5s (ADC read failure or pilot signal out of valid range) |
 | Clamp mismatch | 0x20 | Current >500mA but J1772 state != C/D, **or** current <500mA but state == C/D |
 | Interlock fault | 0x40 | charge_allowed=true but conditions suggest relay isn't working |
 | Self-test fail | 0x80 | Boot self-test failed (latched) |
 
-Fault flags are OR'd into byte 7 (bits 4-7) of every uplink.
+Fault flags are OR'd into byte 5 (bits 4-7) of every uplink.
 
 ### 6.6 Event Buffer
 
 Ring buffer of 50 timestamped EVSE state snapshots. RAM-only (no flash persistence).
 
 ```c
-struct event_snapshot {           /* 12 bytes */
+struct event_snapshot {           /* 10 bytes */
     uint32_t timestamp;           /* SideCharge epoch */
-    uint16_t pilot_voltage_mv;
     uint16_t current_ma;
     uint8_t  j1772_state;         /* 0-6 */
     uint8_t  thermostat_flags;
@@ -635,7 +641,7 @@ struct event_snapshot {           /* 12 bytes */
 };
 ```
 
-**RAM cost**: 50 x 12 = 600 bytes + 6 bytes overhead = **606 bytes** (7.4% of 8KB budget)
+**RAM cost**: 50 x 10 = 500 bytes + 6 bytes overhead = **506 bytes** (6.2% of 8KB budget)
 
 **Write**: A snapshot is added on every 500ms poll cycle (`event_buffer_add()`).
 
@@ -735,8 +741,8 @@ everything up to now").
 device_id:     wireless device ID (partition key)
 timestamp:     Unix timestamp in milliseconds (sort key)
 event_type:    "evse_telemetry"
-data.evse:     {format, version, pilot_state, pilot_voltage_mv, current_draw_ma,
-                thermostat_bits, thermostat_heat_active, thermostat_cool_active,
+data.evse:     {format, version, pilot_state, current_draw_ma,
+                thermostat_bits, thermostat_cool_active,
                 charge_allowed, charge_now, fault_*, device_timestamp_epoch,
                 device_timestamp_unix}
 link_type:     LoRa/BLE/FSK
@@ -814,7 +820,7 @@ Components:
 | Abstract Pin | Physical Function | Direction | Usage |
 |-------------|-------------------|-----------|-------|
 | GPIO 0 | `charge_enable` | Output | Relay control (HIGH=allow, LOW=pause) |
-| GPIO 1 | `heat_call` | Input | Thermostat heat demand |
+| GPIO 1 | (reserved) | Input | Reserved for future heat pump support (wired but not read in v1.0) |
 | GPIO 2 | `cool_call` | Input | Thermostat cool demand |
 
 | ADC Channel | Function | Range | Calibration |
@@ -923,7 +929,7 @@ All shell commands are accessed via USB serial console at 115200 baud.
 
 | Command | Description |
 |---------|-------------|
-| `app hvac status` | Thermostat flags (heat, cool) |
+| `app hvac status` | Thermostat cool call flag |
 
 ### 11.3 Sidewalk and System Commands (platform layer)
 

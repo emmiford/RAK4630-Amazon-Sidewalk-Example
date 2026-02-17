@@ -149,6 +149,7 @@ git branch -d task/NNN-short-slug
 - All tests pass before merge to main
 - Commit with each logical change
 - Push to `origin` (emmiford/RAK4630-Amazon-Sidewalk-Example)
+- **Worktree safety**: Only clean up the worktree and branch you created in this session. Do not remove other worktrees or branches unless the user explicitly asks you to. Do not run `git worktree prune`.
 
 ## Critical Safety Notes
 
