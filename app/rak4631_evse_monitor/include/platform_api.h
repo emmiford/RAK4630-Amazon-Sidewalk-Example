@@ -32,6 +32,8 @@ extern "C" {
 
 #define PLATFORM_API_ADDR       0x8FF00   /* last 256 bytes of 576KB platform partition */
 #define APP_CALLBACKS_ADDR      0x90000   /* start of app partition */
+#define APP_RAM_ADDR            0x2003E000  /* app BSS/data region (overlay: app_ram) */
+#define APP_RAM_SIZE            0x2000      /* 8KB reserved for app statics + stack */
 
 /* ------------------------------------------------------------------ */
 /*  Platform API table (provided by platform at PLATFORM_API_ADDR)    */

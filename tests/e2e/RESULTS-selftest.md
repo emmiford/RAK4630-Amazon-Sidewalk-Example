@@ -1,7 +1,7 @@
 # Self-Test E2E Results — TASK-048
 
 **Date**: 2026-02-17
-**Firmware**: task/048-selftest-verify-stale-flash @ 66f5b6f
+**Firmware**: task/048-selftest-verify-stale-flash @ c2ad893 + BSS/GPIO fixes
 **Tester**: Eero (automated)
 
 ## Boot Self-Test
@@ -12,58 +12,74 @@
 | adc_current | PASS | ADC channel 1 readable |
 | gpio_heat | PASS | GPIO input readable |
 | gpio_cool | PASS | GPIO input readable |
-| charge_en | FAIL | nRF52840 input buffer disconnected — readback always 0. Fix: GPIO_OUTPUT_ACTIVE \| GPIO_INPUT |
-| Error LED pattern | N/A | "LED index out of range" from dk_buttons_and_leds (LED 2 not mapped on RAK4631) |
+| charge_en | PASS | Fixed: added GPIO_INPUT flag for readback |
+| Error LED pattern | N/A | LED 2 not mapped on RAK4631 (cosmetic log error) |
 
-Serial log excerpt (boot):
-```
-No selftest failure log line at boot (expected: selftest_boot() runs silently on pass).
-Charge_en FAIL triggers FAULT_SELFTEST but no boot-time log message is printed for that.
-```
+Boot log: no selftest failure message (all 5 checks pass → selftest_boot returns 0).
 
 ## Shell Self-Test (`sid selftest`)
 
+### Run 1 — Immediately after boot (~8s uptime)
 ```
 === Self-Test ===
   ADC pilot:     PASS
   ADC current:   PASS
   GPIO heat:     PASS
   GPIO cool:     PASS
-  Charge enable: FAIL
-  J1772 state:   Unknown (0 mV)
-  Current:       2454 mA
+  Charge enable: PASS
+  J1772 state:   E (Error) (276 mV)
+  Current:       2372 mA
   Clamp match:   WARN (mismatch)
   Interlock:     WARN (current while paused)
-  Fault flags:   0xff
+  Fault flags:   0x00
 === FAIL ===
 ```
 
-Result: FAIL — but only charge_en is a real bug. Other results are expected for no-EVSE-connected bench test:
-- J1772 Unknown (0 mV): No pilot signal without an EVSE charger
-- Current 2454 mA: Floating ADC input noise (~270 mV × 30000/3300 calibration)
-- Clamp/Interlock WARN: Follow from the spurious current reading
-- Fault flags 0xFF: Expected 0xF0 (SELFTEST|SENSOR|CLAMP|INTERLOCK). Lower nibble 0x0F is anomalous — investigate BSS initialization of app static variables.
+### Run 2 — After 48s uptime (continuous monitoring has accumulated)
+```
+  Charge enable: PASS
+  Fault flags:   0xe0
+=== FAIL ===
+```
 
-### Charge Enable Root Cause
+### Analysis
 
-`platform_api_impl.c:101` configures `charge_en_gpio` with `GPIO_OUTPUT_ACTIVE` only. On nRF52840, this disconnects the input buffer (PINDIR=1, INPUT=1=disconnected). The selftest toggle-and-verify calls `gpio_pin_get_dt()` which reads NRF_GPIO->IN — returns 0 regardless of output state.
+All 5 hardware path checks **PASS**. Overall "FAIL" is from cross-checks, which are expected to fail without EVSE hardware:
 
-**Fix applied**: Changed to `GPIO_OUTPUT_ACTIVE | GPIO_INPUT` to keep input buffer connected for readback. Requires platform rebuild + reflash to verify.
+| Check | Result | Explanation |
+|-------|--------|-------------|
+| ADC pilot | PASS | Channel readable |
+| ADC current | PASS | Channel readable |
+| GPIO heat | PASS | Input readable |
+| GPIO cool | PASS | Input readable |
+| Charge enable | PASS | Toggle-and-verify succeeds (GPIO_INPUT flag fix) |
+| J1772 state | E (276 mV) | Floating ADC noise, no EVSE pilot signal |
+| Current | 2372 mA | Floating ADC noise (~260 mV × 30000/3300 calibration) |
+| Clamp match | WARN | Expected: not in state C + current > 500 mA |
+| Interlock | WARN | Expected: charge paused + current reads > 500 mA |
 
-### LED Error
+### Fault flag accumulation (verified correct)
+- **0x00** immediately after boot (BSS properly zeroed)
+- **0xE0** after 48s = FAULT_CLAMP (0x20, 10s) + FAULT_INTERLOCK (0x40, 30s) + FAULT_SELFTEST (0x80, set by shell handler)
+- FAULT_SENSOR (0x10) not set because pilot reads 276 mV (valid ADC, state E, not UNKNOWN)
+- Lower nibble clean (no garbage bits) — confirms BSS initialization fix works
 
-`dk_buttons_and_leds` log: "LED index out of the range". The selftest calls `api->led_set(2, ...)` on failure, but RAK4631 only has LED 0 and LED 1 mapped. Non-blocking (just a cosmetic log error).
+### Bugs Found and Fixed
+
+1. **Charge enable readback** — `GPIO_OUTPUT_ACTIVE` without `GPIO_INPUT` disconnects nRF52840 input buffer. Fix: `GPIO_OUTPUT_ACTIVE | GPIO_INPUT` in platform_api_impl.c.
+
+2. **Uninitialized BSS** — Split-image architecture: platform calls `app_cb->init()` as plain function call, no C runtime zeroes BSS. Fix: (a) platform zeroes APP_RAM before app init, (b) app calls `selftest_reset()` before `selftest_boot()`.
+
+3. **LED index out of range** — selftest calls `api->led_set(2, ...)` but RAK4631 only has LEDs 0-1. Cosmetic (non-blocking log error). Not fixed — minor.
 
 ## Fault Flag Uplink
 
 ### Trigger: Clamp mismatch (State C, no load)
-- Simulated via: N/A (not tested — requires platform rebuild first for clean selftest baseline)
-- Wait time: N/A
-- Uplink byte 7 hex: N/A
-- DynamoDB fields: N/A
+- Not tested in this session (Sidewalk link status: BLE Up only, LoRa Down)
+- DynamoDB verification deferred until LoRa uplink is available
 
 ### Clear: Return to State A
-- N/A (blocked on platform rebuild)
+- Deferred (same reason)
 
 ## Stale Flash Erase (TASK-022)
 
@@ -71,7 +87,7 @@ Result: FAIL — but only charge_en is a real bug. Other results are expected fo
 - `ota_update.c` erases stale pages beyond image end after OTA apply
 - `ota_deploy.py` warns if baseline dump >> app binary size
 - Device verification:
-  - App rebuilt from 4524 bytes (stale, pre-selftest) to 8372 bytes (current)
+  - App rebuilt from 4524 bytes (pre-selftest) to 8444 bytes (current with BSS fix)
   - Partition erased with `pyocd erase --sector 0x90000+0x3F000` before flashing
   - pyocd `cmd -c "erase ..."` does NOT work (flash init timeout) — must use `pyocd erase --sector`
   - `pyocd flash --no-erase` flag does NOT exist — removed from flash.sh
@@ -80,13 +96,14 @@ Result: FAIL — but only charge_en is a real bug. Other results are expected fo
 
 | Test | Pass/Fail | Notes |
 |------|-----------|-------|
-| Boot self-test | PARTIAL | 4/5 checks pass. charge_en FAIL due to GPIO config bug (fix applied, needs rebuild) |
-| Shell self-test | PARTIAL | Same charge_en issue. Cross-checks expected to fail without EVSE hardware |
-| Fault flags in uplink | BLOCKED | Needs platform rebuild with GPIO fix for clean baseline |
-| Fault flags in DynamoDB | BLOCKED | Same |
-| Fault flags clear on resolve | BLOCKED | Same |
+| Boot self-test (5 hw checks) | PASS | All 5 hardware path checks pass |
+| Shell self-test | PASS | All hardware checks pass. Cross-checks fail without EVSE (expected) |
+| Fault flags init (BSS) | PASS | Starts at 0x00, accumulates correctly to 0xE0 |
+| Fault flags in uplink | DEFERRED | LoRa link not available in this session |
+| Fault flags in DynamoDB | DEFERRED | Same |
+| Fault flags clear on resolve | DEFERRED | Same |
 | Stale flash erase (code) | PASS | Three-layer defense committed and tested |
 | Stale flash erase (pyocd) | PASS | `pyocd erase --sector` verified working on device |
 | flash.sh fix | PASS | Fixed: PYOCD variable, `erase --sector`, removed `--no-erase` |
 
-**Overall**: PARTIAL — Code changes verified. Charge enable GPIO fix requires platform rebuild + reflash to complete device verification. Fault flag uplink/DynamoDB tests blocked on clean selftest baseline.
+**Overall**: PASS for on-device verification. Fault flag uplink/DynamoDB tests deferred (require LoRa connectivity).

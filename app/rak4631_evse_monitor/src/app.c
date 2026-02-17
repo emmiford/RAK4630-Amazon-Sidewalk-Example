@@ -16,6 +16,7 @@
 #include <sidewalk_dispatch.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <string.h>
 #ifdef CONFIG_SIDEWALK_FILE_TRANSFER_DFU
 #include <sbdt/dfu_file_transfer.h>
 #endif
@@ -154,6 +155,9 @@ void app_start(void)
 
 	/* Discover app image */
 	discover_app_image();
+
+	/* Zero app RAM before init (no C runtime BSS init in split-image arch) */
+	memset((void *)APP_RAM_ADDR, 0, APP_RAM_SIZE);
 
 	/* Initialize app if present */
 	if (app_image_valid() && app_cb->init) {
