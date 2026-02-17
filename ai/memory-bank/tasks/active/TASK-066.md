@@ -35,7 +35,7 @@ re-run at boot (after power cycle) AND a re-run via button both clear the flag
 on success. Simpler, consistent.
 
 ## Dependencies
-**Blocked by**: TASK-065 (spec)
+**Blocked by**: TASK-068 (spec — was TASK-065/Pam, renumbered)
 **Blocks**: none
 
 ## Acceptance Criteria

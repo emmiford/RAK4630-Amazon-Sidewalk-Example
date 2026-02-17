@@ -1,14 +1,24 @@
-# TASK-065: TDD §6.5 self-test rewrite + PRD fault lifecycle
+# TASK-065: AC-priority software interlock + charge_block rename
 
-**Status**: MERGED DONE (2026-02-17, Pam)
-**Branch**: `task/065-selftest-tdd-prd` (commit `b4eeb62`)
+**Status**: merged done (2026-02-17, Eliel)
+**Priority**: P1
+**Owner**: Eliel
+**Branch**: task/065-ac-priority-interlock
+**Size**: M (5 points)
 
 ## Summary
-Documentation quality pass: propagated `charge_block` rename (HIGH=block, LOW=not blocking) across all design documents (TDD, PRD, project plan, lexicon, commissioning card, product decisions). Updated stale implementation status fields — PRD §2.0.1 boot default → IMPLEMENTED, PRD §2.4.1 implementation table → all IMPLEMENTED, PDL-006 → IMPLEMENTED. Removed duplicate TASK-065 entry from INDEX. 11 files changed.
+Added baseline AC-priority logic to firmware. Renamed `charge_enable` → `charge_block` with polarity inversion (HIGH = blocking, LOW = not blocking). Boot sequence reads cool_call before setting GPIO. Runtime: cool_call HIGH → pause charging, cool_call LOW → resume (if no cloud pause). Updated selftest toggle-and-verify for new name/polarity. PRD and TDD doc corrections.
 
 ## Deliverables
-- Modified `docs/technical-design.md` — §6.3, §6.5.1, §9.1
-- Modified `docs/PRD.md` — lexicon, §2.0.1, §2.4.1, §2.5.3, §2.6, §7.4, appendix references
-- Modified `docs/project-plan.md` + `.html` — Feature 1.2.1, Milestone 2.4, Epic 2, Phase 1
-- Modified `docs/lexicon.md`, `docs/design/commissioning-card-spec.md`, SVG
-- Modified `ai/memory-bank/decisions/product-decisions.md` — PDL-006
+- Modified `rak4631_nrf52840.overlay` — `charge_enable` → `charge_block`
+- Modified `platform_api_impl.c` — GPIO init as `GPIO_OUTPUT_INACTIVE`
+- Modified `charge_control.c` — AC-priority logic, boot-time cool_call read
+- Modified `selftest.c` / `selftest.h` — renamed to `charge_block_ok`
+- Updated unit tests
+- Updated PRD §2.0 status labels, §2.4.1 implementation table
+- Updated TDD §6.3 charge control documentation
+
+## Follow-up
+- TASK-048b: Charge Now 30-min latch (overrides AC priority)
+- TASK-066: Button re-test clears FAULT_SELFTEST on all-pass
+- TASK-068: charge_block rename propagation across remaining docs (Pam)

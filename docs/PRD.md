@@ -389,14 +389,7 @@ Shell commands for manual charge control (`app evse allow`, `app evse pause`) ar
 | **Watchdog reset** | Identical to power cycle. All RAM state reinitialized. | Yes |
 | **Platform-only mode (no app)** | Platform sets charge_block GPIO inactive (LOW = not blocking). No read-then-decide. HW interlock still protects. | Acceptable for dev/recovery |
 
-**Implementation changes needed:**
-
-| Change | File | Status |
-|--------|------|--------|
-| Read cool_call before setting charge_block in `charge_control_init()` | `charge_control.c` | IMPLEMENTED (TASK-065) |
-| Change `platform_gpio_init()` from `GPIO_OUTPUT_ACTIVE` to `GPIO_OUTPUT_INACTIVE` | `platform_api_impl.c` | IMPLEMENTED (TASK-065) |
-| Add charge_control state to uplink payload | `app_tx.c` | IMPLEMENTED (TASK-035) |
-| Log boot decision at INF level | `charge_control.c` | IMPLEMENTED (TASK-065) |
+**Implementation**: All items addressed in TASK-065 (AC-priority software interlock + charge_block rename, merged). Terminology propagated in TASK-068.
 
 ### 2.5 LED Indicators
 
@@ -467,18 +460,7 @@ Two LEDs eliminate ambiguity. Green answers "is the device healthy and connected
 
 **BOM impact**: One additional blue LED (0603/0805 SMD), one current-limiting resistor, one GPIO pin. The `app_leds` module already supports LED_ID_0 through LED_ID_3 -- no architecture change needed.
 
-#### 2.5.1.2 Implementation Status
-
-| Requirement | Status |
-|-------------|--------|
-| LED control via app_leds module | IMPLEMENTED |
-| Priority-based blink state machine (highest active state wins) | NOT STARTED (TASK-067) |
-| Prototype single-LED patterns per 2.5.1 matrix | NOT STARTED |
-| Production dual-LED patterns per 2.5.1.1 matrix | NOT STARTED (requires TASK-019 PCB) |
-| "Charge Now" button press acknowledgment (3 rapid blinks) | NOT STARTED |
-| Commissioning mode auto-exit on first successful uplink | NOT STARTED |
-| Error state entry criteria enforcement | NOT STARTED |
-| LED state reported in uplink payload (for cloud-side diagnostics) | NOT STARTED |
+**Implementation**: LED control via `app_leds` module is implemented. Blink state machine, patterns, and remaining LED features tracked in TASK-067 (LED blink priority state machine). Production dual-LED requires TASK-019 PCB.
 
 #### 2.5.2 Commissioning Test Sequence
 
@@ -593,12 +575,7 @@ This section catalogs the installation failure modes that commissioning and self
 | **Charge_block / relay** | Relay wired backwards, stuck relay, disconnected relay output, failed J1772 spoof circuit | CRITICAL | Yes — toggle-and-verify on boot, effectiveness check during operation | C-11 (interlock test) | If charge_block doesn't work, software interlock is defeated. Hardware interlock is the backstop. |
 | **Physical / power** | Device not secured, loose conduit, no power (LED dark) | LOW-MEDIUM | Partial -- power loss detected (device goes offline), mounting is visual only | C-05 (visual), C-06 (power-on) | Cloud detects offline device via missing heartbeats (section 5.3.2). |
 
-**P0 items (required before first field installation):**
-1. ~~Boot self-test with charge_block toggle-and-verify~~ — DONE (TASK-039, implemented + 23 unit tests)
-2. ~~Current vs. J1772 cross-check in continuous monitoring~~ — DONE (TASK-039)
-3. ~~Charge enable effectiveness check in continuous monitoring~~ — DONE (TASK-039)
-4. ~~Commissioning checklist card designed~~ — DONE (TASK-041, card spec + SVG + PDF complete). Print production and box inclusion pending.
-5. On-device verification of self-test on physical hardware (TASK-048, not started)
+**Implementation**: Boot self-test, continuous monitoring (current/J1772 cross-check, charge_block effectiveness), and `sid selftest` shell command all implemented (TASK-039). Production 5-press button trigger implemented (TASK-040). Commissioning checklist card designed (TASK-041). On-device verification pending (TASK-048).
 
 ### 2.6 CLI Commands (Development and Testing Only)
 
@@ -1011,14 +988,7 @@ Reference schedules for the top 5 US residential EV utility markets:
 
 #### 4.5.5 Charge Scheduler Refactor Path
 
-The current `charge_scheduler_lambda.py` needs these changes for multi-utility support:
-
-1. **`is_tou_peak(now_mt)`** → **`is_tou_peak(now, schedule)`** — Accepts a schedule object instead of hardcoded values. Evaluates `now` in the schedule's timezone against the schedule's peak windows.
-2. **`WATTTIME_REGION = "PSCO"`** → Read from the schedule's `watttime_region` field.
-3. **`MT = ZoneInfo("America/Denver")`** → Read timezone from the schedule.
-4. **Single-device `get_device_id()`** → Iterate over all active devices in the registry, evaluate each against its own schedule, send per-device downlinks.
-
-This is a straightforward refactor — the decision logic (pause if TOU peak OR MOER high) doesn't change, only where the parameters come from.
+The scheduler refactor for multi-utility support is tracked in TASK-037. The core decision logic (pause if TOU peak OR MOER high) doesn't change — only where the parameters come from (per-device schedule from device registry instead of hardcoded Xcel Colorado).
 
 #### 4.5.6 Requirements
 
@@ -1695,106 +1665,15 @@ The UL pre-submission meeting (if done) adds 2-4 weeks to the front end but pote
 
 ---
 
-## 8. Known Gaps
+## 8. Known Gaps and Limitations
 
-We name our limitations. This table is the honest accounting of what is missing or unvalidated.
+The following limitations are acknowledged but not tracked as backlog tasks (either out of v1.0 scope or pending external dependencies):
 
-| Gap | Impact | Backlog Task |
-|-----|--------|-------------|
-| No PRD existed until this document | Scope ambiguity for agents and contributors | TASK-014 (this document) |
-| Interlock hardware not yet on PCB | Protoboard only -- no isolation, no 24VAC power, single relay. **Scoped** -- see section 7.4 for full scope, deliverables, decisions, risks, and timeline (~3 months). Strongest recommendation: UL pre-submission before final layout. | TASK-019 |
-| No UL or safety certification | Cannot deploy to customer homes without third-party safety certification | Future |
-| Code compliance (NEC 220.60, 220.70, 440.34) not formally verified | No AHJ review, no inspector sign-off on the interlock design | Future |
-| No AC cloud override | Cloud can pause EV charging but cannot pause AC compressor remotely | TASK-020 |
-| ~~No compressor short-cycle protection~~ | ~~RESOLVED~~ — Thermostat's built-in protection timer handles this. No additional delay needed. | TASK-021 (not needed) |
-| Cp duty cycle not decoded | Pilot voltage is read but PWM duty cycle (allowed current) is not measured | TASK-022 |
-| Car-side interlock mechanism not validated | PWM 0% approach needs testing with multiple car makes -- see Oliver EXP-001 | TASK-023 |
-| ~~No production commissioning process~~ | ~~RESOLVED~~ — 12-step commissioning sequence designed (section 2.5.2). LED-based, no phone app required. | TASK-024 (designed) |
-| ~~Transition delay implementation not decided~~ | ~~RESOLVED~~ — Not needed. Thermostat handles compressor protection. | TASK-025 (not needed) |
-| ~~Charge scheduler Lambda has no tests~~ | ~~RESOLVED~~ — 19 tests implemented | TASK-004 (done) |
-| ~~Decode Lambda has no tests~~ | ~~RESOLVED~~ — 18 tests implemented | TASK-006 (done) |
-| OTA recovery path has no tests | Safety-critical code untested | TASK-005 |
-| MOER threshold (70%) unvalidated | May over-curtail or under-curtail charging | TASK-012 |
-| OTA not field-tested under real RF conditions | Risk of failure at range, through walls | TASK-013 |
-| No CI/CD pipeline | Manual test discipline required -- and humans forget | TASK-009, TASK-010 |
-| No provisioning documentation | Bus factor risk -- one person knows the process | TASK-011 |
-| No OTA recovery runbook | Operator cannot diagnose OTA failures without tribal knowledge | TASK-008 |
-| No architecture documentation | SDK divergence decisions are undocumented | TASK-016 |
-| Dead sid_demo_parser code (~1,600 lines) | Source of confusion, minor binary bloat | TASK-015 |
-| Legacy demo app in tree | Source of confusion for new contributors | TASK-017 |
-| No OTA image signing | Compromised S3 bucket could push malicious firmware | Future (out of v1.0 scope) |
-| No device offline alerting | Silent failures go undetected indefinitely | Future |
-| J1772 thresholds not hardware-calibrated | Possible state misclassification with real chargers | Oliver REC-002 |
-| Current clamp scaling too low (0-30A) | v1.0 target is 48A. Higher ranges (80A) are a future iteration. | TASK-026 |
-| ~~LED state matrix not defined~~ | ~~RESOLVED~~ — Priority-based matrix defined (section 2.5). 1 LED prototype, 2 LED production. | TASK-027 (designed) |
-| ~~Boot default behavior not decided~~ | ~~RESOLVED~~ — Read thermostat, then decide (section 2.4.1). PDL-006. | TASK-028 (designed) |
-| Production observability too thin | No offline alerting, no remote query, no interlock state change logging | TASK-029 |
-| No fleet-wide command throttling | Compromised cloud could coordinate simultaneous load switching across all devices | TASK-030 |
-| No OTA image signing | CRC32 only — compromised S3 could push malicious firmware | TASK-031 |
-| No cloud command authentication | Downlinks are encrypted in transit but not signed — no per-command authenticity | TASK-032 |
-| No device-side timestamps | Device has no wall-clock time; cloud infers timing from uplink arrival. Need TIME_SYNC downlink. | TASK-033 |
-| ~~No device-side event buffer~~ | ~~RESOLVED~~ — Ring buffer of 50 state-change snapshots with ACK watermark trimming. Writes on state change only (not every poll cycle), covering multiple days under normal operation. See ADR-004. | TASK-034 (done) |
-| Uplink payload missing timestamp and control flags | Current 8-byte payload has no timestamp, no charge_control state, no Charge Now flag. Need v0x07 format. | TASK-035 |
-| No device registry or fleet identity | No way to track which customer owns which device, where it's installed, or its current firmware/liveness | TASK-036 |
-| No per-device utility identification | Charge scheduler hardcodes Xcel Colorado; can't support multiple utilities without per-device config | TASK-037 |
-| No data privacy policy or retention rules | Behavioral telemetry (AC/EV patterns) and PII (address, meter number) stored indefinitely with no policy | TASK-038 |
-| **No UL listing or regulatory roadmap** | Cannot legally sell or install through electrician channel without third-party safety certification. First installer to pull a permit will be asked "Is this UL listed?" No timeline, no budget, no NRTL engagement. This is the biggest non-technical risk to the product. | Future (acknowledged, not addressed in v1.0) |
-| ~~No commissioning self-test implementation~~ | ~~RESOLVED~~ — Boot self-test, continuous monitoring (4 fault categories), `sid selftest` shell command, and fault flags in uplink byte 7 all implemented. 23 C unit tests + 4 Python Lambda tests. On-device verification pending (TASK-048). | TASK-039 (done) |
-| ~~No production self-test trigger~~ | ~~RESOLVED~~ — 5-press button trigger with LED blink-code results implemented (TASK-040). Uses 500ms GPIO polling with 5-second detection window. Deliberate presses required. TASK-049 would add GPIO interrupt callback for tighter 3s window. | TASK-040 (done), TASK-049 (future) |
-| Button detection uses 500ms polling (no GPIO interrupts in app layer) | Quick button taps (<500ms) can be missed. 5-press self-test requires 5s window instead of 3s. Adequate for deliberate presses but not ideal UX. | TASK-049 (P3 — quality-of-life improvement) |
-| ~~No commissioning checklist card~~ | ~~RESOLVED~~ — Full card design complete: 8.5"×11" quarter-fold, 12-step checklist with pass/fail checkboxes, LED quick reference, wiring diagram, installer sign-off. SVG sources and PDF produced. Print production pending. See `docs/design/commissioning-card-spec.md`. | TASK-041 (done) |
-| EVSE rear-entry wiring not supported | SideCharge assumes bottom-entry wiring to the EVSE. Many chargers also provide a rear knockout for back-of-wall wiring. Rear-entry installations require a different mounting approach and conduit routing that SideCharge does not accommodate. | Out of scope (acknowledged) |
-| No privacy agent or policy owner | Privacy policy, CCPA review, data retention, and customer data deletion need a dedicated privacy/legal agent. No one currently owns this. | TASK-042 |
-| **EVSE/vehicle warranty risk from pilot wire modification** | SideCharge intercepts the J1772 pilot wire and actively manipulates signals. EVSE and vehicle manufacturers could deny warranty claims. Relay wear from frequent cycling is a plausible SideCharge-caused defect. See section 6.4. | TASK-043 (scoped in 6.4) |
-| No product liability insurance | Controls high-power loads in residential settings. Property damage or injury creates liability exposure. Required before any customer deployment. | TASK-043 |
-| No reversible connector design | Current prototype uses soldered/spliced pilot wire tap. Reversible pass-through adapter eliminates the "modified wiring" argument. Highest-impact warranty mitigation. | TASK-043 (v1.1) |
+- **No UL or safety certification** — cannot deploy to customer homes without third-party safety certification. No timeline, budget, or NRTL engagement yet. Biggest non-technical risk to the product.
+- **NEC code compliance not formally verified** — NEC 220.60, 220.70, 440.34 compliance is designed but no AHJ review or inspector sign-off.
+- **J1772 thresholds not hardware-calibrated** — possible state misclassification with real chargers (Oliver REC-002).
+- **EVSE rear-entry wiring not supported** — bottom-entry only in v1.0.
+- **Car-side interlock mechanism (PWM 0%) not validated** — needs multi-make testing (Oliver EXP-001).
+- **Heat pump compatibility** — GPIO wired (P0.04) but not read in v1.0. Future goal.
 
----
-
-## 9. Requirement Traceability
-
-Every backlog task maps to a gap in this PRD:
-
-| Task | PRD Section | Requirement |
-|------|-------------|-------------|
-| TASK-003 | 1.0 (Overview) | Architecture documentation for new devs |
-| TASK-004 | 5.4 (Testing) | Charge scheduler Lambda tests |
-| TASK-005 | 5.4 (Testing) | OTA recovery path tests |
-| TASK-006 | 5.4 (Testing) | Decode Lambda tests |
-| TASK-007 | 5.4 (Testing) | E2E test plan |
-| TASK-008 | 5.1 (Firmware Update) | OTA recovery runbook |
-| TASK-009 | 5.4 (Testing) | CI/CD for C unit tests |
-| TASK-010 | 5.4 (Testing) | CI/CD for Lambda tests |
-| TASK-011 | 5.2 (Provisioning) | Provisioning documentation |
-| TASK-012 | 4.4 (Demand Response) | MOER threshold validation |
-| TASK-013 | 6.2 (Reliability) | OTA field reliability testing |
-| TASK-015 | -- (Cleanup) | Dead code removal |
-| TASK-016 | 3.1 / 5.3 (SDK/Observability) | Architecture decisions documentation |
-| TASK-017 | -- (Cleanup) | Legacy app removal |
-| TASK-019 | 2.0 (Circuit Interlock) | Interlock PCB design and fabrication |
-| TASK-020 | 2.0.2 (Cloud Override) | AC cloud override implementation |
-| TASK-021 | 2.0.1 (Interlock Logic) | Compressor short-cycle protection |
-| TASK-022 | 2.0.3 (Hardware Interfaces) | J1772 Cp duty cycle measurement |
-| TASK-023 | 2.0.1 (Interlock Logic) | Car-side interlock mechanism validation (Oliver EXP-001) |
-| TASK-024 | 2.5.2 (Commissioning Test Sequence) | Production commissioning process definition |
-| TASK-025 | 2.0.1 (Interlock Logic) | Transition delay implementation decision (HW vs SW) |
-| TASK-026 | 2.2 (Current Clamp) | Rescale current clamp to 48A minimum (consider 80A) |
-| TASK-027 | 2.5 (LED Indicators) | Define LED state matrix for all device conditions |
-| TASK-028 | 2.4 (Charge Control) | Decide boot default behavior (allow vs. read-then-decide) |
-| TASK-029 | 5.3.2 (Production Observability) | Offline alerting, remote query, interlock state logging |
-| TASK-030 | 6.3.2 (Security Threats) | Fleet-wide command throttling and staggered delays |
-| TASK-031 | 6.3.1 (Security) | OTA image ED25519 signing |
-| TASK-032 | 6.3.2 (Security Threats) | Cloud command authentication (signed downlinks) |
-| TASK-033 | 3.3 (Downlink) | TIME_SYNC downlink command (0x30) for wall-clock time |
-| TASK-034 | 3.2.2 (Event Buffer) | Device-side ring buffer with ACK watermark trimming |
-| TASK-035 | 3.2.1 (Payload Format) | Uplink v0x07: add 4-byte timestamp + control flags to thermostat byte |
-| TASK-036 | 4.6 (Device Registry) | DynamoDB device registry, short device ID, installer-provided location |
-| TASK-037 | 6.4.1 (Utility Identification) | Per-device meter number → utility → TOU schedule lookup |
-| TASK-038 | 6.4.2 (Data Privacy) | Privacy policy, data retention rules, CCPA compliance review |
-| TASK-039 | 2.5.3 (Self-Test and Fault Detection) | Commissioning self-test: boot self-test, continuous monitoring (current/J1772 cross-check, charge_block effectiveness), `sid selftest` shell command |
-| TASK-040 | 2.5.3 (Self-Test and Fault Detection) | Production self-test via LED + button: 5-press trigger, blink-code results |
-| TASK-041 | 2.5.2 (Commissioning Test Sequence) | Commissioning checklist card: design, print, include in product packaging |
-| TASK-042 | 6.4.2 (Data Privacy) | Find/assign privacy agent, draft privacy policy, CCPA review, data retention rules |
-| TASK-043 | 6.4 (Warranty and Liability) | Warranty risk scoping, mitigation roadmap, insurance, reversible connector, OCPP path |
-| TASK-048 | 2.0.1.1 (Charge Now Override) | Charge Now single-press button handler, FLAG_CHARGE_NOW in uplink |
-| TASK-049 | 2.5.3 (Self-Test and Fault Detection) | Platform GPIO interrupt callback (`on_button_press`), tighter 3s detection window, APP_CALLBACK_VERSION bump |
+All active gaps with implementation work are tracked in `ai/memory-bank/tasks/INDEX.md`.
