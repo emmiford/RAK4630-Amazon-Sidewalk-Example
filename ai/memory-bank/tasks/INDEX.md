@@ -24,14 +24,13 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (20)
+## Open Tasks (19)
 | ID | P | Status | Owner | Title | Blocked By |
 |----|---|--------|-------|-------|------------|
 | TASK-048 | P0 | not started | Eero | On-device selftest verification | — |
 | TASK-049 | P0 | coded | Eliel | Deploy device registry (awaiting physical verify) | — |
 | TASK-022 | P1 | not started | — | BUG: Stale flash inflates OTA delta baselines | — |
 | TASK-029 | P1 | not started | Eliel | Production observability | — |
-| TASK-044 | P1 | done | Pam | PRD update — commissioning + G = earth ground | — |
 | TASK-045 | P1 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | P1 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | P1 | not started | — | On-device verification (TIME_SYNC + buffer + v0x07) | — |
@@ -48,7 +47,7 @@ Special: deferred, declined
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-049b | P3 | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 
-## Completed Tasks (38)
+## Completed Tasks (39)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -89,6 +88,7 @@ Special: deferred, declined
 | TASK-051 | Move EVSE payload struct to app layer | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-052 | Rename rak_sidewalk → evse_payload | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-053 | Resolve two app_tx.c naming collision | MERGED DONE | 2026-02-15 | Eliel |
+| TASK-044 | PRD update — commissioning + G = earth ground | MERGED DONE | 2026-02-16 | Pam |
 | TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
 
 ## Related Documents
