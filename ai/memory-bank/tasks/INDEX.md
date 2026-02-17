@@ -42,7 +42,8 @@ Special: deferred, declined
 | TASK-037 | P2 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | TASK-038 |
-| TASK-048b | P2 | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-062 |
+| TASK-048b | P2 | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-062, TASK-065 |
+| TASK-065 | P1 | not started | Eliel | AC-priority software interlock + doc corrections | — |
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
