@@ -84,6 +84,15 @@ def pyocd_dump(addr, size, out_path):
         end -= 1
     trimmed = data[:end]
     print(f"  Read {len(data)} bytes, {len(trimmed)} bytes non-erased")
+
+    # Warn if dump is significantly larger than the app binary
+    bin_path = os.path.join(os.path.dirname(__file__), "..", BUILD_APP_DIR, "app.bin")
+    if os.path.exists(bin_path):
+        expected = os.path.getsize(bin_path)
+        if expected > 0 and len(trimmed) > expected * 2:
+            print(f"  WARNING: Dump ({len(trimmed)}B) >> app binary ({expected}B)")
+            print(f"  Stale flash data likely present. Re-flash with flash.sh app first.")
+
     return trimmed
 
 

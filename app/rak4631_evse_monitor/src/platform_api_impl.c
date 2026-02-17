@@ -104,7 +104,8 @@ static int platform_gpio_init(void)
 
 	/* Charge enable output */
 	if (gpio_is_ready_dt(&charge_en_gpio)) {
-		int err = gpio_pin_configure_dt(&charge_en_gpio, GPIO_OUTPUT_ACTIVE);
+		int err = gpio_pin_configure_dt(&charge_en_gpio,
+					       GPIO_OUTPUT_ACTIVE | GPIO_INPUT);
 		if (err < 0) {
 			LOG_ERR("charge_en GPIO config err %d", err);
 			return err;

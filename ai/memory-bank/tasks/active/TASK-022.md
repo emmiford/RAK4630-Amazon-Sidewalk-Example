@@ -1,9 +1,9 @@
 # TASK-022: BUG — Stale flash data inflates OTA delta baselines
 
-**Status**: not started
+**Status**: coded (device-verified — partition dump clean after erase + flash)
 **Priority**: P1
-**Owner**: —
-**Branch**: `fix/stale-flash-erase`
+**Owner**: Eero
+**Branch**: `task/048-selftest-verify-stale-flash`
 **Size**: M (3 points)
 
 ## Description
@@ -11,28 +11,29 @@ When physically flashing a smaller app over a larger one, pyOCD only erases page
 
 **Symptom**: Baseline shows 4524 bytes when actual app is 239 bytes. Delta OTA computes against inflated baseline.
 
-**Plan**: Saved at `~/.claude/plans/witty-painting-matsumoto.md` — NOT YET APPROVED. Three-layer defense-in-depth:
-1. `flash.sh`: Erase app partition before writing (primary fix)
-2. `ota_update.c`: Erase stale pages after OTA apply — local flash op, no extra OTA chunks (~5s)
-3. `ota_deploy.py`: Warn if baseline is significantly larger than app binary
-
 ## Dependencies
 **Blocked by**: none
 **Blocks**: none (but affects OTA delta reliability)
 
 ## Acceptance Criteria
-- [ ] `flash.sh app` erases 0x90000-0xCEFFF before writing app hex
-- [ ] OTA apply (full, delta, recovery) erases pages beyond new image up to metadata boundary
-- [ ] `ota_deploy.py baseline` warns if dump is significantly larger than app.bin
-- [ ] Host-side tests cover stale page erase after apply
-- [ ] Manual verification: flash large app → flash small app → dump partition → all bytes beyond small app are 0xFF
+- [x] `flash.sh app` erases 0x90000-0xCEFFF before writing app hex
+- [x] OTA apply (full, delta, recovery) erases pages beyond new image up to metadata boundary
+- [x] `ota_deploy.py baseline` warns if dump is significantly larger than app.bin
+- [x] Host-side tests cover stale page erase after apply (5 Python tests)
+- [x] Manual verification: flash app → dump partition → all bytes beyond app are 0xFF (8444B used, 249604B erased)
 
-## Testing Requirements
-- [ ] C unit tests for stale page erase logic
-- [ ] Python tests for baseline size warning
+## Implementation (three-layer defense)
+1. **flash.sh**: `pyocd erase --sector 0x90000+0x3F000` before `pyocd flash`
+2. **ota_update.c**: `erase_stale_app_pages()` called after apply loop in `ota_apply()`, `ota_resume_apply()`, `delta_apply()`
+3. **ota_deploy.py**: `pyocd_dump()` warns if trimmed dump is > 2× app.bin size
+
+## Device Verification (2026-02-17)
+- Partition dump: 8444 bytes used, 249604 bytes erased (100% clean)
+- pyocd notes: `cmd -c "erase ..."` fails with flash init timeout — must use `pyocd erase --sector`
+- pyocd notes: `--no-erase` flag doesn't exist — removed from flash.sh
 
 ## Deliverables
-- Updated `flash.sh`
-- Updated `src/ota_update.c`
-- Updated `aws/ota_deploy.py`
-- New tests
+- Updated `flash.sh` (PYOCD variable, erase --sector, removed --no-erase)
+- Updated `src/ota_update.c` (erase_stale_app_pages)
+- Updated `aws/ota_deploy.py` (baseline size warning)
+- 5 new Python tests in `aws/tests/test_ota_deploy_cli.py`

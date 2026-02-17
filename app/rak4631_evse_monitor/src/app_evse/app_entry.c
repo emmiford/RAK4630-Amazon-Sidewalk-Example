@@ -110,7 +110,8 @@ static int app_init(const struct platform_api *platform)
 	selftest_trigger_set_send_fn(app_tx_send_evse_data);
 	selftest_trigger_init();
 
-	/* Boot self-test */
+	/* Boot self-test (reset first — split-image arch has no C runtime BSS init) */
+	selftest_reset();
 	selftest_boot_result_t st_result;
 	if (selftest_boot(&st_result) != 0) {
 		api->log_err("Boot self-test FAILED (flags=0x%02x)",

@@ -261,6 +261,26 @@ static uint32_t compute_flash_crc32(uint32_t addr, size_t size)
 }
 
 /* ------------------------------------------------------------------ */
+/*  Stale page cleanup — erase pages beyond new image                   */
+/* ------------------------------------------------------------------ */
+
+static void erase_stale_app_pages(uint32_t image_size)
+{
+	uint32_t next_page = OTA_APP_PRIMARY_ADDR +
+		((image_size + OTA_FLASH_PAGE_SIZE - 1) & ~(OTA_FLASH_PAGE_SIZE - 1));
+	uint32_t metadata_page = OTA_METADATA_ADDR & ~(OTA_FLASH_PAGE_SIZE - 1);
+
+	if (next_page >= metadata_page) {
+		return;
+	}
+
+	uint32_t erase_size = metadata_page - next_page;
+	LOG_INF("OTA: erasing %u stale pages at 0x%08x",
+		erase_size / OTA_FLASH_PAGE_SIZE, next_page);
+	ota_flash_erase_pages(next_page, erase_size);
+}
+
+/* ------------------------------------------------------------------ */
 /*  Apply: copy staging → primary                                       */
 /* ------------------------------------------------------------------ */
 
@@ -332,6 +352,9 @@ static int ota_apply(void)
 		LOG_DBG("OTA: copied page %u/%u", page + 1, total_pages);
 	}
 
+	/* Erase stale pages beyond new image to prevent inflated baselines */
+	erase_stale_app_pages(ota_state.total_size);
+
 	/* Verify magic at primary address */
 	uint32_t magic;
 	ota_flash_read(OTA_APP_PRIMARY_ADDR, (uint8_t *)&magic, sizeof(magic));
@@ -394,6 +417,9 @@ static int ota_resume_apply(const struct ota_metadata *meta)
 			       meta->image_crc32, meta->app_version,
 			       page + 1, meta->total_pages);
 	}
+
+	/* Erase stale pages beyond new image to prevent inflated baselines */
+	erase_stale_app_pages(meta->image_size);
 
 	/* Verify magic */
 	uint32_t magic;
@@ -811,6 +837,9 @@ static void delta_apply(void)
 			       ota_state.expected_crc32, ota_state.app_version,
 			       page + 1, total_pages);
 	}
+
+	/* Erase stale pages beyond new image to prevent inflated baselines */
+	erase_stale_app_pages(ota_state.total_size);
 
 	/* Verify magic at primary */
 	uint32_t magic;
