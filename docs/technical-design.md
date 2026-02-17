@@ -180,7 +180,7 @@ Per ADR-001, version mismatch is a **hard stop**:
 
 ### 3.1 EVSE Payload v0x08 (Current)
 
-10 bytes. Fits within the 19-byte LoRa uplink MTU with 9 bytes spare.
+12 bytes. Fits within the 19-byte LoRa uplink MTU with 7 bytes spare.
 
 ```
 Offset  Size  Field               Type          Description
@@ -188,28 +188,31 @@ Offset  Size  Field               Type          Description
 0       1     Magic               uint8         0xE5 (constant)
 1       1     Version             uint8         0x08
 2       1     J1772 state         uint8         Enum 0-6 (see §6.1)
-3-4     2     Current draw        uint16_le     Milliamps (0-30000)
-5       1     Flags               uint8         Bitfield (see §3.2)
-6-9     4     Timestamp           uint32_le     SideCharge epoch (see §7.1)
+3-4     2     Pilot voltage       uint16_le     J1772 Cp millivolts (0-3300)
+5-6     2     Current draw        uint16_le     Milliamps (0-30000)
+7       1     Flags               uint8         Bitfield (see §3.2)
+8-11    4     Timestamp           uint32_le     SideCharge epoch (see §7.1)
                                                 0 = not yet synced
 ```
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
-measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is used internally for
-state classification (A-F) but is not included in the uplink — the J1772 state enum
-(byte 2) is sufficient.
+measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is included in the uplink
+alongside the classified state enum. The raw millivolt reading enables cloud-side detection
+of marginal pilot connections — readings near a threshold boundary (e.g., 2590 mV near the
+2600 mV A/B boundary) indicate a degraded connection that the enum alone would not reveal.
+See ADR-004 for the rationale.
 
 Encoding example:
 ```
-E5 08 03 D0 07 06 39 A2 04 00
-│  │  │  └─────┘ │  └──────────┘
-│  │  │  2000 mA │  SideCharge epoch 304697 (~3.5 days)
+E5 08 03 BA 08 D0 07 06 39 A2 04 00
+│  │  │  └─────┘ └─────┘ │  └──────────┘
+│  │  │  2234 mV 2000 mA │  SideCharge epoch 304697 (~3.5 days)
 │  │  State C (charging)  Flags: COOL | CHARGE_ALLOWED
 │  Version 0x08
 Magic 0xE5
 ```
 
-### 3.2 Flags Byte (Byte 5) Bit Map
+### 3.2 Flags Byte (Byte 7) Bit Map
 
 ```
 Bit  Mask  Name              Source
@@ -234,8 +237,8 @@ The decode Lambda handles three payload formats, identified by byte 0 and byte 1
 
 | Format | Magic | Version | Size | Differences from v0x08 |
 |--------|-------|---------|------|------------------------|
-| **v0x08** (current) | 0xE5 | 0x08 | 10B | Full format. Pilot voltage removed; HEAT flag reserved. |
-| **v0x07** | 0xE5 | 0x07 | 12B | Includes pilot voltage (bytes 3-4); HEAT flag active. |
+| **v0x08** (current) | 0xE5 | 0x08 | 12B | Full format. Pilot voltage retained; HEAT flag reserved (always 0). |
+| **v0x07** | 0xE5 | 0x07 | 12B | Same byte layout as v0x08; HEAT flag (bit 0) active. |
 | **v0x06** | 0xE5 | 0x06 | 8B | No timestamp (bytes 8-11). Flags byte has thermostat bits only. |
 | **sid_demo legacy** | varies | — | 7B+ | Wrapped in demo protocol headers. Inner payload: type(1)+j1772(1)+voltage(2)+current(2)+therm(1). Offset-scanned. |
 

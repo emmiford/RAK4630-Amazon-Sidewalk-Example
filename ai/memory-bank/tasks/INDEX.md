@@ -39,7 +39,7 @@ Special: deferred, declined
 | TASK-046 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
 | TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
-| TASK-060 | not started | Eliel | Uplink payload v0x08 — remove pilot voltage, remove heat call | — |
+| TASK-060 | not started | Eliel | Uplink payload v0x08 — reserve heat flag, keep pilot voltage | — |
 | TASK-063 | not started | Eliel | Delay window support (device + cloud) | — |
 | TASK-066 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | TASK-068 |
 | TASK-067 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |

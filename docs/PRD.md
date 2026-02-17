@@ -72,7 +72,7 @@ SideCharge is a circuit interlock that enables same-day, code-compliant installa
 
 The interlock is the product. Everything else is built on top of it.
 
-Connected via Amazon Sidewalk's free LoRa mesh network, SideCharge reads J1772 pilot state, charging current, and cool call signals, reporting them to the cloud in an 8-byte payload that fits within Sidewalk's 19-byte LoRa MTU. The cloud layer adds smart coordination: time-of-use pricing, real-time grid carbon intensity, and cloud override -- sending delay windows and commands back down over the same radio link.
+Connected via Amazon Sidewalk's free LoRa mesh network, SideCharge reads J1772 pilot state, charging current, and cool call signals, reporting them to the cloud in a 12-byte payload that fits within Sidewalk's 19-byte LoRa MTU. The cloud layer adds smart coordination: time-of-use pricing, real-time grid carbon intensity, and cloud override -- sending delay windows and commands back down over the same radio link.
 
 The entire application is a compact 4KB binary running on a split-image architecture. The platform handles Sidewalk, BLE, and OTA. The app handles everything EV charger and AC related. They update independently -- and the app updates over the air in minutes, not hours, thanks to delta OTA.
 
@@ -296,6 +296,7 @@ We are targeting NEC and Colorado code compliance. However, no formal code compl
 | State F: no pilot signal (EVSE error) | IMPLEMENTED |
 | Poll interval: 500ms | IMPLEMENTED |
 | Transmit on state change only (not every poll) | IMPLEMENTED |
+| Include raw pilot voltage (mV) in uplink alongside state enum | IMPLEMENTED (see ADR-004 rationale) |
 | Simulation mode for testing (states A-D, 10s duration) | IMPLEMENTED |
 
 **Notes**: Voltage thresholds are hardcoded from datasheet values -- no field calibration against physical J1772 hardware has been done yet. See Oliver REC-002 for recommended validation. The thresholds work, but they have only been tested against simulated signals.
@@ -668,11 +669,11 @@ The 100ms minimum TX rate limiter prevents the device from flooding the LoRa lin
 
 | Requirement | Status |
 |-------------|--------|
-| 12-byte payload: 8-byte EVSE data + 4-byte timestamp | NOT STARTED (currently 8 bytes, no timestamp) |
+| 12-byte payload: J1772 state + pilot voltage + current + flags + 4-byte timestamp | IMPLEMENTED (v0x07 is 12 bytes; v0x08 retains same size) |
 | Transmit on sensor state change | IMPLEMENTED |
 | 15-minute heartbeat (transmit even if no change) | NOT STARTED (currently 60s testing interval) |
 | 100ms minimum TX rate limiter | IMPLEMENTED |
-| Fits within 19-byte Sidewalk LoRa MTU | IMPLEMENTED (12 bytes = 7 spare) |
+| Fits within 19-byte Sidewalk LoRa MTU | IMPLEMENTED (12 bytes = 7 bytes spare) |
 
 #### 3.2.1 Payload Format (Bit-Level)
 
@@ -682,9 +683,11 @@ Byte 1:    Version                 Payload format version (0x08)
 Byte 2:    J1772 state             Enum: 0=A (disconnected), 1=B (connected/not ready),
                                    2=C (charging), 3=D (charging+ventilation),
                                    4=E (error/short), 5=F (no pilot)
-Byte 3:    Current, low            Charging current in milliamps, little-endian uint16
-Byte 4:    Current, high           (e.g., 0xD0 0x07 = 2000 mA = 2.0A)
-Byte 5:    Flags                   Bitfield:
+Byte 3:    Pilot voltage, low      J1772 pilot voltage in millivolts, little-endian uint16
+Byte 4:    Pilot voltage, high     (e.g., 0xBA 0x08 = 2234 mV ≈ State B)
+Byte 5:    Current, low            Charging current in milliamps, little-endian uint16
+Byte 6:    Current, high           (e.g., 0xD0 0x07 = 2000 mA = 2.0A)
+Byte 7:    Flags                   Bitfield:
              Bit 0 (0x01): (reserved)      Reserved for future heat pump support (always 0)
              Bit 1 (0x02): COOL            Cool call active (P0.05)
              Bit 2 (0x04): CHARGE_ALLOWED  Charge control state (1=allowed, 0=paused)
@@ -693,17 +696,19 @@ Byte 5:    Flags                   Bitfield:
              Bit 5 (0x20): CLAMP_MISMATCH  Current vs. J1772 state disagreement (see 2.5.3)
              Bit 6 (0x40): INTERLOCK_FAULT Charge enable ineffective or relay stuck (see 2.5.3)
              Bit 7 (0x80): SELFTEST_FAIL   On-demand self-test detected a failure (see 2.5.3)
-Bytes 6-9:  Timestamp              SideCharge epoch: seconds since 2026-01-01 00:00:00 UTC,
+Bytes 8-11: Timestamp              SideCharge epoch: seconds since 2026-01-01 00:00:00 UTC,
                                    little-endian uint32. 1-second granularity. Device computes
                                    from last time sync + local uptime offset.
 ```
 
-**Total: 10 bytes. Fits within 19-byte Sidewalk LoRa MTU with 9 bytes to spare.**
+**Total: 12 bytes. Fits within 19-byte Sidewalk LoRa MTU with 7 bytes to spare.**
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
-measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is used internally for
-state classification (A-F) but is not included in the uplink — the J1772 state enum
-(byte 2) is sufficient.
+measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is included in the uplink
+alongside the classified state enum (byte 2). The raw millivolt reading enables cloud-side
+detection of marginal pilot connections — readings near a threshold boundary (e.g., 2590 mV
+near the 2600 mV A/B boundary) indicate a flaky or degraded connection that the enum alone
+would not reveal. See ADR-004 for the rationale.
 
 The timestamp uses a SideCharge-specific epoch (2026-01-01) rather than Unix epoch to avoid the 2038 overflow issue and to keep the values smaller and more debuggable. 4 bytes at 1-second granularity gives ~136 years of range. The device computes the current time as `sync_time + (current_uptime - sync_uptime)`, where `sync_time` is set by the TIME_SYNC downlink (see section 3.3). Clock drift on the nRF52840's 32.768 kHz RTC crystal is ~100 ppm, which is ~8.6 seconds per day — well within the 5-minute accuracy target.
 
@@ -790,7 +795,7 @@ The decode Lambda is the entry point for all device-to-cloud data. Every uplink 
 
 | Requirement | Status |
 |-------------|--------|
-| Lambda decodes raw 8-byte EVSE payload | IMPLEMENTED |
+| Lambda decodes raw 12-byte EVSE payload (v0x07/v0x08) | IMPLEMENTED |
 | Decoded events stored in DynamoDB (device_id + timestamp) | IMPLEMENTED |
 | TTL expiration on DynamoDB records | IMPLEMENTED |
 | Backward compatibility: payload version field (byte 1) enables format evolution | DESIGNED |
@@ -1115,7 +1120,7 @@ During development, the USB serial console provides full real-time visibility in
 
 #### 5.3.2 Production (Cloud-Only, No Physical Access)
 
-Once deployed, the device has no USB port, no serial console, and no local interface. All observability comes through the cloud — what the device reports in its 8-byte uplink payload, and what the Lambdas log. This is a significantly narrower view than development, and it needs to be more robust.
+Once deployed, the device has no USB port, no serial console, and no local interface. All observability comes through the cloud — what the device reports in its 12-byte uplink payload, and what the Lambdas log. This is a significantly narrower view than development, and it needs to be more robust.
 
 | Requirement | Status |
 |-------------|--------|
