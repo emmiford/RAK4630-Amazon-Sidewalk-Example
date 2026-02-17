@@ -86,7 +86,8 @@ resource "aws_iam_role_policy" "evse_decoder_policy" {
         Action = [
           "dynamodb:PutItem",
           "dynamodb:GetItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:Scan"
         ]
         Resource = aws_dynamodb_table.device_registry.arn
       },
@@ -96,6 +97,14 @@ resource "aws_iam_role_policy" "evse_decoder_policy" {
           "lambda:InvokeFunction"
         ]
         Resource = "arn:aws:lambda:${var.aws_region}:*:function:${aws_lambda_function.ota_sender.function_name}"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iotwireless:SendDataToWirelessDevice",
+          "iotwireless:ListWirelessDevices"
+        ]
+        Resource = "*"
       }
     ]
   })
