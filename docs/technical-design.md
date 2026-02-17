@@ -590,16 +590,14 @@ each 500ms poll cycle whether the duration has elapsed. If so, it sets
 
 ### 6.4 Thermostat Inputs
 
-Two GPIO inputs detect HVAC demand from a thermostat:
+Two GPIO inputs (`heat_call`, `cool_call`) detect HVAC demand from a thermostat.
+For physical pin assignments see §9.1 Pin Mapping.
 
-| GPIO Pin | Flag | Bit | Meaning |
-|----------|------|-----|---------|
-| Pin 1 | (reserved) | 0x01 | Reserved for future heat pump support (always 0 in v1.0) |
-| Pin 2 | `THERMOSTAT_FLAG_COOL` | 0x02 | Cool demand active |
+The flags byte packs these inputs as:
+- Bit 0x01 — (reserved) heat call. Physically wired but not read in v1.0; heat pump support is a future extension.
+- Bit 0x02 — `THERMOSTAT_FLAG_COOL`. Cool demand active.
 
-`thermostat_flags_get()` returns the cool call bit. Changes trigger an uplink. The heat
-call GPIO (Pin 1) is physically wired but not read in v1.0 — heat pump support is a
-future extension.
+`thermostat_flags_get()` returns the cool call bit. Changes trigger an uplink.
 
 ### 6.5 Self-Test
 
