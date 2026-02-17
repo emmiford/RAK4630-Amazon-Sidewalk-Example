@@ -568,9 +568,13 @@ current_ma = (adc_mv × 30000) / 3300
 
 ### 6.3 Charge Control
 
-Controls a relay via GPIO pin 0 (`EVSE_PIN_CHARGE_EN`):
-- GPIO HIGH = charging allowed (relay closed)
-- GPIO LOW = charging paused (relay open)
+Controls a relay via GPIO pin 0 (`EVSE_PIN_CHARGE_BLOCK`):
+- GPIO HIGH = charging blocked (MCU actively prevents charging)
+- GPIO LOW = not blocking (hardware safety gate controls relay based on thermostat state)
+
+On MCU power loss the GPIO floats LOW (not blocking), so the hardware safety
+gate remains in control — it allows charging when AC is off and blocks it when
+AC is on. This is the safe default.
 
 State tracked in `charge_control_state_t`:
 ```c
@@ -623,7 +627,7 @@ hardware paths are functional before the device begins normal operation.
 2. ADC current channel readable (channel 1 returns >= 0)
 3. GPIO heat input readable
 4. GPIO cool input readable
-5. GPIO charge enable writable (toggle HIGH → readback → toggle LOW → readback → restore)
+5. GPIO charge_block writable (toggle HIGH → readback → toggle LOW → readback → restore)
 
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
 (0x80) is set in the fault flags.
@@ -636,7 +640,7 @@ and knows to investigate. The error pattern persists until the fault clears
 (via button re-test or reboot). FAULT_SELFTEST is also included in every
 uplink so the cloud sees the failure immediately.
 
-**Why boot-only for check 5**: The charge enable toggle test physically
+**Why boot-only for check 5**: The charge_block toggle test physically
 actuates the relay. This is safe at boot (relay state is undefined, no active
 charge session) but unsafe during operation — it would momentarily interrupt an
 active charge. The continuous monitors (§6.5.3) detect relay failures at runtime
@@ -969,7 +973,7 @@ Components:
 
 | Abstract Pin | nRF52840 Pin | Physical Function | Direction | Usage |
 |-------------|-------------|-------------------|-----------|-------|
-| GPIO 0 | P0.06 | `charge_enable` | Output | Relay control (HIGH=allow, LOW=pause) |
+| GPIO 0 | P0.06 | `charge_block` | Output | Charge block (HIGH=block, LOW=not blocking — hardware safety gate controls) |
 | GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand (pull-down, active-high) |
 | GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand (pull-down, active-high) |
 

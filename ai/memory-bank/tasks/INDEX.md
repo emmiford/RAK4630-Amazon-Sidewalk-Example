@@ -46,7 +46,6 @@ Special: deferred, declined
 | TASK-038 | P2 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | P2 | not started | Pam | Privacy agent | TASK-038 |
 | TASK-048b | P2 | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-062, TASK-065 |
-| TASK-065 | P1 | not started | Eliel | AC-priority software interlock + doc corrections | — |
 | TASK-054 | P2 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | P2 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | P2 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
@@ -99,6 +98,7 @@ Special: deferred, declined
 | TASK-053 | Resolve two app_tx.c naming collision | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-044 | PRD update — commissioning + G = earth ground | MERGED DONE | 2026-02-16 | Pam |
 | TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
+| TASK-065 | AC-priority software interlock + charge_block rename | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design-rak-firmware.md`

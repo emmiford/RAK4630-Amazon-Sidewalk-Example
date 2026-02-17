@@ -28,7 +28,7 @@ This document uses consistent terms (see `docs/lexicon.md` for the full referenc
 - **EV charger** (not "EVSE") in user-facing context. "EVSE" appears only in J1772 technical sections.
 - **Interlock** — the hardware + software system that prevents simultaneous operation of AC and EV charger.
 - **Cool call** — the thermostat signal requesting AC. Use "cool call" in spec/code context, "AC call" in user-facing context. Avoid "thermostat call" (ambiguous), "HVAC call", "AC demand" (as a signal name). Heat call support is reserved for future heat pump compatibility.
-- **Pause** / **allow** — the canonical verbs for stopping and permitting EV charging. Avoid "block" (too harsh), "disable" (implies broken), "enable" (reserved for the `charge_enable` GPIO pin name).
+- **Pause** / **allow** — the canonical verbs for stopping and permitting EV charging in user-facing and product context. Avoid "disable" (implies broken), "enable" (ambiguous with GPIO). The GPIO pin is named `charge_block` (HIGH = block, LOW = not blocking) — "block" is the correct technical term for the pin, while "pause" is the user-facing equivalent.
 - **AC priority** — the default operating mode: when the thermostat calls for cooling, EV charging pauses.
 - **Cloud override** — a cloud-initiated charge control command. Avoid "force-block", "remote override".
 - **Charge Now** — physical button override. Overrides AC priority for 30 minutes and suspends any active delay window until the car's J1772 state changes (session-based). Avoid "force charge", "manual override", "user override".
@@ -126,7 +126,7 @@ This is the core function of SideCharge -- the reason the product exists. The in
 | EV lockout: if current is flowing to EV charger, thermostat signal to compressor is blocked | IMPLEMENTED (SW+HW) |
 | "Charge Now" button: user presses physical momentary button to override AC priority and charge for a limited duration | DESIGNED (see 2.0.1.1 for duration options) |
 | Compressor short-cycle protection: thermostat's built-in protection timer (no additional delay needed) | N/A — handled by thermostat |
-| Default state on boot: read thermostat, then decide (see 2.4.1) | DESIGNED (currently unconditional allow — code change needed) |
+| Default state on boot: read thermostat, then decide (see 2.4.1) | IMPLEMENTED (SW+HW) (TASK-065) |
 
 **Asymmetric interlock mechanism**: SideCharge does not simply cut power to either load. The mechanism is asymmetric and protocol-aware:
 
@@ -361,21 +361,21 @@ Shell commands for manual charge control (`app evse allow`, `app evse pause`) ar
 
 #### 2.4.1 Boot and Power Recovery
 
-**Decision: Read thermostat state before setting charge enable.** On every boot (cold start, power loss recovery, watchdog reset, `sys_reboot`), the device reads the thermostat cool call GPIO before deciding whether to allow EV charging. This replaces the previous unconditional "allow on boot" default.
+**Decision: Read thermostat state before setting charge_block.** On every boot (cold start, power loss recovery, watchdog reset, `sys_reboot`), the device reads the thermostat cool call GPIO before deciding whether to allow EV charging. This replaces the previous unconditional "allow on boot" default.
 
 **Boot sequence (app layer, after platform passes control to `app_init()`):**
 
 | Step | Action |
 |------|--------|
-| 1 | Platform configures charge enable GPIO as `GPIO_OUTPUT_INACTIVE` (low = safe default) |
+| 1 | Platform configures charge_block GPIO as `GPIO_OUTPUT_INACTIVE` (LOW = not blocking, hardware safety gate decides) |
 | 2 | `app_init()` called. API pointers distributed to all app modules |
 | 3 | `charge_control_init()` reads cool call GPIO (P0.05) |
-| 4 | **If cool_call HIGH** (AC running): charge enable stays LOW (EV paused). Log: "Boot: AC active, EV paused" |
-| 4 | **If cool_call LOW** (AC idle): set charge enable HIGH (EV allowed). Log: "Boot: AC inactive, EV allowed" |
+| 4 | **If cool_call HIGH** (AC running): set charge_block HIGH (EV blocked). Log: "Boot: AC active, EV blocked" |
+| 4 | **If cool_call LOW** (AC idle): leave charge_block LOW (not blocking, EV allowed). Log: "Boot: AC idle, EV allowed" |
 | 5 | Sensors initialized, LED set to commissioning mode (1Hz flash) |
 | 6 | First poll cycle (t=500ms): read all sensors, send first uplink with boot state |
 
-**Rationale**: The hardware interlock prevents double-load at the circuit level regardless of what the software does. But the software should not contradict the hardware. If the HW interlock has blocked charge enable because AC is running, the SW setting the GPIO high fights the HW -- even though HW wins (it is downstream), the momentary conflict is unnecessary.
+**Rationale**: The hardware interlock prevents double-load at the circuit level regardless of what the software does. But the software should not contradict the hardware. If the HW interlock is blocking charging because AC is running, the SW leaving charge_block LOW fights the HW — even though HW wins (it is downstream), the momentary conflict is unnecessary. Setting charge_block HIGH agrees with the hardware state.
 
 **Edge cases:**
 
@@ -387,16 +387,16 @@ Shell commands for manual charge control (`app evse allow`, `app evse pause`) ar
 | **Power cycle during Charge Now override** | Override lost (RAM-only). Reads thermostat → safe default. | Yes -- user presses button again if needed |
 | **Power cycle during cloud override** | Cloud override lost (RAM-only). Cloud re-sends on next scheduler cycle. | Yes -- brief gap is acceptable |
 | **Watchdog reset** | Identical to power cycle. All RAM state reinitialized. | Yes |
-| **Platform-only mode (no app)** | Platform sets GPIO active (allow). No read-then-decide. HW interlock still protects. | Acceptable for dev/recovery |
+| **Platform-only mode (no app)** | Platform sets charge_block GPIO inactive (LOW = not blocking). No read-then-decide. HW interlock still protects. | Acceptable for dev/recovery |
 
 **Implementation changes needed:**
 
 | Change | File | Status |
 |--------|------|--------|
-| Read cool_call before setting charge enable in `charge_control_init()` | `charge_control.c` | NOT STARTED |
-| Change `platform_gpio_init()` from `GPIO_OUTPUT_ACTIVE` to `GPIO_OUTPUT_INACTIVE` | `platform_api_impl.c` | NOT STARTED |
-| Add charge_control state to uplink payload | `app_tx.c` | NOT STARTED |
-| Log boot decision at INF level | `charge_control.c` | NOT STARTED |
+| Read cool_call before setting charge_block in `charge_control_init()` | `charge_control.c` | IMPLEMENTED (TASK-065) |
+| Change `platform_gpio_init()` from `GPIO_OUTPUT_ACTIVE` to `GPIO_OUTPUT_INACTIVE` | `platform_api_impl.c` | IMPLEMENTED (TASK-065) |
+| Add charge_control state to uplink payload | `app_tx.c` | IMPLEMENTED (TASK-035) |
+| Log boot decision at INF level | `charge_control.c` | IMPLEMENTED (TASK-065) |
 
 ### 2.5 LED Indicators
 
@@ -524,7 +524,7 @@ On every boot, after the platform passes control to `app_init()`, the following 
 |-------|-----------------|----------------|
 | ADC channels readable | Dead or disconnected ADC (AIN0, AIN1) | Set SENSOR_FAULT flag, error LED |
 | GPIO pins readable | Dead thermostat input GPIOs (P0.04, P0.05) | Set SENSOR_FAULT flag, error LED |
-| Charge enable toggle-and-verify | Charge enable GPIO not controlling the relay -- if toggling the output does not change the readback state, the relay is stuck or disconnected | Set INTERLOCK_FAULT flag, error LED |
+| Charge_block toggle-and-verify | Charge_block GPIO not controlling the relay — if toggling the output does not change the readback state, the relay is stuck or disconnected | Set INTERLOCK_FAULT flag, error LED |
 | Sidewalk init check | MFG keys missing or session keys absent (already implemented, see 3.1.1) | Degraded mode (no connectivity) |
 
 **Continuous monitoring (runs during normal operation)**
@@ -534,11 +534,11 @@ These checks run on every 500ms sensor poll cycle. They detect faults that devel
 | Check | What It Detects | Failure Action |
 |-------|-----------------|----------------|
 | Current vs. J1772 cross-check | If J1772 state is C (charging) but current reads <500mA for >10s, the clamp is likely disconnected, installed on the wrong conductor, or installed backwards. If J1772 is A/B but current reads >500mA for >10s, the clamp is on the wrong circuit. | Set CLAMP_MISMATCH flag in uplink |
-| Charge enable effectiveness | After setting charge enable LOW (pause), if current does not drop below 500mA within 30s, the relay or J1772 spoof circuit is not working -- the software interlock is defeated | Set INTERLOCK_FAULT flag, error LED |
+| Charge_block effectiveness | After setting charge_block HIGH (block), if current does not drop below 500mA within 30s, the relay or J1772 spoof circuit is not working — the software interlock is defeated | Set INTERLOCK_FAULT flag, error LED |
 | Pilot voltage range | If pilot voltage is outside all valid J1772 ranges (not A, B, C, D, E, or F) for >5s, the pilot signal connection may be damaged or noisy | Set SENSOR_FAULT flag in uplink |
 | Thermostat chatter | If cool_call toggles >10 times in 60s, the thermostat wire may be loose or the signal is noisy | Set SENSOR_FAULT flag in uplink (informational, no error LED) |
 
-**Charge enable effectiveness is the most important automated safety check.** If the relay does not actually pause the EVSE when commanded, the entire software interlock is defeated -- the device thinks it has paused charging, but current continues to flow. The cross-check (set enable LOW, verify current drops) catches stuck relays, failed J1772 spoof circuits, and wiring errors that bypass the charge control output.
+**Charge_block effectiveness is the most important automated safety check.** If the relay does not actually pause the EVSE when commanded, the entire software interlock is defeated — the device thinks it has paused charging, but current continues to flow. The cross-check (set charge_block HIGH, verify current drops) catches stuck relays, failed J1772 spoof circuits, and wiring errors that bypass the charge control output.
 
 **On-demand self-test**
 
@@ -566,7 +566,7 @@ There is no remote reboot or remote fault-clear command. The continuous monitors
 
 | Requirement | Status | Priority |
 |-------------|--------|----------|
-| Boot self-test (ADC, GPIO, charge enable toggle-and-verify) | IMPLEMENTED (SW) (TASK-039) | P0 |
+| Boot self-test (ADC, GPIO, charge_block toggle-and-verify) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Current vs. J1772 cross-check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Charge enable effectiveness check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Pilot voltage range validation (continuous) | IMPLEMENTED (SW) (TASK-039) | P1 |
@@ -590,11 +590,11 @@ This section catalogs the installation failure modes that commissioning and self
 | **Current clamp** | Wrong conductor (AC leg instead of EV leg), reversed orientation, loose or fallen off | HIGH | Yes -- J1772 cross-check detects current/state mismatch | C-10, C-11 | Backwards clamp reads zero or negative; wrong conductor reads AC current as EV current. Cross-check catches both. |
 | **J1772 pilot** | Disconnected pilot wire, wrong tap point, damaged signal | HIGH | Yes -- ADC reads out-of-range voltage | C-10, C-11 | Device sees State A (disconnected) or State E/F (error) when it should see State C. |
 | **Thermostat** | Reversed R/Y wires, loose connection, wrong terminals | MEDIUM | Partially -- detects signal presence and chatter, not correct wiring | C-03 (visual: R/Y/C on thermostat terminals, G on earth ground), C-08, C-09 (manual trigger required) | Reversed wires could mean AC runs when it shouldn't, but interlock still prevents double-load. G terminal connected to wrong source (e.g., thermostat fan wire instead of earth ground) would not cause a safety failure but defeats the ground reference function. Manual test is required to verify correct behavior. |
-| **Charge enable** | Relay wired backwards, stuck relay, disconnected relay output, failed J1772 spoof circuit | CRITICAL | Yes -- toggle-and-verify on boot, effectiveness check during operation | C-11 (interlock test) | If charge enable doesn't work, software interlock is defeated. Hardware interlock is the backstop. |
+| **Charge_block / relay** | Relay wired backwards, stuck relay, disconnected relay output, failed J1772 spoof circuit | CRITICAL | Yes — toggle-and-verify on boot, effectiveness check during operation | C-11 (interlock test) | If charge_block doesn't work, software interlock is defeated. Hardware interlock is the backstop. |
 | **Physical / power** | Device not secured, loose conduit, no power (LED dark) | LOW-MEDIUM | Partial -- power loss detected (device goes offline), mounting is visual only | C-05 (visual), C-06 (power-on) | Cloud detects offline device via missing heartbeats (section 5.3.2). |
 
 **P0 items (required before first field installation):**
-1. ~~Boot self-test with charge enable toggle-and-verify~~ — DONE (TASK-039, implemented + 23 unit tests)
+1. ~~Boot self-test with charge_block toggle-and-verify~~ — DONE (TASK-039, implemented + 23 unit tests)
 2. ~~Current vs. J1772 cross-check in continuous monitoring~~ — DONE (TASK-039)
 3. ~~Charge enable effectiveness check in continuous monitoring~~ — DONE (TASK-039)
 4. ~~Commissioning checklist card designed~~ — DONE (TASK-041, card spec + SVG + PDF complete). Print production and box inclusion pending.
@@ -632,8 +632,8 @@ All commands below are development/testing tools. They are not part of the produ
 | `app evse b` | Simulate J1772 State B (connected, not ready) for 10 seconds | IMPLEMENTED |
 | `app evse c` | Simulate J1772 State C (charging) for 10 seconds | IMPLEMENTED |
 | `app evse d` | Simulate J1772 State D (charging with ventilation) for 10 seconds | IMPLEMENTED |
-| `app evse allow` | Allow EV charging (charge enable HIGH) | IMPLEMENTED |
-| `app evse pause` | Pause EV charging (charge enable LOW) | IMPLEMENTED |
+| `app evse allow` | Allow EV charging (charge_block LOW = not blocking) | IMPLEMENTED |
+| `app evse pause` | Pause EV charging (charge_block HIGH = blocking) | IMPLEMENTED |
 
 #### Thermostat Commands
 
@@ -1499,10 +1499,10 @@ Every requirement below is traced to a PRD section. The PCB must implement all h
 **Interlock circuit** (PRD 2.0.1, 2.0.3, 2.0.4)
 - Hardware mutual exclusion: the circuit must prevent simultaneous operation of the AC compressor and EV charger independently of the microcontroller. If the MCU loses power or crashes, the hardware interlock must continue to enforce mutual exclusion. This is the fundamental safety guarantee (PRD 6.3.2).
 - Two relay outputs:
-  - **Charge enable relay** (PRD 2.4): Controls the J1772 pilot spoof circuit. When de-energized, presents ~900 ohm resistance to the EVSE side, making the charger see J1772 State B (connected, not ready) and stop supplying power. GPIO P0.06, active high.
+  - **Charge block relay** (PRD 2.4): Controls the J1772 pilot spoof circuit. When the MCU drives charge_block HIGH, the relay engages and presents ~900 ohm resistance to the EVSE side, making the charger see J1772 State B (connected, not ready) and stop supplying power. When charge_block is LOW (or MCU loses power), the hardware safety gate controls the relay independently. GPIO P0.06, active high = blocking.
   - **AC block relay** (PRD 2.0.3): Intercepts the 24VAC thermostat cool call signal to the compressor contactor. When energized, blocks the call signal so the compressor does not start. Pin TBD.
 - The hardware interlock logic must be implemented so that both relays cannot be in the "active load" state simultaneously. This can be achieved through relay wiring topology (series/parallel constraints) or through a simple logic gate -- the key requirement is that it works without firmware.
-- Fail-safe default: on power loss, charge enable relay de-energizes (EV paused), AC block relay de-energizes (thermostat signal passes through). Both loads off simultaneously is safe. Both loads on simultaneously must be physically impossible.
+- Fail-safe default: on power loss, charge_block GPIO floats LOW (not blocking — hardware safety gate controls EV relay), AC block relay de-energizes (thermostat signal passes through). Both loads off simultaneously is safe. Both loads on simultaneously must be physically impossible.
 
 **Analog inputs** (PRD 2.0.3, 2.1, 2.2)
 - **J1772 Cp voltage** (AIN0): Reads pilot voltage level to classify car presence/state (A-F). The pilot signal is +/-12V, 1kHz square wave. The ADC input circuit must condition this to 0-3.3V range for the nRF52840's 12-bit SAR ADC. Isolation from the J1772 pilot circuit is required (PRD 2.0.4).
@@ -1540,7 +1540,7 @@ Every requirement below is traced to a PRD section. The PCB must implement all h
 - All isolation barriers are already implemented on the protoboard. The PCB must replicate them with proper creepage and clearance distances for the voltage classes involved.
 
 **Self-test support** (PRD 2.5.3)
-- Charge enable toggle-and-verify: the charge enable GPIO must have a readback path so firmware can confirm the relay actually toggled. This is essential for the boot self-test and continuous effectiveness monitoring.
+- Charge_block toggle-and-verify: the charge_block GPIO must have a readback path so firmware can confirm the relay actually toggled. This is essential for the boot self-test and continuous effectiveness monitoring.
 - Current clamp cross-check: the ADC path for current must be reliable enough to detect 500mA thresholds for the J1772 cross-check.
 
 **Enclosure** (PRD 1.3, 1.4, 6.3.2)
@@ -1567,7 +1567,7 @@ These decisions and deliverables feed into PCB design. Some are already resolved
 | Boot default | PDL-006 | DECIDED (read-then-decide) | Charge enable GPIO must initialize LOW (safe default). Relay must be normally-open (de-energized = EV paused). |
 | Dual interlock layers | PDL-002 | DECIDED (HW + SW redundancy) | Hardware interlock circuit is a hard requirement on the PCB, not just a relay driven by GPIO. |
 | J1772 Cp duty cycle measurement | TASK-022 | NOT STARTED (firmware) | The analog conditioning circuit for AIN0 must preserve PWM shape. No separate hardware, but affects component selection (bandwidth). |
-| Car-side interlock mechanism (PWM 0%) | TASK-023 / EXP-001 | NOT VALIDATED | If PWM 0% works across car makes, the J1772 spoof circuit needs a PWM output path in addition to the resistance spoof. May affect charge enable circuit design. |
+| Car-side interlock mechanism (PWM 0%) | TASK-023 / EXP-001 | NOT VALIDATED | If PWM 0% works across car makes, the J1772 spoof circuit needs a PWM output path in addition to the resistance spoof. May affect charge_block circuit design. |
 | Self-test toggle-and-verify | TASK-039 | NOT STARTED (firmware) | Relay readback path needed on PCB (GPIO or analog feedback from relay coil/contact). |
 | BLE diagnostics (future) | PDL-016 | DECIDED (hard no for v1.0) | No BLE antenna optimization needed for post-registration use. BLE antenna only needs to work for initial registration (one-time, close range). |
 
@@ -1657,7 +1657,7 @@ These choices must be made during PCB design. They are not yet decided.
 | PDL-002 (dual interlock layers) | DECIDED | HW interlock is a hard requirement |
 | PDL-005 (no transition delay) | DECIDED | Simplifies relay drive |
 | PDL-006 (boot default) | DECIDED | Relay polarity known (normally-open) |
-| TASK-023 / EXP-001 (PWM 0% validation) | NOT VALIDATED | Soft blocker -- if PWM 0% is the production mechanism, charge enable circuit design changes. Can proceed with resistance spoof and add PWM path later. |
+| TASK-023 / EXP-001 (PWM 0% validation) | NOT VALIDATED | Soft blocker — if PWM 0% is the production mechanism, charge_block circuit design changes. Can proceed with resistance spoof and add PWM path later. |
 | UL pre-submission (PDL-008) | DEFERRED | Strongest recommendation: do this before final layout. Not a hard blocker, but proceeding without it is the single highest risk. |
 
 **What TASK-019 blocks (outputs)**:
@@ -1791,7 +1791,7 @@ Every backlog task maps to a gap in this PRD:
 | TASK-036 | 4.6 (Device Registry) | DynamoDB device registry, short device ID, installer-provided location |
 | TASK-037 | 6.4.1 (Utility Identification) | Per-device meter number → utility → TOU schedule lookup |
 | TASK-038 | 6.4.2 (Data Privacy) | Privacy policy, data retention rules, CCPA compliance review |
-| TASK-039 | 2.5.3 (Self-Test and Fault Detection) | Commissioning self-test: boot self-test, continuous monitoring (current/J1772 cross-check, charge enable effectiveness), `sid selftest` shell command |
+| TASK-039 | 2.5.3 (Self-Test and Fault Detection) | Commissioning self-test: boot self-test, continuous monitoring (current/J1772 cross-check, charge_block effectiveness), `sid selftest` shell command |
 | TASK-040 | 2.5.3 (Self-Test and Fault Detection) | Production self-test via LED + button: 5-press trigger, blink-code results |
 | TASK-041 | 2.5.2 (Commissioning Test Sequence) | Commissioning checklist card: design, print, include in product packaging |
 | TASK-042 | 6.4.2 (Data Privacy) | Find/assign privacy agent, draft privacy policy, CCPA review, data retention rules |

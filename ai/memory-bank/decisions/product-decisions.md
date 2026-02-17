@@ -47,12 +47,12 @@ Each decision has: ID, date, decision summary, context, alternatives considered,
 
 ### PDL-006: Boot default is read-then-decide (not unconditional allow)
 - **Date**: 2026-02-12
-- **Decision**: On boot, the device reads the thermostat cool call GPIO before setting the charge enable state. If cool_call is HIGH (AC running), charge enable is set LOW (EV paused). If cool_call is LOW, charge enable is set HIGH (EV allowed).
+- **Decision**: On boot, the device reads the thermostat cool call GPIO before setting the charge_block state. If cool_call is HIGH (AC running), charge_block is set HIGH (EV blocked). If cool_call is LOW, charge_block stays LOW (not blocking, EV allowed).
 - **Context**: The unconditional "allow on boot" default contradicts the HW interlock when AC is running at boot (e.g., after a power blip on a hot day). Read-then-decide ensures SW agrees with HW on every boot.
 - **Alternatives considered**: (1) Unconditional allow — rejected (contradicts HW interlock when AC running). (2) Unconditional pause — rejected (blocks charging unnecessarily, requires cloud command to resume). (3) Read-then-decide — **selected**.
 - **Edge cases**: Unconnected GPIOs (pull-downs → LOW → allow, correct for commissioning). Charge Now override lost on reboot (RAM-only, intentional). Cloud override lost on reboot (cloud re-sends on next scheduler cycle).
-- **Implication**: `platform_gpio_init()` changes from `GPIO_OUTPUT_ACTIVE` to `GPIO_OUTPUT_INACTIVE`. `charge_control_init()` reads cool_call then sets GPIO.
-- **Status**: DECIDED — implementation needed (PRD section 2.4.1)
+- **Implication**: `platform_gpio_init()` inits charge_block as `GPIO_OUTPUT_INACTIVE` (LOW = not blocking). `charge_control_init()` reads cool_call then sets charge_block accordingly.
+- **Status**: DECIDED — IMPLEMENTED (TASK-065)
 
 ### PDL-007: LED state matrix — priority-based, 1 LED prototype + 2 LED production
 - **Date**: 2026-02-12

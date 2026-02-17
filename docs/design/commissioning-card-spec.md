@@ -277,7 +277,7 @@ Action: Trigger AC call (set thermostat to cool) WHILE the EV is charging.
 PASS: Blue LED transitions to heartbeat pulse. EV charger pauses (pilot drops to State B).
 
 **Warning bar** (Electric Amber background):
-> THIS IS THE CRITICAL SAFETY TEST. It confirms mutual exclusion works end to end. If the EV charger does NOT pause, STOP. Do not leave the job site. Investigate charge enable wiring and J1772 pilot connection.
+> THIS IS THE CRITICAL SAFETY TEST. It confirms mutual exclusion works end to end. If the EV charger does NOT pause, STOP. Do not leave the job site. Investigate charge_block relay wiring and J1772 pilot connection.
 
 ---
 
@@ -378,8 +378,8 @@ Table uses Inter Regular 8pt for cell content, Inter Semi-bold 8pt for the "What
 ---
 
 **4. EV CHARGER DOES NOT PAUSE DURING INTERLOCK TEST (C-11 fails)**
-**Meaning**: The charge enable circuit is not controlling the EVSE. The software interlock may be defeated.
-**What to do**: DO NOT leave the job site. Verify the J1772 pilot tap wire is connected to the correct terminal on both the EVSE and the SideCharge device. Verify the charge enable relay wiring. If the EV charger does not respond to the SideCharge interlock, the installation is not safe for operation. Disconnect the EV charger circuit until the issue is resolved.
+**Meaning**: The charge_block circuit is not controlling the EVSE. The software interlock may be defeated.
+**What to do**: DO NOT leave the job site. Verify the J1772 pilot tap wire is connected to the correct terminal on both the EVSE and the SideCharge device. Verify the charge_block relay wiring. If the EV charger does not respond to the SideCharge interlock, the installation is not safe for operation. Disconnect the EV charger circuit until the issue is resolved.
 
 ---
 

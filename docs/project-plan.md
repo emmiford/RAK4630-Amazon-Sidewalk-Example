@@ -48,10 +48,10 @@ The core product function. The interlock guarantees AC and EV charger never draw
 
 #### Feature 1.2.1: Boot and Power Recovery Behavior
 - **Story**: As a system, I want to read the thermostat state before enabling EV charging on every boot, so that the software never contradicts the hardware interlock. **(M)**
-  - [ ] Task: Read cool_call GPIO before setting charge enable in `charge_control_init()` — `SW` — NOT STARTED — File: `charge_control.c`
-  - [ ] Task: Change `platform_gpio_init()` from `GPIO_OUTPUT_ACTIVE` to `GPIO_OUTPUT_INACTIVE` — `SW` — NOT STARTED — File: `platform_api_impl.c`
-  - [ ] Task: Add charge_control state to uplink payload — `SW` — NOT STARTED — File: `app_tx.c`
-  - [ ] Task: Log boot decision at INF level — `SW` — NOT STARTED — File: `charge_control.c`
+  - [x] Task: Read cool_call GPIO before setting charge_block in `charge_control_init()` — `SW` — IMPLEMENTED (TASK-065) — File: `charge_control.c`
+  - [x] Task: Change `platform_gpio_init()` from `GPIO_OUTPUT_ACTIVE` to `GPIO_OUTPUT_INACTIVE` — `SW` — IMPLEMENTED (TASK-065) — File: `platform_api_impl.c`
+  - [x] Task: Add charge_control state to uplink payload — `SW` — IMPLEMENTED (TASK-035) — File: `app_tx.c`
+  - [x] Task: Log boot decision at INF level — `SW` — IMPLEMENTED (TASK-065) — File: `charge_control.c`
   - [ ] Task: Verify all edge cases: unconnected GPIOs, power cycle during AC call, power cycle during EV charging, power cycle during Charge Now override, power cycle during cloud override, watchdog reset — `SW` — NOT STARTED
 
 #### Feature 1.2.2: "Charge Now" Override Button
@@ -80,7 +80,7 @@ The core product function. The interlock guarantees AC and EV charger never draw
 
 ## Epic 2: Sensor & Monitoring
 
-All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clamp (2.2), thermostat inputs (2.3), and charge enable/disable output (2.4). Covers calibration, scaling, and field validation.
+All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clamp (2.2), thermostat inputs (2.3), and charge_block output (2.4). Covers calibration, scaling, and field validation.
 
 ### Milestone 2.1: J1772 Pilot State Monitoring
 
@@ -125,11 +125,11 @@ All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clam
   - [x] Task: Pack as 2-bit flag field in uplink payload — `SW` — IMPLEMENTED
   - [x] Task: Transmit on change detection — `SW` — IMPLEMENTED
 
-### Milestone 2.4: Charge Enable/Disable Output
+### Milestone 2.4: Charge Block Output
 
 #### Feature 2.4.1: Charge Relay Control
-- **Story**: As a system, I want to control the charge enable GPIO to allow or pause EV charging, so that interlock decisions are enforced electrically. **(S)**
-  - [x] Task: GPIO output for charge relay (P0.06, active high) — `SW+HW` — IMPLEMENTED
+- **Story**: As a system, I want to control the charge_block GPIO to block or allow EV charging, so that interlock decisions are enforced electrically. **(S)**
+  - [x] Task: GPIO output for charge relay (P0.06, active high = blocking) — `SW+HW` — IMPLEMENTED
   - [x] Task: Allow/pause via cloud downlink command 0x10 — `SW` — IMPLEMENTED
   - [x] Task: Auto-resume timer (configurable duration in minutes) — `SW` — IMPLEMENTED
 
@@ -751,7 +751,7 @@ The following dependencies span multiple epics and must be tracked carefully:
 
 ### Phase 1: Firmware Completeness (Weeks 1-3)
 **Goal**: All firmware features designed in the PRD are implemented.
-1. Feature 1.2.1: Boot/power recovery behavior (read thermostat before charge enable)
+1. Feature 1.2.1: Boot/power recovery behavior (read thermostat before charge_block)
 2. Feature 1.2.2: "Charge Now" override button
 3. Feature 6.2.1: Priority-based LED state machine (prototype single-LED)
 4. Feature 3.2.1: Expand uplink payload to 12 bytes with timestamp

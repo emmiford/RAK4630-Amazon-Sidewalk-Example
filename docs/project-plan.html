@@ -257,10 +257,10 @@
 <h4 id="feature-121-boot-and-power-recovery-behavior">Feature 1.2.1: Boot and Power Recovery Behavior</h4>
 <ul>
 <li><strong>Story</strong>: As a system, I want to read the thermostat state before enabling EV charging on every boot, so that the software never contradicts the hardware interlock. <strong>(M)</strong></li>
-<li>[ ] Task: Read cool_call GPIO before setting charge enable in <code>charge_control_init()</code> — <code>SW</code> — NOT STARTED — File: <code>charge_control.c</code></li>
-<li>[ ] Task: Change <code>platform_gpio_init()</code> from <code>GPIO_OUTPUT_ACTIVE</code> to <code>GPIO_OUTPUT_INACTIVE</code> — <code>SW</code> — NOT STARTED — File: <code>platform_api_impl.c</code></li>
-<li>[ ] Task: Add charge_control state to uplink payload — <code>SW</code> — NOT STARTED — File: <code>app_tx.c</code></li>
-<li>[ ] Task: Log boot decision at INF level — <code>SW</code> — NOT STARTED — File: <code>charge_control.c</code></li>
+<li>[x] Task: Read cool_call GPIO before setting charge_block in <code>charge_control_init()</code> — <code>SW</code> — IMPLEMENTED (TASK-065) — File: <code>charge_control.c</code></li>
+<li>[x] Task: Change <code>platform_gpio_init()</code> from <code>GPIO_OUTPUT_ACTIVE</code> to <code>GPIO_OUTPUT_INACTIVE</code> — <code>SW</code> — IMPLEMENTED (TASK-065) — File: <code>platform_api_impl.c</code></li>
+<li>[x] Task: Add charge_control state to uplink payload — <code>SW</code> — IMPLEMENTED (TASK-035) — File: <code>app_tx.c</code></li>
+<li>[x] Task: Log boot decision at INF level — <code>SW</code> — IMPLEMENTED (TASK-065) — File: <code>charge_control.c</code></li>
 <li>[ ] Task: Verify all edge cases: unconnected GPIOs, power cycle during AC call, power cycle during EV charging, power cycle during Charge Now override, power cycle during cloud override, watchdog reset — <code>SW</code> — NOT STARTED</li>
 </ul>
 <h4 id="feature-122-charge-now-override-button">Feature 1.2.2: "Charge Now" Override Button</h4>
@@ -290,7 +290,7 @@
 </ul>
 <hr />
 <h2 id="epic-2-sensor-monitoring">Epic 2: Sensor &amp; Monitoring</h2>
-<p>All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clamp (2.2), thermostat inputs (2.3), and charge enable/disable output (2.4). Covers calibration, scaling, and field validation.</p>
+<p>All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clamp (2.2), thermostat inputs (2.3), and charge_block output (2.4). Covers calibration, scaling, and field validation.</p>
 <h3 id="milestone-21-j1772-pilot-state-monitoring">Milestone 2.1: J1772 Pilot State Monitoring</h3>
 <h4 id="feature-211-pilot-voltage-classification">Feature 2.1.1: Pilot Voltage Classification</h4>
 <ul>
@@ -336,11 +336,11 @@
 <li>[x] Task: Pack as 2-bit flag field in uplink payload — <code>SW</code> — IMPLEMENTED</li>
 <li>[x] Task: Transmit on change detection — <code>SW</code> — IMPLEMENTED</li>
 </ul>
-<h3 id="milestone-24-charge-enabledisable-output">Milestone 2.4: Charge Enable/Disable Output</h3>
+<h3 id="milestone-24-charge-block-output">Milestone 2.4: Charge Block Output</h3>
 <h4 id="feature-241-charge-relay-control">Feature 2.4.1: Charge Relay Control</h4>
 <ul>
-<li><strong>Story</strong>: As a system, I want to control the charge enable GPIO to allow or pause EV charging, so that interlock decisions are enforced electrically. <strong>(S)</strong></li>
-<li>[x] Task: GPIO output for charge relay (P0.06, active high) — <code>SW+HW</code> — IMPLEMENTED</li>
+<li><strong>Story</strong>: As a system, I want to control the charge_block GPIO to block or allow EV charging, so that interlock decisions are enforced electrically. <strong>(S)</strong></li>
+<li>[x] Task: GPIO output for charge relay (P0.06, active high = blocking) — <code>SW+HW</code> — IMPLEMENTED</li>
 <li>[x] Task: Allow/pause via cloud downlink command 0x10 — <code>SW</code> — IMPLEMENTED</li>
 <li>[x] Task: Auto-resume timer (configurable duration in minutes) — <code>SW</code> — IMPLEMENTED</li>
 </ul>
@@ -1021,7 +1021,7 @@
 4. TASK-026: Boot path tests — <strong>P2</strong></p>
 <h3 id="phase-1-firmware-completeness-weeks-1-3">Phase 1: Firmware Completeness (Weeks 1-3)</h3>
 <p><strong>Goal</strong>: All firmware features designed in the PRD are implemented.
-1. Feature 1.2.1: Boot/power recovery behavior (read thermostat before charge enable)
+1. Feature 1.2.1: Boot/power recovery behavior (read thermostat before charge_block)
 2. Feature 1.2.2: "Charge Now" override button
 3. Feature 6.2.1: Priority-based LED state machine (prototype single-LED)
 4. Feature 3.2.1: Expand uplink payload to 12 bytes with timestamp
