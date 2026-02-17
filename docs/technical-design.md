@@ -725,6 +725,10 @@ everything up to now").
 
 ### 8.1 decode_evse_lambda
 
+This is the single ingress point for all device-to-cloud messages. Every Sidewalk
+uplink hits this Lambda first: OTA traffic is forwarded to the OTA sender, telemetry
+is decoded and stored, and a time-sync downlink is sent if the device clock is stale.
+
 **Trigger**: IoT Wireless rule (Sidewalk uplink arrives)
 
 **Flow**:
