@@ -556,7 +556,7 @@ There is no remote reboot or remote fault-clear command. The continuous monitors
 | Thermostat chatter detection (continuous) | IMPLEMENTED (SW) (TASK-039) | P2 |
 | `sid selftest` shell command | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Production 5-press button trigger for self-test (5s window, polling-based — see limitation note above) | IMPLEMENTED (SW) (TASK-040) | P1 |
-| Platform GPIO interrupt callback for tighter 3s button detection | NOT STARTED (TASK-049) | P3 |
+| Platform GPIO interrupt callback for tighter 3s button detection | NOT STARTED (TASK-049b) | P3 |
 | Self-test results in uplink fault flags (byte 7, bits 4-7) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Button re-test clears FAULT_SELFTEST on all-pass | NOT STARTED (TASK-066) | P1 |
 | LED blink priority state machine (§2.5.1 patterns) | NOT STARTED (TASK-067) | P1 |
@@ -1000,7 +1000,7 @@ The scheduler refactor for multi-utility support is tracked in TASK-037. The cor
 | Requirement | Status |
 |-------------|--------|
 | Meter number collected during commissioning | NOT STARTED |
-| Meter number stored in device registry (`meter_number` field) | NOT STARTED (depends on TASK-036) |
+| Meter number stored in device registry (`meter_number` field) | NOT STARTED (registry deployed, field not yet populated — TASK-037) |
 | TOU schedule data model defined | DESIGNED (section 4.5.3) |
 | TOU schedule table in DynamoDB | NOT STARTED |
 | Charge scheduler reads per-device schedule from registry | NOT STARTED |
@@ -1026,43 +1026,50 @@ The scheduler refactor for multi-utility support is tracked in TASK-037. The cor
 
 Every SideCharge device needs a persistent identity in the cloud — who owns it, where it's installed, and what firmware it's running. This table is the source of truth for all device management, customer support, and fleet operations.
 
-**Device ID**: Each device gets a short, human-readable ID derived from the Sidewalk wireless device UUID. Format: `SC-` followed by the first 8 hex characters of the SHA-256 hash of the UUID (e.g., `SC-a3f7c021`). This gives ~4 billion unique values — more than enough for any realistic fleet — while being short enough to print on a device label, read over the phone to support, or type into a search box. The full Sidewalk UUID is stored in the registry for cross-referencing with AWS IoT Wireless.
+**Device ID**: Each device gets a short, human-readable ID derived from the Sidewalk wireless device UUID. Format: `SC-` followed by the first 8 uppercase hex characters of the SHA-256 hash of the UUID (e.g., `SC-C014EA63`). This gives ~4 billion unique values — more than enough for any realistic fleet — while being short enough to print on a device label, read over the phone to support, or type into a search box. The full Sidewalk UUID is stored in the registry for cross-referencing with AWS IoT Wireless.
 
 **Location**: The RAK4631 has no GPS or location hardware. Device location is provided by the installer during commissioning — either a street address or lat/lon coordinates. This is the only practical approach for a fixed-installation device with no cellular or WiFi radio for network-based geolocation. The installation address also serves as the service address for the customer record.
 
+**Two-step provisioning**: The registry record is created in two stages:
+
+1. **Auto-provision (first uplink)**: The decode Lambda creates the record automatically when a device sends its first uplink. This sets the device_id, sidewalk_id, status, last_seen, app_version, and created_at. The device is immediately `active` and functional — no manual step is required for the device to start reporting telemetry and participating in demand response.
+
+2. **Installation enrichment (commissioning)**: During physical installation, the electrician provides customer and site information — owner name/email, install address, meter number. This data enables utility identification (section 4.5), customer support lookup, and fleet management. Until this step is completed, the device works but lacks the context needed for per-utility TOU scheduling.
+
 **DynamoDB Table**: `sidecharge-device-registry`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `device_id` (PK) | String | `SC-XXXXXXXX` — derived from SHA-256 of Sidewalk UUID |
-| `sidewalk_id` | String | Full Sidewalk wireless_device_id UUID |
-| `owner_name` | String | Customer name |
-| `owner_email` | String | Customer contact email |
-| `meter_number` | String | Utility electric meter number (identifies utility + rate schedule) |
-| `install_address` | String | Street address of installation |
-| `install_lat` | Number | Latitude (optional, for future map view) |
-| `install_lon` | Number | Longitude (optional, for future map view) |
-| `install_date` | String (ISO 8601) | When the electrician installed the device |
-| `installer_name` | String | Who performed the installation |
-| `provisioned_date` | String (ISO 8601) | When MFG credentials were flashed at factory |
-| `app_version` | Number | Last known app firmware version (from uplink byte 1) |
-| `last_seen` | String (ISO 8601) | Timestamp of most recent uplink |
-| `status` | String | `provisioned` → `installed` → `active` → `inactive` / `returned` |
-| `created_at` | String (ISO 8601) | Record creation time |
-| `updated_at` | String (ISO 8601) | Last modification time |
+| Field | Type | Set by | Description |
+|-------|------|--------|-------------|
+| `device_id` (PK) | String | Auto-provision | `SC-XXXXXXXX` — derived from SHA-256 of Sidewalk UUID |
+| `sidewalk_id` | String | Auto-provision | Full Sidewalk wireless_device_id UUID |
+| `status` | String | Auto-provision | `active` (on first uplink) → `inactive` / `returned` |
+| `app_version` | Number | Auto-update | Last known app firmware version (from OTA diagnostics) |
+| `last_seen` | String (ISO 8601) | Auto-update | Timestamp of most recent uplink |
+| `created_at` | String (ISO 8601) | Auto-provision | Record creation time |
+| `owner_name` | String | Installation | Customer name |
+| `owner_email` | String | Installation | Customer contact email (GSI key — omitted until set) |
+| `meter_number` | String | Installation | Utility electric meter number (identifies utility + rate schedule) |
+| `install_address` | String | Installation | Street address of installation |
+| `install_lat` | Number | Installation | Latitude (optional, for future map view) |
+| `install_lon` | Number | Installation | Longitude (optional, for future map view) |
+| `install_date` | String (ISO 8601) | Installation | When the electrician installed the device |
+| `installer_name` | String | Installation | Who performed the installation |
+
+**GSIs**: `owner_email-index` (sparse — devices without an owner are excluded, which is correct since unowned devices shouldn't appear in "my devices" queries) and `status-index` (for fleet health queries).
 
 | Requirement | Status |
 |-------------|--------|
-| DynamoDB device registry table (Terraform-managed) | NOT STARTED |
-| Device ID generation: `SC-` + first 8 hex chars of SHA-256(sidewalk_uuid) | DESIGNED |
+| DynamoDB device registry table (Terraform-managed) | IMPLEMENTED (TASK-036, TASK-049) |
+| Device ID generation: `SC-` + first 8 hex chars of SHA-256(sidewalk_uuid) | IMPLEMENTED |
+| Auto-provision on first uplink (device_id, sidewalk_id, status, last_seen) | IMPLEMENTED (TASK-049) |
+| Decode Lambda updates `last_seen` and `app_version` on every uplink | IMPLEMENTED (TASK-049) |
+| GSI on `owner_email` for "my devices" lookup (sparse) | IMPLEMENTED (TASK-036) |
+| GSI on `status` for fleet health queries | IMPLEMENTED (TASK-036) |
 | Device ID printed on device label for installer/support reference | NOT STARTED |
+| Installation enrichment tool (add owner, address, meter number) | NOT STARTED |
 | Installer provides location during commissioning | NOT STARTED |
-| Decode Lambda updates `last_seen` and `app_version` on every uplink | NOT STARTED |
-| Status lifecycle: provisioned → installed → active → inactive / returned | DESIGNED |
-| GSI on `owner_email` for "my devices" lookup | NOT STARTED |
-| GSI on `status` for fleet health queries | NOT STARTED |
 
-The decode Lambda (section 4.1) will update `last_seen` and `app_version` on every uplink by looking up the device via `sidewalk_id`. The registry is populated at two points: factory provisioning (creates the record with `device_id`, `sidewalk_id`, `provisioned_date`, status=`provisioned`) and installation (installer adds owner, address, sets status=`installed`). Status transitions to `active` on first uplink after installation.
+The decode Lambda (section 4.1) calls `get_or_create_device()` and `update_last_seen()` on every uplink (best-effort, never blocks event processing). On the first uplink from an unknown device, the record is created and the Lambda logs "Auto-provisioned device SC-XXXXXXXX". Subsequent uplinks update `last_seen` and optionally `app_version` (when the uplink is a diagnostics response). Installation fields (owner, address, meter number) are added separately during commissioning — these fields are omitted from the auto-provisioned record because DynamoDB rejects empty strings as GSI key attributes.
 
 ---
 
