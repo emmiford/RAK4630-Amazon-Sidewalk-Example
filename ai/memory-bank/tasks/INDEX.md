@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (28)
+## Open Tasks (27)
 
 ### P0 — Must-have before field install
 | ID | Status | Owner | Title | Blocked By |
@@ -34,7 +34,6 @@ Special: deferred, declined
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-029 | in progress | Eliel | Production observability | — |
 | TASK-045 | not started | Eliel | ED25519 verify library integration | — |
 | TASK-046 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
@@ -71,7 +70,7 @@ Special: deferred, declined
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | TASK-029 |
 
-## Completed Tasks (45)
+## Completed Tasks (46)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -119,6 +118,7 @@ Special: deferred, declined
 | TASK-062 | Wire up Charge Now button GPIO end-to-end | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-022 | BUG: Stale flash inflates OTA delta baselines | MERGED DONE | 2026-02-17 | Eero |
 | TASK-048 | On-device selftest verification | MERGED DONE | 2026-02-17 | Eero |
+| TASK-029 | Production observability (health digest + diagnostics) | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
