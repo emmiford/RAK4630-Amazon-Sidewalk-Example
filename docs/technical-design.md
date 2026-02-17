@@ -626,9 +626,13 @@ hardware paths are functional before the device begins normal operation.
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
 (0x80) is set in the fault flags.
 
-**Boot LED feedback**: On failure, LED 2 (red) flashes once. This is a brief
-diagnostic indicator; the production-visible feedback comes from the button-triggered
-self-test (§6.5.2) and from the FAULT_SELFTEST bit in uplinks.
+**Boot LED feedback**: On failure, the LED blink engine (§2.5.1) enters the
+**error state** (5Hz rapid flash, priority 1). This is the highest-priority LED
+pattern and overrides all other states including commissioning mode. The
+installer sees rapid flashing instead of the expected 1Hz commissioning flash
+and knows to investigate. The error pattern persists until the fault clears
+(via button re-test or reboot). FAULT_SELFTEST is also included in every
+uplink so the cloud sees the failure immediately.
 
 **Why boot-only for check 5**: The charge enable toggle test physically
 actuates the relay. This is safe at boot (relay state is undefined, no active
