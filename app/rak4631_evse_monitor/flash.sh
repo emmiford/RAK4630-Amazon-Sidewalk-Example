@@ -12,18 +12,19 @@
 set -e
 
 TARGET="nrf52840"
+PYOCD="${PYOCD:-/Users/emilyf/sidewalk-env/bin/pyocd}"
 MFG_HEX="../../mfg.hex"
 PLATFORM_HEX="../../build/merged.hex"
 APP_HEX="../../build_app/app.hex"
 
 flash_mfg() {
     echo "=== Flashing MFG (credentials) ==="
-    python3 -m pyocd flash --target $TARGET "$MFG_HEX"
+    $PYOCD flash --target $TARGET "$MFG_HEX"
 }
 
 flash_platform() {
     echo "=== Flashing Platform Image ==="
-    python3 -m pyocd flash --target $TARGET "$PLATFORM_HEX"
+    $PYOCD flash --target $TARGET "$PLATFORM_HEX"
 }
 
 warn_huk() {
@@ -46,9 +47,9 @@ warn_huk() {
 flash_app() {
     echo "=== Flashing App Image ==="
     echo "  Erasing app partition (0x90000-0xCEFFF)..."
-    python3 -m pyocd cmd -t $TARGET -c "erase 0x90000 0x3F000"
+    $PYOCD erase --target $TARGET --sector 0x90000+0x3F000
     echo "  Writing app hex..."
-    python3 -m pyocd flash --target $TARGET --no-erase "$APP_HEX"
+    $PYOCD flash --target $TARGET "$APP_HEX"
 }
 
 case "${1:-all}" in
