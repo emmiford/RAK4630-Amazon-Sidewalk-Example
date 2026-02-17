@@ -147,9 +147,11 @@ The "Charge Now" button is a physical momentary push button (not toggle) on the 
 
 1. **AC priority override**: EV charging takes priority over AC for **30 minutes**. The AC compressor call signal is blocked. When the 30-minute timer expires, any pending AC call is immediately honored. The user can press again for another 30 minutes.
 
-2. **Demand response override**: Any active delay window (TOU peak, MOER curtailment — see section 4.4) is cancelled for the same **30 minutes**. When the timer expires, the device returns to normal operation and honors the current delay window (if still active).
+2. **Demand response cancellation**: Any active delay window (TOU peak, MOER curtailment — see section 4.4) is **cancelled entirely**, not just paused. The user is opting out of demand response for the remainder of this peak window. After the 30-minute AC override expires, normal load-sharing resumes (AC has priority, EVSE yields when AC is on) — but the scheduler's delay window is not reinstated. See section 4.4.5 for the cloud-side protocol.
 
-Both overrides share the same 30-minute timer. After 30 minutes, everything returns to normal — AC priority restored, demand response honored. Simple, predictable, one timer.
+Both overrides start from the same button press but have different lifetimes:
+- **AC priority override**: 30 minutes, then AC priority restored
+- **Demand response cancellation**: remainder of the current peak window (e.g., until 9 PM for TOU)
 
 **Early cancellation**: Unplugging the car cancels both overrides immediately. The car reaching full cancels both overrides. This ensures AC isn't unduly blocked after the car is done charging.
 
@@ -902,10 +904,30 @@ The 70% threshold has not been validated against real PSCO data. A threshold too
 When the user presses "Charge Now" during an active delay window:
 
 1. The AC override activates for 30 minutes (section 2.0.1.1)
-2. The delay window is overridden for the same **30 minutes** — when the timer expires, the device returns to normal operation and honors any active delay window
-3. Unplugging the car or car reaching full cancels the override early
+2. The active delay window is **cancelled entirely** — the device deletes the stored window
+3. The device sets `FLAG_CHARGE_NOW` (bit 3) in subsequent uplinks for the duration of the 30-minute AC override
+4. Unplugging the car or car reaching full cancels the AC override early (and clears `FLAG_CHARGE_NOW`)
 
-Both overrides (AC priority and demand response) share one 30-minute timer. Simple and predictable: press the button, get 30 minutes of uninterrupted charging, then everything returns to normal.
+**After the 30-minute AC override expires:**
+- AC priority is restored (AC can pause EVSE when compressor calls)
+- Normal load-sharing resumes — EVSE and AC share the breaker per the standard interlock rules
+- The scheduler's delay window is **not reinstated** — the user has opted out of demand response for this peak window
+
+**Cloud-side protocol:**
+1. The decode Lambda sees `FLAG_CHARGE_NOW=1` in an uplink
+2. It writes `charge_now_override_until` to the scheduler sentinel (`timestamp=0`), set to the end of the current peak window (e.g., 9 PM for TOU peak)
+3. The scheduler Lambda checks this field before sending a pause — if `now < charge_now_override_until`, it skips the downlink
+4. After the peak window ends, the field expires naturally and the scheduler resumes normal control
+
+**Example timeline (TOU peak 5-9 PM):**
+| Time | Event | EVSE | AC | Scheduler |
+|------|-------|------|----|-----------|
+| 5:00 PM | Peak starts, scheduler sends delay window | Paused | Normal | Sent pause |
+| 6:00 PM | User presses Charge Now | Charging | Suppressed | — |
+| 6:30 PM | 30-min AC override expires | Load-sharing | Priority restored | Suppressed (opt-out until 9 PM) |
+| 7:00 PM | AC calls | Yields to AC | Running | Suppressed |
+| 7:15 PM | AC satisfied | Resumes | Off | Suppressed |
+| 9:00 PM | Peak ends | Normal | Normal | Evaluates: off-peak → allow |
 
 ### 4.5 Utility Identification and Multi-Utility Support
 
