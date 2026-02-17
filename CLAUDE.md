@@ -2,16 +2,7 @@
 
 EVSE charger monitor over Amazon Sidewalk (LoRa). RAK4631 (nRF52840 + SX1262).
 
-## Architecture: Split-Image (Platform + App)
-
-Two independent firmware images sharing flash, connected via function pointer tables:
-
-- **Platform** (576KB @ 0x00000): Generic Sidewalk sensor device runtime. Zephyr RTOS, BLE+LoRa Sidewalk stack, OTA engine, shell, hardware drivers. Knows nothing about EVSE/J1772/charging. Requires physical programmer to update.
-- **App** (4KB @ 0x90000): All EVSE domain logic — sensor interpretation, change detection, payload format, charge control, shell commands. OTA-updatable over LoRa.
-
-The contract between them is `include/platform_api.h`:
-- Platform API table at `0x8FF00` (magic `PLAT`, version 2)
-- App callback table at `0x90000` (magic `SAPP`, version 3)
+Split-image firmware: generic **platform** (576KB, physical programmer) + OTA-updatable **app** (~4KB, LoRa). For the full technical design (wire formats, state machines, memory map, OTA protocol, cloud architecture), see [`docs/technical-design.md`](docs/technical-design.md).
 
 ### Key directories
 
@@ -77,54 +68,24 @@ python3 -m pytest rak-sid/aws/tests/ -v
 
 ### All tests must pass before committing to main.
 
-## Flash Layout
-
-| Partition | Address | Size | Content |
-|-----------|---------|------|---------|
-| platform | 0x00000 | 576KB | Zephyr + Sidewalk + API table @ 0x8FF00 |
-| app primary | 0x90000 | 256KB | EVSE app (~4KB actual) |
-| ota_meta | 0xCFF00 | 256B | OTA recovery metadata |
-| ota_staging | 0xD0000 | 148KB | OTA incoming image |
-| settings | 0xF5000 | 8KB | Zephyr settings storage |
-| hw_unique_key | 0xF7000 | 4KB | HUK for PSA crypto |
-| sidewalk | 0xF8000 | 28KB | Sidewalk session keys |
-| mfg | 0xFF000 | 4KB | Device credentials |
-
-## OTA Workflow
+## OTA Quick Reference
 
 ```
-# 0. Generate signing keypair (one-time setup)
-python3 rak-sid/aws/ota_deploy.py keygen
-
-# 1. Build app with version bump
-# 2. Capture baseline (current device firmware for delta comparison)
-python3 rak-sid/aws/ota_deploy.py baseline
-
-# 3. Deploy (builds, signs with ED25519, uploads to S3, triggers Lambda)
-python3 rak-sid/aws/ota_deploy.py deploy --build --version <N>
-# Use --unsigned to skip signing
-
-# 4. Monitor
-python3 rak-sid/aws/ota_deploy.py status
+python3 rak-sid/aws/ota_deploy.py keygen       # One-time: generate signing keypair
+python3 rak-sid/aws/ota_deploy.py baseline      # Capture current firmware for delta OTA
+python3 rak-sid/aws/ota_deploy.py deploy --build --version <N>  # Build, sign, deploy
+python3 rak-sid/aws/ota_deploy.py status        # Monitor progress
 ```
 
-Delta mode sends only changed chunks (~2-3 chunks = seconds). Full mode sends all ~276 chunks (~69 min).
-
-### OTA Image Signing
-Firmware is signed with ED25519 before upload. The 64-byte signature is appended to app.bin. The device verifies the signature after CRC32 validation, before applying. Key management:
-- Private key: `~/.sidecharge/ota_signing.key` (developer machine, never committed)
-- Public key: 32-byte constant in `src/ota_signing.c` (compiled into platform firmware)
-- Key rotation requires platform reflash (acceptable for small fleet)
+For OTA protocol details, state machine, and recovery procedures, see [TDD §5](docs/technical-design.md#5-ota-system).
 
 ## AWS Infrastructure
 
-All changes via Terraform (`aws/terraform/`). Never use `aws lambda update-function-code` directly.
+All changes via Terraform. Never use `aws lambda update-function-code` directly.
 
 ```
 cd rak-sid/aws/terraform && terraform apply
 ```
-
-Components: IoT Wireless (Sidewalk), 3 Lambdas, DynamoDB (`sidewalk-v1-device_events_v2`), S3 (`evse-ota-firmware-dev`), EventBridge (scheduler + OTA retry), CloudWatch alarms.
 
 ## Shell Commands (on device)
 

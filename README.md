@@ -33,6 +33,8 @@ The two images communicate via function pointer tables defined in [`include/plat
 - **Platform API** at `0x8FF00` — services the app can call (ADC, GPIO, Sidewalk send, timers, logging)
 - **App callbacks** at `0x90000` — hooks the platform calls into (init, on_timer, on_msg_received, shell commands)
 
+For wire formats, state machines, memory map, and protocol details, see [`docs/technical-design.md`](docs/technical-design.md).
+
 ## Prerequisites
 
 - [nRF Connect SDK v2.9.1](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/getting_started.html) via nrfutil toolchain-manager
@@ -112,34 +114,15 @@ python3 -m pytest aws/tests/ -v
 pytest tests/integration/ -v --serial-port /dev/cu.usbmodem101
 ```
 
-## Flash Memory Map
-
-| Partition | Address | Size | Content |
-|-----------|---------|------|---------|
-| platform | `0x00000` | 576KB | Zephyr + Sidewalk + API table |
-| app primary | `0x90000` | 256KB | EVSE app (~4KB actual) |
-| ota_meta | `0xCFF00` | 256B | OTA recovery metadata |
-| ota_staging | `0xD0000` | 148KB | OTA incoming image |
-| settings | `0xF5000` | 8KB | Zephyr settings |
-| sidewalk | `0xF8000` | 28KB | Sidewalk session keys |
-| mfg | `0xFF000` | 4KB | Device credentials |
-
 ## OTA Updates
 
-The app partition can be updated over-the-air via Sidewalk LoRa:
-
 ```shell
-# Capture baseline of current device firmware
-python3 aws/ota_deploy.py baseline
-
-# Build, upload to S3, trigger OTA
-python3 aws/ota_deploy.py deploy --build --version <N>
-
-# Monitor progress
-python3 aws/ota_deploy.py status
+python3 aws/ota_deploy.py baseline                           # Capture current firmware
+python3 aws/ota_deploy.py deploy --build --version <N>       # Build, sign, deploy
+python3 aws/ota_deploy.py status                             # Monitor progress
 ```
 
-Delta mode compares against a stored baseline and sends only changed chunks (typically 2-3 chunks, completes in seconds). Full mode sends all ~276 chunks (~69 minutes at LoRa rates).
+Delta mode sends only changed chunks (~seconds). Full mode sends all ~276 chunks (~69 min). See [`docs/technical-design.md`](docs/technical-design.md) for the OTA protocol, flash memory map, and recovery details.
 
 ## Shell Commands
 
