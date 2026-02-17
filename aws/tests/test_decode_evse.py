@@ -349,6 +349,106 @@ class TestDecodeV07Payload:
         assert result["device_timestamp_epoch"] == 1000
 
 
+# --- v0x08 payload decoding (12 bytes, no heat flag) ---
+
+class TestDecodeV08Payload:
+    def _make_v08(self, j1772=1, voltage=0, current=0, flags=0, timestamp=0):
+        """Helper: build a 12-byte v0x08 payload."""
+        return bytes([
+            0xE5, 0x08, j1772,
+            voltage & 0xFF, (voltage >> 8) & 0xFF,
+            current & 0xFF, (current >> 8) & 0xFF,
+            flags,
+            timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+            (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+        ])
+
+    def test_v08_basic_decode(self):
+        """12-byte v0x08 payload decodes correctly."""
+        raw = self._make_v08(j1772=3, voltage=1489, current=15000,
+                             flags=0x06, timestamp=86400)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result is not None
+        assert result["version"] == 0x08
+        assert result["j1772_state_code"] == 3
+        assert result["pilot_voltage_mv"] == 1489
+        assert result["current_ma"] == 15000
+        assert result["device_timestamp_epoch"] == 86400
+
+    def test_v08_no_heat_flag(self):
+        """v0x08 does not include thermostat_heat in decoded output."""
+        raw = self._make_v08(flags=0x03)  # bit 0 set, but reserved in v0x08
+        result = decode.decode_raw_evse_payload(raw)
+        assert "thermostat_heat" not in result
+        assert result["thermostat_cool"] is True
+
+    def test_v08_thermostat_bits_only_bit1(self):
+        """v0x08 thermostat_bits should only include bit 1 (cool)."""
+        raw = self._make_v08(flags=0x03)  # bits 0+1 set
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_bits"] == 0x02  # Only cool bit
+
+    def test_v08_cool_flag(self):
+        """v0x08 cool flag decodes from bit 1."""
+        raw = self._make_v08(flags=0x02)  # cool only
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_cool"] is True
+        assert result["thermostat_bits"] == 0x02
+
+    def test_v08_no_cool(self):
+        """v0x08 with no cool flag."""
+        raw = self._make_v08(flags=0x00)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_cool"] is False
+        assert result["thermostat_bits"] == 0x00
+
+    def test_v08_charge_allowed(self):
+        """v0x08 charge_allowed still works."""
+        raw = self._make_v08(flags=0x04)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["charge_allowed"] is True
+
+    def test_v08_all_flags_except_heat(self):
+        """v0x08 all flags: cool + charge_allowed + charge_now + faults."""
+        raw = self._make_v08(flags=0xFE)  # all bits except bit 0
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_cool"] is True
+        assert result["charge_allowed"] is True
+        assert result["charge_now"] is True
+        assert result["fault_sensor"] is True
+        assert result["fault_clamp_mismatch"] is True
+        assert result["fault_interlock"] is True
+        assert result["fault_selftest_fail"] is True
+        assert "thermostat_heat" not in result
+
+    def test_v08_timestamp(self):
+        """v0x08 timestamp works same as v0x07."""
+        raw = self._make_v08(timestamp=86400)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["device_timestamp_epoch"] == 86400
+        assert result["device_timestamp_unix"] == 86400 + decode.SIDECHARGE_EPOCH_OFFSET
+
+    def test_v08_via_b64(self):
+        """v0x08 payload through full base64 decode pipeline."""
+        raw = self._make_v08(j1772=2, voltage=2234, timestamp=1000)
+        result = decode.decode_payload(encode_b64(raw))
+        assert result["payload_type"] == "evse"
+        assert result["version"] == 0x08
+        assert "thermostat_heat" not in result
+
+    def test_v07_backward_compat_still_has_heat(self):
+        """v0x07 payloads still include thermostat_heat for backward compat."""
+        raw = bytes([
+            0xE5, 0x07, 0x01,
+            0x00, 0x00, 0x00, 0x00,
+            0x01,  # heat flag set
+            0x00, 0x00, 0x00, 0x00,
+        ])
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_heat"] is True
+        assert result["thermostat_bits"] == 0x01
+
+
 # --- Diagnostics payload decoding (0xE6) ---
 
 class TestDecodeDiagPayload:

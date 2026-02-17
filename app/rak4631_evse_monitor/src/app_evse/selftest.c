@@ -14,7 +14,6 @@
 
 /* GPIO pin indices — must match platform board-level mapping */
 #define EVSE_PIN_CHARGE_EN  0
-#define EVSE_PIN_HEAT       1
 #define EVSE_PIN_COOL       2
 
 /* Continuous monitoring thresholds */
@@ -74,7 +73,6 @@ int selftest_boot(selftest_boot_result_t *result)
 
 	result->adc_pilot_ok = false;
 	result->adc_current_ok = false;
-	result->gpio_heat_ok = false;
 	result->gpio_cool_ok = false;
 	result->charge_en_ok = false;
 	result->all_pass = false;
@@ -85,13 +83,10 @@ int selftest_boot(selftest_boot_result_t *result)
 	/* 2. ADC current channel readable */
 	result->adc_current_ok = (api->adc_read_mv(1) >= 0);
 
-	/* 3. GPIO heat input readable */
-	result->gpio_heat_ok = (api->gpio_get(EVSE_PIN_HEAT) >= 0);
-
-	/* 4. GPIO cool input readable */
+	/* 3. GPIO cool input readable */
 	result->gpio_cool_ok = (api->gpio_get(EVSE_PIN_COOL) >= 0);
 
-	/* 5. Toggle-and-verify on charge enable pin:
+	/* 4. Toggle-and-verify on charge enable pin:
 	 *    Save current → set 1 → readback → set 0 → readback → restore */
 	int saved = api->gpio_get(EVSE_PIN_CHARGE_EN);
 	bool toggle_ok = true;
@@ -115,7 +110,6 @@ int selftest_boot(selftest_boot_result_t *result)
 	/* Overall result */
 	result->all_pass = result->adc_pilot_ok &&
 			   result->adc_current_ok &&
-			   result->gpio_heat_ok &&
 			   result->gpio_cool_ok &&
 			   result->charge_en_ok;
 
@@ -246,7 +240,6 @@ int selftest_run_shell(void (*print)(const char *, ...),
 
 	print("  ADC pilot:     %s", result.adc_pilot_ok ? "PASS" : "FAIL");
 	print("  ADC current:   %s", result.adc_current_ok ? "PASS" : "FAIL");
-	print("  GPIO heat:     %s", result.gpio_heat_ok ? "PASS" : "FAIL");
 	print("  GPIO cool:     %s", result.gpio_cool_ok ? "PASS" : "FAIL");
 	print("  Charge enable: %s", result.charge_en_ok ? "PASS" : "FAIL");
 

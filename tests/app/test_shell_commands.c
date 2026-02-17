@@ -325,35 +325,20 @@ void test_hvac_status_returns_zero(void)
 
 void test_hvac_status_prints_flags(void)
 {
-	mock_gpio_values[1] = 1; /* heat on */
 	mock_gpio_values[2] = 0; /* cool off */
 
 	app_cb.on_shell_cmd("hvac", "status", capture_print, capture_error);
 
 	TEST_ASSERT_TRUE(print_output_contains("Thermostat flags"));
-	TEST_ASSERT_TRUE(print_output_contains("Heat"));
 	TEST_ASSERT_TRUE(print_output_contains("Cool"));
-}
-
-void test_hvac_status_heat_on(void)
-{
-	mock_gpio_values[1] = 1; /* heat on */
-	mock_gpio_values[2] = 0; /* cool off */
-
-	app_cb.on_shell_cmd("hvac", "status", capture_print, capture_error);
-
-	TEST_ASSERT_TRUE(print_output_contains("Heat: ON"));
-	TEST_ASSERT_TRUE(print_output_contains("Cool: OFF"));
 }
 
 void test_hvac_status_cool_on(void)
 {
-	mock_gpio_values[1] = 0; /* heat off */
 	mock_gpio_values[2] = 1; /* cool on */
 
 	app_cb.on_shell_cmd("hvac", "status", capture_print, capture_error);
 
-	TEST_ASSERT_TRUE(print_output_contains("Heat: OFF"));
 	TEST_ASSERT_TRUE(print_output_contains("Cool: ON"));
 }
 
@@ -495,7 +480,6 @@ int main(void)
 	/* hvac status */
 	RUN_TEST(test_hvac_status_returns_zero);
 	RUN_TEST(test_hvac_status_prints_flags);
-	RUN_TEST(test_hvac_status_heat_on);
 	RUN_TEST(test_hvac_status_cool_on);
 	RUN_TEST(test_hvac_null_args_shows_status);
 	RUN_TEST(test_hvac_call_alias_shows_status);

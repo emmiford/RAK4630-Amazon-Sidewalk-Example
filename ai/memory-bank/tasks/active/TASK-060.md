@@ -1,9 +1,9 @@
 # TASK-060: Uplink payload v0x08 — reserve heat flag, keep pilot voltage
 
-**Status**: planned
+**Status**: in progress (2026-02-17, Eliel) — implementation committed, ready for merge
 **Priority**: P1
 **Owner**: Eliel
-**Branch**: task/060-uplink-v08-docs (doc updates committed; implementation TBD)
+**Branch**: task/060-uplink-v08
 **Size**: M (5 points)
 
 ## Description

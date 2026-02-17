@@ -14,12 +14,11 @@ extern "C" {
 
 struct platform_api;  /* forward declaration */
 
-#define THERMOSTAT_FLAG_HEAT    (1 << 0)
+/* Bit 0 reserved (heat call wired but unused in v1.0) */
 #define THERMOSTAT_FLAG_COOL    (1 << 1)
 
 void thermostat_inputs_set_api(const struct platform_api *platform);
 int thermostat_inputs_init(void);
-bool thermostat_heat_call_get(void);
 bool thermostat_cool_call_get(void);
 uint8_t thermostat_flags_get(void);
 

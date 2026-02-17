@@ -1,10 +1,12 @@
 """
 Lambda function to decode EVSE Sidewalk sensor data.
 
-Supports three payload formats:
-1. v0x07 raw format (12 bytes): Magic 0xE5, J1772, voltage, current, flags+control, timestamp
-2. v0x06 raw format (8 bytes): Magic 0xE5, J1772, voltage, current, thermostat+faults
-3. Legacy sid_demo format: Wrapped with demo protocol headers
+Supports four payload formats:
+1. v0x08 raw format (12 bytes): Magic 0xE5, J1772, voltage, current, flags+control, timestamp
+   (bit 0 of flags reserved — no heat flag)
+2. v0x07 raw format (12 bytes): Same layout, includes heat flag in bit 0
+3. v0x06 raw format (8 bytes): Magic 0xE5, J1772, voltage, current, thermostat+faults
+4. Legacy sid_demo format: Wrapped with demo protocol headers
 
 Extracts:
 - J1772 pilot state
@@ -123,7 +125,7 @@ def maybe_send_time_sync(device_id):
 
 def decode_raw_evse_payload(raw_bytes):
     """
-    Decode raw EVSE payload (v0x06 = 8 bytes, v0x07 = 12 bytes).
+    Decode raw EVSE payload (v0x06 = 8 bytes, v0x07/v0x08 = 12 bytes).
 
     v0x06 format (8 bytes):
       Byte 0: Magic (0xE5)
@@ -138,6 +140,10 @@ def decode_raw_evse_payload(raw_bytes):
       Byte 7: Flags — thermostat (bits 0-1) + charge_allowed (bit 2)
                + charge_now (bit 3) + faults (bits 4-7)
       Byte 8-11: SideCharge epoch timestamp (LE uint32, seconds since 2026-01-01)
+
+    v0x08 format (12 bytes):
+      Same byte layout as v0x07.
+      Bit 0 of flags is reserved (always 0) — heat call removed in v1.0.
     """
     if len(raw_bytes) < EVSE_PAYLOAD_SIZE_V06:
         return None
@@ -167,8 +173,6 @@ def decode_raw_evse_payload(raw_bytes):
         'j1772_state': J1772_STATES.get(j1772_state, 'UNKNOWN'),
         'pilot_voltage_mv': pilot_voltage,
         'current_ma': current_ma,
-        'thermostat_bits': flags_byte & 0x03,
-        'thermostat_heat': bool(flags_byte & 0x01),
         'thermostat_cool': bool(flags_byte & 0x02),
         'charge_allowed': bool(flags_byte & 0x04),
         'charge_now': bool(flags_byte & 0x08),
@@ -177,6 +181,14 @@ def decode_raw_evse_payload(raw_bytes):
         'fault_interlock': bool(flags_byte & 0x40),
         'fault_selftest_fail': bool(flags_byte & 0x80),
     }
+
+    # v0x07 and earlier: include heat flag (bit 0 was thermostat heat)
+    if version < 0x08:
+        result['thermostat_bits'] = flags_byte & 0x03
+        result['thermostat_heat'] = bool(flags_byte & 0x01)
+    else:
+        # v0x08+: bit 0 reserved (always 0), only cool in bit 1
+        result['thermostat_bits'] = flags_byte & 0x02
 
     # v0x07+: 4-byte timestamp at bytes 8-11
     if len(raw_bytes) >= EVSE_PAYLOAD_SIZE_V07:
@@ -459,11 +471,13 @@ def lambda_handler(event, context):
                 'pilot_voltage_mv': decoded['pilot_voltage_mv'],
                 'current_draw_ma': decoded['current_ma'],
                 'thermostat_bits': decoded['thermostat_bits'],
-                'thermostat_heat_active': decoded['thermostat_heat'],
                 'thermostat_cool_active': decoded['thermostat_cool'],
                 'charge_allowed': decoded.get('charge_allowed', False),
                 'charge_now': decoded.get('charge_now', False),
             }
+            # v0x07 and earlier: include heat flag (removed in v0x08)
+            if 'thermostat_heat' in decoded:
+                evse_data['thermostat_heat_active'] = decoded['thermostat_heat']
             # Include fault flags if any are set
             if any(decoded.get(f) for f in ('fault_sensor', 'fault_clamp_mismatch',
                                              'fault_interlock', 'fault_selftest_fail')):

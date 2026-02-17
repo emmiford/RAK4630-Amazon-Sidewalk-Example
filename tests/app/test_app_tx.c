@@ -1,5 +1,5 @@
 /*
- * Unit tests for app_tx.c — v0x07 payload formatting and rate-limited sending
+ * Unit tests for app_tx.c — v0x08 payload formatting and rate-limited sending
  */
 
 #include "unity.h"
@@ -49,10 +49,10 @@ void test_send_encodes_magic_0xE5(void)
 	TEST_ASSERT_EQUAL_UINT8(0xE5, mock_last_send_buf[0]);
 }
 
-void test_send_encodes_version_0x07(void)
+void test_send_encodes_version_0x08(void)
 {
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL_UINT8(0x07, mock_last_send_buf[1]);
+	TEST_ASSERT_EQUAL_UINT8(0x08, mock_last_send_buf[1]);
 }
 
 void test_send_12_bytes(void)
@@ -132,14 +132,13 @@ void test_current_little_endian(void)
 
 /* --- Flags byte (byte 7) --- */
 
-void test_thermostat_flags_in_byte7_bits_0_1(void)
+void test_thermostat_flags_in_byte7_bit_1(void)
 {
-	mock_gpio_values[1] = 1; /* heat */
 	mock_gpio_values[2] = 1; /* cool */
 	mock_adc_values[0] = 3000;
 
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL_UINT8(0x03, mock_last_send_buf[7] & 0x03);
+	TEST_ASSERT_EQUAL_UINT8(0x02, mock_last_send_buf[7] & 0x03);
 }
 
 void test_charge_allowed_flag_bit2(void)
@@ -161,14 +160,13 @@ void test_charge_not_allowed_clears_bit2(void)
 
 void test_charge_allowed_coexists_with_thermostat(void)
 {
-	mock_gpio_values[1] = 1; /* heat */
 	mock_gpio_values[2] = 1; /* cool */
 	mock_adc_values[0] = 3000;
 	charge_control_set(true, 0);
 
 	app_tx_send_evse_data();
-	/* heat(0x01) + cool(0x02) + charge_allowed(0x04) = 0x07 */
-	TEST_ASSERT_EQUAL_UINT8(0x07, mock_last_send_buf[7] & 0x0F);
+	/* cool(0x02) + charge_allowed(0x04) = 0x06 */
+	TEST_ASSERT_EQUAL_UINT8(0x06, mock_last_send_buf[7] & 0x0F);
 }
 
 /* --- Timestamp (bytes 8-11) --- */
@@ -250,7 +248,7 @@ int main(void)
 
 	/* Payload format */
 	RUN_TEST(test_send_encodes_magic_0xE5);
-	RUN_TEST(test_send_encodes_version_0x07);
+	RUN_TEST(test_send_encodes_version_0x08);
 	RUN_TEST(test_send_12_bytes);
 	RUN_TEST(test_not_ready_skips);
 
@@ -264,7 +262,7 @@ int main(void)
 	RUN_TEST(test_current_little_endian);
 
 	/* Flags byte */
-	RUN_TEST(test_thermostat_flags_in_byte7_bits_0_1);
+	RUN_TEST(test_thermostat_flags_in_byte7_bit_1);
 	RUN_TEST(test_charge_allowed_flag_bit2);
 	RUN_TEST(test_charge_not_allowed_clears_bit2);
 	RUN_TEST(test_charge_allowed_coexists_with_thermostat);

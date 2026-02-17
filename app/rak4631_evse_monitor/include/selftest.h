@@ -29,7 +29,6 @@ struct platform_api;  /* forward declaration */
 typedef struct {
     bool adc_pilot_ok;
     bool adc_current_ok;
-    bool gpio_heat_ok;
     bool gpio_cool_ok;
     bool charge_en_ok;
     bool all_pass;
