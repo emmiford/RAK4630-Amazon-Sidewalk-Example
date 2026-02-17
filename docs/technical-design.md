@@ -699,6 +699,14 @@ daily, the wrap is not a practical concern.
 
 ### 7.3 Drift and Re-Sync
 
+The device has no battery-backed real-time clock and no internet connection — it keeps
+time by counting oscillator ticks since its last cloud sync (§7.2). Every crystal
+oscillator drifts: temperature changes, aging, and manufacturing tolerance all cause it
+to run slightly fast or slow. Left uncorrected, the timestamps on telemetry records
+would gradually diverge from wall-clock time, making it impossible to correlate charging
+events with utility TOU windows or WattTime signals in the cloud. A daily re-sync from
+the cloud resets the error to zero before it can grow large enough to matter.
+
 **nRF52840 RTC drift**: +/-100 ppm on 32.768 kHz crystal = +/-8.6 seconds/day.
 
 Re-sync triggers:
