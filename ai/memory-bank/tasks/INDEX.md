@@ -24,12 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (27)
-
-### P0 — Must-have before field install
-| ID | Status | Owner | Title | Blocked By |
-|----|--------|-------|-------|------------|
-| TASK-049 | coded | Eliel | Deploy device registry (awaiting physical verify) | — |
+## Open Tasks (26)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -49,7 +44,7 @@ Special: deferred, declined
 | TASK-026 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
-| TASK-037 | planned | Pam | Utility identification (PRD scoping done) | TASK-049 |
+| TASK-037 | planned | Pam | Utility identification (PRD scoping done) | — |
 | TASK-038 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | not started | Pam | Privacy agent | TASK-038 |
 | TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-065 |
@@ -70,7 +65,7 @@ Special: deferred, declined
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
 
-## Completed Tasks (46)
+## Completed Tasks (47)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -119,6 +114,7 @@ Special: deferred, declined
 | TASK-022 | BUG: Stale flash inflates OTA delta baselines | MERGED DONE | 2026-02-17 | Eero |
 | TASK-048 | On-device selftest verification | MERGED DONE | 2026-02-17 | Eero |
 | TASK-029 | Production observability (health digest + diagnostics) | MERGED DONE | 2026-02-17 | Eliel |
+| TASK-049 | Deploy device registry (terraform + physical verify) | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
