@@ -507,6 +507,8 @@ ED25519 signature (64 bytes) appended to `app.bin` before upload to S3.
 - On `NO_SESSION` (code 3): resend OTA_START to re-establish session, up to 3 restarts
 - After max retries or restarts: abort the OTA session
 
+In the normal flow, each chunk is self-clocking: the device receives a chunk, sends an ACK uplink (~15s round-trip), and the decode lambda immediately forwards the ACK to ota_sender, which sends the next chunk. No timer is involved. The EventBridge retry timer (fires every **1 minute**) is a safety net for lost ACKs. If `updated_at` hasn't advanced in **30 seconds** — meaning one ACK round-trip has been completely missed — the session is considered stale and the next timer tick re-sends the current chunk. So a single lost ACK costs ~1–1.5 minutes (30s staleness window + up to 60s until the next timer fires). With **5 retries** per chunk, a persistently failing chunk stalls for roughly **5–8 minutes** before the session aborts. A `NO_SESSION` restart (up to **3** allowed) re-sends `OTA_START` and resets the retry counter, so worst-case total effort for a session that keeps losing power is on the order of **20–30 minutes** before giving up entirely.
+
 ---
 
 ## 6. EVSE Domain Logic
