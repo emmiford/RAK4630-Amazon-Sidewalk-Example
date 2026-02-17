@@ -817,16 +817,16 @@ Components:
 
 ### 9.1 Pin Mapping
 
-| Abstract Pin | Physical Function | Direction | Usage |
-|-------------|-------------------|-----------|-------|
-| GPIO 0 | `charge_enable` | Output | Relay control (HIGH=allow, LOW=pause) |
-| GPIO 1 | (reserved) | Input | Reserved for future heat pump support (wired but not read in v1.0) |
-| GPIO 2 | `cool_call` | Input | Thermostat cool demand |
+| Abstract Pin | nRF52840 Pin | Physical Function | Direction | Usage |
+|-------------|-------------|-------------------|-----------|-------|
+| GPIO 0 | P0.06 | `charge_enable` | Output | Relay control (HIGH=allow, LOW=pause) |
+| GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand (pull-down, active-high) |
+| GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand (pull-down, active-high) |
 
-| ADC Channel | Function | Range | Calibration |
-|-------------|----------|-------|-------------|
-| 0 | J1772 pilot voltage | 0–3300 mV | Direct millivolt reading |
-| 1 | Current clamp output | 0–3300 mV | Linear: 0mV=0A, 3300mV=30A |
+| ADC Channel | nRF52840 Pin | Function | Range | Calibration |
+|-------------|-------------|----------|-------|-------------|
+| 0 | P0.02 (AIN0) | J1772 pilot voltage | 0–3300 mV | Direct millivolt reading |
+| 1 | P0.03 (AIN1) | Current clamp output | 0–3300 mV | Linear: 0mV=0A, 3300mV=30A |
 
 ### 9.2 Flash Constraints
 
@@ -840,7 +840,10 @@ Components:
 
 - **LoRa only**: BLE disabled for EVSE monitor (`CONFIG_SIDEWALK_LINK_MASK_LORA=y`)
 - **Downlink MTU**: 19 bytes (larger payloads silently dropped)
-- **TCXO**: RAK4631's SX1262 has an external TCXO enabled via DIO3 pin (1.8V, 2ms startup).
+- **TCXO**: The RAK4631's SX1262 uses an external temperature-compensated crystal oscillator
+  (TCXO) for stable LoRa frequency synthesis. The TCXO is powered via the SX1262's DIO3 pin
+  (1.8V, 2ms startup). The Sidewalk SDK defaults to `SX126X_TCXO_CTRL_NONE` (plain crystal),
+  so without the patch the TCXO never powers on and LoRa silently fails.
   Applied via west patch: `0001-sidewalk-rak4631-tcxo-settings.patch`
 
 ---
@@ -973,6 +976,10 @@ Built on Nordic nRF Connect SDK v2.9.1 with the Sidewalk add-on.
 - App layer: entirely custom (1,719 lines across 11 modules)
 
 **Patch**: `0001-sidewalk-rak4631-tcxo-settings.patch` (40 lines, applied via `west patch`)
+- **Why**: The SDK hardcodes `SX126X_TCXO_CTRL_NONE` in `app_subGHz_config.c`, assuming a
+  plain crystal. The RAK4631 has an external TCXO that must be powered via DIO3 — without
+  this patch, the radio has no clock and LoRa TX/RX fails silently. No Kconfig option exists
+  for this setting, so a source patch is the only option.
 - Enables TCXO control via DIO3 for RAK4631's SX1262
 - Sets 1.8V control voltage and 2ms startup timeout
 - Board-conditional (`#if defined(CONFIG_BOARD_RAK4631)`)
