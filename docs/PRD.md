@@ -724,13 +724,15 @@ The timestamp uses a SideCharge-specific epoch (2026-01-01) rather than Unix epo
 
 #### 3.2.2 Device-Side Event Buffer
 
-The device maintains a **ring buffer** of timestamped state snapshots in RAM. Each entry is the 12-byte uplink payload. The buffer is fixed-size (e.g., 50 entries = 600 bytes from the app's 8KB RAM budget), enough for ~12 hours of 15-minute heartbeats.
+The device maintains a **ring buffer of 50 state-change snapshots** in RAM (50 × 12 bytes = 600 bytes from the app's 8KB budget). A snapshot is written only when device state actually changes — J1772 pilot state, charge control (pause/allow), thermostat flags, or current on/off transitions. Steady-state polls (every 500ms) do not write to the buffer.
 
-On each uplink, the device sends the **most recent** state snapshot. The cloud ACKs received data by piggybacking a watermark timestamp on the next downlink (see TIME_SYNC command, section 3.3). The device drops all buffer entries at or before the ACK'd timestamp.
+Under normal operation an EVSE sees ~5-10 state transitions per day (vehicle plug/unplug, charging start/stop, TOU pause/resume), so 50 entries comfortably covers **multiple days** of history. In pathological cases (rapid state bouncing from a wiring fault), the buffer fills faster — but the most recent transitions are the diagnostically valuable ones.
 
-If no ACK arrives, the ring buffer wraps and overwrites the oldest entries. This is acceptable — if the cloud hasn't ACK'd in hours, old data is less valuable than current state.
+On each uplink, the device sends the **most recent** state. The cloud ACKs received data by piggybacking a watermark timestamp on the next downlink (see TIME_SYNC command, section 3.3). The device drops all buffer entries at or before the ACK'd timestamp.
 
-This pattern is a simplified version of **TCP's cumulative ACK with a sliding window**: the device keeps data until the cloud confirms receipt, then trims. No retransmission, no sequencing, no gap detection. The cloud reconstructs a timeline from periodic snapshots, tolerating LoRa drops as gaps rather than trying to fill them.
+If no ACK arrives, the ring buffer wraps and overwrites the oldest entries. This is acceptable — current state is more valuable than stale data.
+
+This pattern is a simplified version of **TCP's cumulative ACK with a sliding window**: the device keeps data until the cloud confirms receipt, then trims. No retransmission, no sequencing, no gap detection. See ADR-002 for the design rationale.
 
 ### 3.3 Downlink (Cloud to Device)
 
@@ -1723,7 +1725,7 @@ We name our limitations. This table is the honest accounting of what is missing 
 | No OTA image signing | CRC32 only — compromised S3 could push malicious firmware | TASK-031 |
 | No cloud command authentication | Downlinks are encrypted in transit but not signed — no per-command authenticity | TASK-032 |
 | No device-side timestamps | Device has no wall-clock time; cloud infers timing from uplink arrival. Need TIME_SYNC downlink. | TASK-033 |
-| No device-side event buffer | State changes between uplinks are lost if LoRa drops the message. Need ring buffer + ACK watermark. | TASK-034 |
+| ~~No device-side event buffer~~ | ~~RESOLVED~~ — Ring buffer of 50 state-change snapshots with ACK watermark trimming. Writes on state change only (not every poll cycle), covering multiple days under normal operation. See ADR-004. | TASK-034 (done) |
 | Uplink payload missing timestamp and control flags | Current 8-byte payload has no timestamp, no charge_control state, no Charge Now flag. Need v0x07 format. | TASK-035 |
 | No device registry or fleet identity | No way to track which customer owns which device, where it's installed, or its current firmware/liveness | TASK-036 |
 | No per-device utility identification | Charge scheduler hardcodes Xcel Colorado; can't support multiple utilities without per-device config | TASK-037 |

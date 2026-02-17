@@ -34,3 +34,4 @@ What other approaches were evaluated?
 | [001](001-version-mismatch-hard-stop.md) | API version mismatch is a hard stop | Accepted | 2026-02-11 |
 | [002](002-time-sync-second-resolution.md) | Time sync uses second resolution in a 4-byte field | Accepted | 2026-02-16 |
 | [003](003-charge-now-cancels-demand-response.md) | Charge Now cancels demand response window | Accepted | 2026-02-16 |
+| [004](004-event-buffer-state-changes.md) | Event buffer records state changes, not poll cycles | Accepted | 2026-02-16 |

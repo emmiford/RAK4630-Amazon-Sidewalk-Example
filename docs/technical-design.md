@@ -633,11 +633,12 @@ Fault flags are OR'd into byte 5 (bits 4-7) of every uplink.
 
 ### 6.6 Event Buffer
 
-Ring buffer of 50 timestamped EVSE state snapshots. RAM-only (no flash persistence).
+Ring buffer of 50 timestamped state-change snapshots. RAM-only (no flash persistence).
 
 ```c
-struct event_snapshot {           /* 10 bytes */
+struct event_snapshot {           /* 12 bytes */
     uint32_t timestamp;           /* SideCharge epoch */
+    uint16_t pilot_voltage_mv;    /* J1772 pilot voltage (for field debugging) */
     uint16_t current_ma;
     uint8_t  j1772_state;         /* 0-6 */
     uint8_t  thermostat_flags;
@@ -646,9 +647,12 @@ struct event_snapshot {           /* 10 bytes */
 };
 ```
 
-**RAM cost**: 50 x 10 = 500 bytes + 6 bytes overhead = **506 bytes** (6.2% of 8KB budget)
+**RAM cost**: 50 x 12 = 600 bytes (7.3% of 8KB budget)
 
-**Write**: A snapshot is added on every 500ms poll cycle (`event_buffer_add()`).
+**Write**: A snapshot is added only on **state change** — J1772 pilot state, charge
+control state (pause/allow), thermostat flags, or current on/off transitions. Steady-state
+polls do not write to the buffer. Under normal operation (~5-10 events/day), 50 entries
+covers multiple days of history. See ADR-004.
 
 **Trim**: When a TIME_SYNC downlink arrives with an ACK watermark,
 `event_buffer_trim(watermark)` removes all entries with `timestamp <= watermark`.
@@ -656,10 +660,8 @@ Entries are time-ordered, so trimming walks from the tail forward and stops at t
 first entry newer than the watermark.
 
 **Overflow**: When count reaches capacity (50) and a new write arrives, the oldest entry
-is overwritten. This is the designed overflow strategy — if the cloud hasn't ACK'd in
-hours, old data is less valuable than current state.
-
-**Capacity**: At 15-minute heartbeat intervals, 50 entries cover ~12.5 hours.
+is overwritten. In pathological cases (rapid state bouncing from a wiring fault), the
+buffer fills quickly — but the most recent transitions are the diagnostically valuable ones.
 
 ---
 
