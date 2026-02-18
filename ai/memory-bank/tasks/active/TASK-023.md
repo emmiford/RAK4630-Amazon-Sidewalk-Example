@@ -54,6 +54,14 @@ The charge_scheduler used `transmit_mode=0` (best-effort), meaning downlinks cou
 - [x] All LoRa downlinks decrypt without error after MFG → platform → app flash (was already true — BLE noise was a red herring)
 - [x] KI-002 updated with complete resolution distinguishing HUK mismatch from BLE noise
 
+### On-device verification (Eero, 2026-02-17)
+
+Live serial monitoring confirmed LoRa crypto is healthy:
+- 7/7 uplinks received TIME_SYNC responses (decrypted OK)
+- -149 errors occur ~every 2 min, always 5ms before a successful `Received message:` — BLE noise on a different link layer
+- No missed LoRa downlinks observed in 7-minute monitoring window
+- 381 automated tests pass (246 Python + 135 C)
+
 ## Deliverables
 
 ### Original close (2026-02-11)
