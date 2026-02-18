@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (32)
+## Open Tasks (31)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -32,7 +32,6 @@ Special: deferred, declined
 | TASK-046 | not started | Eero | Signed OTA E2E verification | — |
 | TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
 | TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
-| TASK-063 | committed | Eliel | Delay window support (device + cloud) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -70,7 +69,7 @@ Special: deferred, declined
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (51)
+## Completed Tasks (52)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -124,6 +123,7 @@ Special: deferred, declined
 | TASK-045 | ED25519 verify library integration | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-066 | Button re-test clears FAULT_SELFTEST on all-pass | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-067 | LED blink priority state machine (PRD §2.5.1) | MERGED DONE | 2026-02-17 | Eliel |
+| TASK-063 | Delay window support (device + cloud) | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
