@@ -213,7 +213,7 @@ def send_charge_command(allowed):
     """
     payload_bytes = bytes([CHARGE_CONTROL_CMD, 0x01 if allowed else 0x00, 0x00, 0x00])
     print(f"Sending legacy downlink: allowed={allowed}, payload={payload_bytes.hex()}")
-    send_sidewalk_msg(payload_bytes, transmit_mode=0)
+    send_sidewalk_msg(payload_bytes, transmit_mode=1)
 
 
 def send_delay_window(start_sc, end_sc):
@@ -230,7 +230,7 @@ def send_delay_window(start_sc, end_sc):
     struct.pack_into("<I", payload, 6, end_sc)
     print(f"Sending delay window: start={start_sc} end={end_sc} "
           f"(duration={end_sc - start_sc}s), payload={payload.hex()}")
-    send_sidewalk_msg(bytes(payload), transmit_mode=0)
+    send_sidewalk_msg(bytes(payload), transmit_mode=1)
 
 
 # --- Handler ---

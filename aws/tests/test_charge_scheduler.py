@@ -99,11 +99,11 @@ class TestSendChargeCommand:
         payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
         assert payload == bytes([0x10, 0x00, 0x00, 0x00])
 
-    def test_transmit_mode_zero(self):
-        """Charge commands use transmit_mode=0 (confirmed downlink)."""
+    def test_transmit_mode_reliable(self):
+        """Charge commands use transmit_mode=1 (reliable delivery)."""
         mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
         sched.send_charge_command(True)
-        assert mock_sidewalk_utils.send_sidewalk_msg.call_args[1]["transmit_mode"] == 0
+        assert mock_sidewalk_utils.send_sidewalk_msg.call_args[1]["transmit_mode"] == 1
 
 
 # --- Delay window downlink format ---
@@ -122,10 +122,11 @@ class TestSendDelayWindow:
         assert start == 1000
         assert end == 2000
 
-    def test_window_transmit_mode_zero(self):
+    def test_window_transmit_mode_reliable(self):
+        """Delay window commands use transmit_mode=1 (reliable delivery)."""
         mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
         sched.send_delay_window(1000, 2000)
-        assert mock_sidewalk_utils.send_sidewalk_msg.call_args[1]["transmit_mode"] == 0
+        assert mock_sidewalk_utils.send_sidewalk_msg.call_args[1]["transmit_mode"] == 1
 
     def test_window_large_epoch_values(self):
         """SideCharge epoch values can be large 32-bit numbers."""
