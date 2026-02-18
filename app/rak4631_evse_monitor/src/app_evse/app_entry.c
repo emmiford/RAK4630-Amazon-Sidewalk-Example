@@ -22,6 +22,7 @@
 #include <selftest_trigger.h>
 #include <time_sync.h>
 #include <event_buffer.h>
+#include <led_engine.h>
 #include <string.h>
 
 static const struct platform_api *api;
@@ -30,10 +31,12 @@ static const struct platform_api *api;
 /*  Polling and change detection                                       */
 /* ------------------------------------------------------------------ */
 
-#define POLL_INTERVAL_MS        500
+#define POLL_INTERVAL_MS        100
+#define SENSOR_DECIMATION       5
 #define HEARTBEAT_INTERVAL_MS   60000
 #define CURRENT_ON_THRESHOLD_MA 500
 
+static uint8_t decimation_counter;
 static j1772_state_t last_j1772_state;
 static bool last_current_on;
 static uint8_t last_thermostat_flags;
@@ -110,6 +113,8 @@ static int app_init(const struct platform_api *platform)
 	event_buffer_init();
 	selftest_trigger_set_send_fn(app_tx_send_evse_data);
 	selftest_trigger_init();
+	led_engine_set_api(api);
+	led_engine_init();
 
 	/* Boot self-test (reset first — split-image arch has no C runtime BSS init) */
 	selftest_reset();
@@ -153,6 +158,7 @@ static void app_on_msg_sent(uint32_t msg_id)
 	if (api) {
 		api->log_inf("Message %u sent OK", msg_id);
 	}
+	led_engine_notify_uplink_sent();
 }
 
 static void app_on_send_error(uint32_t msg_id, int error)
@@ -168,6 +174,16 @@ static void app_on_timer(void)
 		return;
 	}
 
+	/* LED engine ticks every 100ms (every call) */
+	led_engine_tick();
+
+	/* All other logic runs at the original 500ms rate */
+	decimation_counter++;
+	if (decimation_counter < SENSOR_DECIMATION) {
+		return;
+	}
+	decimation_counter = 0;
+
 	/* Check auto-resume timer */
 	charge_control_tick();
 
@@ -180,7 +196,9 @@ static void app_on_timer(void)
 	/* J1772 pilot state */
 	j1772_state_t state;
 	uint16_t voltage_mv = 0;
-	if (evse_j1772_state_get(&state, &voltage_mv) == 0) {
+	int adc_ret = evse_j1772_state_get(&state, &voltage_mv);
+	led_engine_report_adc_result(adc_ret == 0);
+	if (adc_ret == 0) {
 		if (state != last_j1772_state) {
 			api->log_inf("J1772: %s -> %s (%d mV)",
 				     j1772_state_to_string(last_j1772_state),
