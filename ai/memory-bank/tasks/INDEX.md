@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (23)
+## Open Tasks (22)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -43,7 +43,6 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
-| TASK-075 | coded | Eero | On-device delay window verification | — |
 | TASK-084 | not started | Eliel | Populate registry app_version from diagnostics responses | — |
 
 ### P3 — Nice-to-have
@@ -60,7 +59,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (60)
+## Completed Tasks (61)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -124,6 +123,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-071 | Scheduler sentinel divergence detection | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-073 | Automate remote diagnostic queries from health digest | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-046 | Signed OTA E2E verification | MERGED DONE | 2026-02-18 | Eero |
+| TASK-075 | On-device delay window verification | MERGED DONE | 2026-02-18 | Eero |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
