@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -35,7 +35,6 @@ Special: deferred, declined
 | TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
 | TASK-063 | not started | Eliel | Delay window support (device + cloud) | — |
 | TASK-066 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | — |
-| TASK-067 | committed | Eliel | LED blink priority state machine (PRD §2.5.1) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -64,7 +63,7 @@ Special: deferred, declined
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
 
-## Completed Tasks (48)
+## Completed Tasks (49)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -115,6 +114,7 @@ Special: deferred, declined
 | TASK-029 | Production observability (health digest + diagnostics) | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-049 | Deploy device registry (terraform + physical verify) | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-060 | Uplink payload v0x08 — reserve heat flag, keep pilot voltage | MERGED DONE | 2026-02-17 | Eliel |
+| TASK-067 | LED blink priority state machine (PRD §2.5.1) | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
