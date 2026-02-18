@@ -29,7 +29,7 @@ Special: deferred, declined
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-046 | not started | Eero | Signed OTA E2E verification | — |
+| TASK-046 | coded | Eero | Signed OTA E2E verification (E2E PASS) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -44,8 +44,8 @@ Special: deferred, declined
 | TASK-064 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | — |
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
-| TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
-| TASK-075 | not started | — | On-device delay window verification | — |
+| TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
+| TASK-075 | coded | Eero | On-device delay window verification | — |
 | TASK-084 | not started | Eliel | Populate registry app_version from diagnostics responses | — |
 
 ### P3 — Nice-to-have
