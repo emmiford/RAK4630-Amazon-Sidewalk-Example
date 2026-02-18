@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -38,12 +38,11 @@ Special: deferred, declined
 | TASK-026 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
-| TASK-048b | committed | Eliel | Charge Now 30-min latch (ADR-003) | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
-| TASK-064 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | TASK-048b |
+| TASK-064 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | — |
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
@@ -64,7 +63,7 @@ Special: deferred, declined
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (57)
+## Completed Tasks (58)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -124,6 +123,7 @@ Special: deferred, declined
 | TASK-038 | Data privacy — policy + retention + CCPA | MERGED DONE | 2026-02-17 | Pam |
 | TASK-042 | Privacy agent | MERGED DONE | 2026-02-17 | Pam |
 | TASK-047 | On-device verification (TIME_SYNC + buffer + v0x08) | MERGED DONE | 2026-02-17 | Eero |
+| TASK-048b | Charge Now 30-min latch (ADR-003) | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-071 | Scheduler sentinel divergence detection | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
