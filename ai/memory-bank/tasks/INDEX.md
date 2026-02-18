@@ -24,14 +24,13 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (28)
+## Open Tasks (27)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-023 | REOPENED | — | PSA crypto -149 bug (intermittent on async downlinks) | — |
 | TASK-046 | not started | Eero | Signed OTA E2E verification | — |
-| TASK-047 | in progress | Eero | On-device verification (TIME_SYNC + buffer + v0x08) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -66,7 +65,7 @@ Special: deferred, declined
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (55)
+## Completed Tasks (56)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -125,6 +124,7 @@ Special: deferred, declined
 | TASK-037 | Utility identification (PRD scoping done) | MERGED DONE | 2026-02-17 | Pam |
 | TASK-038 | Data privacy — policy + retention + CCPA | MERGED DONE | 2026-02-17 | Pam |
 | TASK-042 | Privacy agent | MERGED DONE | 2026-02-17 | Pam |
+| TASK-047 | On-device verification (TIME_SYNC + buffer + v0x08) | MERGED DONE | 2026-02-17 | Eero |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
