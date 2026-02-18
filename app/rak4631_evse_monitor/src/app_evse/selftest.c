@@ -118,6 +118,8 @@ int selftest_boot(selftest_boot_result_t *result)
 		/* Brief LED flash to signal boot failure */
 		api->led_set(2, true);
 		api->led_set(2, false);
+	} else {
+		fault_flags &= ~FAULT_SELFTEST;
 	}
 
 	return result->all_pass ? 0 : -1;

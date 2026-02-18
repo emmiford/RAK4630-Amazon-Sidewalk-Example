@@ -303,6 +303,36 @@ void test_returns_to_idle_after_completion(void)
 }
 
 /* ------------------------------------------------------------------ */
+/*  FAULT_SELFTEST clear on button re-test (TASK-066)                  */
+/* ------------------------------------------------------------------ */
+
+void test_button_retest_clears_fault_on_pass(void)
+{
+	/* First: force a boot failure to latch FAULT_SELFTEST */
+	mock_adc_values[0] = -1;  /* pilot fail */
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+	TEST_ASSERT_TRUE(selftest_get_fault_flags() & FAULT_SELFTEST);
+
+	/* Restore hardware to passing state */
+	setup_all_pass();
+
+	/* 5-press button triggers re-test — selftest_boot passes, clears 0x80 */
+	simulate_presses(5, 30000, 200);
+	TEST_ASSERT_TRUE(selftest_trigger_is_running());
+
+	/* FAULT_SELFTEST should already be cleared (selftest_boot clears on pass) */
+	TEST_ASSERT_EQUAL_INT(0, selftest_get_fault_flags() & FAULT_SELFTEST);
+
+	/* Run blinks to completion */
+	run_blinks_to_completion();
+	TEST_ASSERT_FALSE(selftest_trigger_is_running());
+
+	/* Flag still clear after blink sequence */
+	TEST_ASSERT_EQUAL_INT(0, selftest_get_fault_flags() & FAULT_SELFTEST);
+}
+
+/* ------------------------------------------------------------------ */
 /*  Edge case: no send callback set                                    */
 /* ------------------------------------------------------------------ */
 
@@ -349,6 +379,9 @@ int main(void)
 	/* LED patterns */
 	RUN_TEST(test_green_blink_led_on_off_pattern);
 	RUN_TEST(test_leds_off_after_completion);
+
+	/* FAULT_SELFTEST clear on re-test (TASK-066) */
+	RUN_TEST(test_button_retest_clears_fault_on_pass);
 
 	/* Lifecycle */
 	RUN_TEST(test_returns_to_idle_after_completion);

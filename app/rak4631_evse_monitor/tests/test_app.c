@@ -580,22 +580,35 @@ static void test_selftest_boot_charge_en_readback_fail(void)
 	assert(result.all_pass == false);
 }
 
-static void test_selftest_boot_flag_latched(void)
+static void test_selftest_boot_flag_clears_on_retest(void)
 {
-	/* After boot failure, FAULT_SELFTEST is latched */
+	/* After boot failure, FAULT_SELFTEST is set */
 	init_selftest();
 	mock_get()->adc_fail[0] = true;
 	selftest_boot_result_t result;
 	selftest_boot(&result);
 	assert(selftest_get_fault_flags() & FAULT_SELFTEST);
 
-	/* Running boot again with everything OK still has SELFTEST set (latched) */
+	/* Running boot again with everything OK clears FAULT_SELFTEST */
 	mock_get()->adc_fail[0] = false;
 	selftest_boot(&result);
-	/* Second boot passes, so FAULT_SELFTEST gets cleared in the "all_pass" path.
-	 * Actually per plan: SELFTEST_FAIL is latched until reboot. But selftest_boot
-	 * only sets it on failure, doesn't clear it. So it stays latched. */
-	assert(selftest_get_fault_flags() & FAULT_SELFTEST);
+	assert(result.all_pass == true);
+	assert((selftest_get_fault_flags() & FAULT_SELFTEST) == 0);
+}
+
+static void test_selftest_boot_no_stale_fault_on_pass(void)
+{
+	/* Boot passes on first run — no stale 0x80 from prior run */
+	init_selftest();
+	selftest_boot_result_t result;
+	selftest_boot(&result);
+	assert(result.all_pass == true);
+	assert((selftest_get_fault_flags() & FAULT_SELFTEST) == 0);
+
+	/* Pass again — still no 0x80 */
+	selftest_boot(&result);
+	assert(result.all_pass == true);
+	assert((selftest_get_fault_flags() & FAULT_SELFTEST) == 0);
 }
 
 static void test_selftest_boot_led_flash_on_failure(void)
@@ -1626,7 +1639,8 @@ int main(void)
 	RUN_TEST(test_selftest_boot_gpio_cool_fail);
 	RUN_TEST(test_selftest_boot_charge_en_toggle_pass);
 	RUN_TEST(test_selftest_boot_charge_en_readback_fail);
-	RUN_TEST(test_selftest_boot_flag_latched);
+	RUN_TEST(test_selftest_boot_flag_clears_on_retest);
+	RUN_TEST(test_selftest_boot_no_stale_fault_on_pass);
 	RUN_TEST(test_selftest_boot_led_flash_on_failure);
 
 	printf("\nselftest_continuous:\n");
