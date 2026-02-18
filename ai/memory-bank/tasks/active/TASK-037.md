@@ -1,9 +1,9 @@
 # TASK-037: Utility identification — per-device meter number to utility/TOU schedule lookup
 
-**Status**: planned
+**Status**: committed (2026-02-17, Pam) — PRD scoping complete; v1.1 implementation deferred
 **Priority**: P2
-**Owner**: Pam
-**Branch**: `feature/prd-v1.5`
+**Owner**: Pam (scoping) / Eliel (v1.1 implementation)
+**Branch**: `feature/prd-v1.5` (merged to main)
 **Size**: S (2 points) — PRD scoping complete; implementation is separate v1.1 task
 
 ## Description
@@ -22,9 +22,13 @@ Product scoping complete in PRD section 4.5. Designed the three-step lookup pipe
 - [x] Charge scheduler refactor path defined (4 specific changes)
 - [x] Configuration storage phased: v1.0 hardcoded, v1.1 DynamoDB table, v1.1+ OpenEI API
 - [x] Open question resolved: meter number vs. address roles clarified
-- [ ] Implementation (DynamoDB schedule table, scheduler refactor) — v1.1, NOT STARTED
+- [ ] Implementation (DynamoDB schedule table, scheduler refactor) — v1.1, NOT STARTED (Eliel)
 
 ## Deliverables
 - [x] PRD section 4.5
-- [ ] DynamoDB schedule table (v1.1)
-- [ ] Scheduler refactor (v1.1)
+- [x] `docs/design/utility-identification-scope.md`
+- [ ] DynamoDB schedule table (v1.1 — Eliel)
+- [ ] Scheduler refactor (v1.1 — Eliel)
+
+## Notes
+Pam's product scoping work is complete. The remaining v1.1 implementation (DynamoDB TOU schedule table + charge_scheduler refactor) is backend engineering work owned by Eliel, to be tracked as a separate task when v1.1 development begins.

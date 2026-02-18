@@ -131,3 +131,5 @@ We will respond to all privacy requests within 45 calendar days.
 ---
 
 *This privacy policy is designed to comply with the California Consumer Privacy Act (CCPA), Colorado Privacy Act (CPA), Virginia Consumer Data Protection Act (VCDPA), and Connecticut Data Privacy Act (CTDPA). It has not yet been reviewed by legal counsel. External privacy consultant review is required before publication.*
+
+*Internal governance procedures: see [`docs/privacy-governance.md`](privacy-governance.md). Data retention details: see [`docs/data-retention.md`](data-retention.md).*
