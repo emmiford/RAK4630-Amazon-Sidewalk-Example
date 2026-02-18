@@ -24,12 +24,11 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (25)
+## Open Tasks (24)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-023 | REOPENED | — | PSA crypto -149 bug (intermittent on async downlinks) | — |
 | TASK-046 | not started | Eero | Signed OTA E2E verification | — |
 
 ### P2 — Important but not blocking v1.0
@@ -86,7 +85,7 @@ Special: deferred, declined
 | TASK-019 | clang-format CI | DECLINED | 2026-02-11 | — |
 | TASK-020 | E2E runbook execution | MERGED DONE | 2026-02-11 | Eero |
 | TASK-021 | Remove legacy rak1901_demo | MERGED DONE | 2026-02-11 | — |
-| TASK-023 | PSA crypto -149 bug | REOPENED | 2026-02-17 | Eero |
+| TASK-023 | PSA crypto -149 bug | DONE | 2026-02-17 | Eliel (verified: Eero) |
 | TASK-024 | API version mismatch hard stop | MERGED DONE | 2026-02-11 | Claude |
 | TASK-025 | OTA chunk + delta bitmap tests | MERGED DONE | 2026-02-11 | Eero |
 | TASK-027 | Shell command dispatch tests | MERGED DONE | 2026-02-11 | Eero |

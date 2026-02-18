@@ -53,6 +53,7 @@ Keep platform and app API versions in sync. Only bump `APP_CALLBACK_VERSION` whe
 **Since**: 2026-02-11
 **Severity**: High — device cannot send or receive encrypted Sidewalk messages
 **Tracking**: TASK-023
+**Status**: Resolved
 
 ### Symptom
 
@@ -61,33 +62,37 @@ Serial console shows:
 [00:05:30.229,309] <err> sid_crypto: PSA Error code: -149 in sid_pal_crypto_aead_crypt
 ```
 
-Device connects to Sidewalk but all encrypted message operations fail.
+**Two distinct scenarios produce this error:**
 
-### Root Cause (suspected)
+1. **All crypto fails (HUK mismatch)**: Every downlink fails after platform reflash without MFG. This is the real bug — see Root Cause below.
+2. **Intermittent BLE background noise**: Occasional -149 during normal operation from the Sidewalk SDK's BLE discovery/beacon processing. This is benign and does **not** affect LoRa message delivery. Documented in `provisioning.md` troubleshooting table.
 
-PSA error -149 is `PSA_ERROR_INVALID_SIGNATURE`. The Hardware Unique Key (HUK) used by PSA crypto is derived from the nRF52840's key storage. Reflashing the platform without first reflashing MFG credentials can invalidate the HUK, causing PSA key derivation to produce keys that don't match the stored session keys.
+### Root Cause
+
+PSA error -149 is `PSA_ERROR_INVALID_SIGNATURE`. The Hardware Unique Key (HUK) used by PSA crypto is derived from the nRF52840's key storage. Reflashing the platform without first reflashing MFG credentials invalidates the HUK, causing PSA key derivation to produce keys that don't match the stored session keys.
+
+The health check (`mfg_key_health_check()`) detects **missing** keys but not **mismatched** HUK — so it passes even when crypto is broken.
 
 ### Impact
 
+When HUK is mismatched (scenario 1):
 - All Sidewalk messages fail encryption/decryption
 - Device is effectively offline (connected but unable to communicate)
-- OTA may also fail if OTA messages require encryption
+- OTA also fails if OTA messages require encryption
 
-### Workaround
-
-Reflash in the correct order:
-1. `flash.sh mfg` — MFG credentials first (re-derives HUK)
-2. `flash.sh platform` — platform second
-3. `flash.sh app` — app last
-4. Re-register the device with `sid factory_reset` + BLE re-registration
+BLE background noise (scenario 2):
+- No impact on LoRa application messages
+- No action required
 
 ### Resolution
 
-Root cause confirmed: HUK regenerated on platform flash, but MFG keys remain — so `mfg_key_health_check()` passes but PSA key derivation produces wrong keys. The health check detects **missing** keys, not **mismatched** HUK.
+**HUK mismatch prevention:**
+- `flash.sh platform` warns about HUK invalidation and requires confirmation
+- `flash.sh all` uses correct order (MFG → platform → app)
+- Correct flash order: `flash.sh mfg` → `flash.sh platform` → `flash.sh app`
 
-Mitigations applied:
-- `flash.sh platform` now warns about HUK invalidation and requires confirmation
-- `flash.sh all` already uses correct order (MFG -> platform -> app)
+**Charge scheduler delivery reliability** (2026-02-17):
+- Changed `charge_scheduler_lambda` from `transmit_mode=0` (best-effort) to `transmit_mode=1` (reliable). Best-effort downlinks could be silently dropped when no LoRa Class A RX window was open, giving the appearance of failed delivery. This was incorrectly attributed to PSA -149 errors.
 
 Remaining gap: no runtime detection of HUK mismatch at boot. Would require a test decryption of a stored session key during `sidewalk_event_platform_init()`.
 
