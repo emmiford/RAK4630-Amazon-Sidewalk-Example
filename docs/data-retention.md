@@ -1,7 +1,7 @@
 # SideCharge Data Retention and Deletion Procedures
 
 **Internal Document — Not Customer-Facing**
-**Last Updated**: 2026-02-13
+**Last Updated**: 2026-02-17
 **Owner**: Pam (Product Manager) — pending external privacy consultant assignment
 **PRD Reference**: Section 6.4.2
 
@@ -46,6 +46,7 @@
 | `/aws/lambda/evse-decoder` | **30 days** | `aws_cloudwatch_log_group.evse_decoder_logs` |
 | `/aws/lambda/charge-scheduler` | **30 days** | `aws_cloudwatch_log_group.charge_scheduler_logs` |
 | `/aws/lambda/ota-sender` | **30 days** | `aws_cloudwatch_log_group.ota_sender_logs` |
+| `/aws/lambda/health-digest` | **30 days** | `aws_cloudwatch_log_group.health_digest_logs` |
 
 ### 1.5 OTA Session Data
 
@@ -170,11 +171,12 @@ Must be completed before first customer deployment.
 |--------|-------|--------|-------|
 | `decode_evse_lambda.py` | Logs Sidewalk device UUID? | OK | Device UUID is pseudonymous, not PII |
 | `decode_evse_lambda.py` | Logs decoded payload data? | OK | Payload contains J1772/current/thermostat — no PII |
-| `decode_evse_lambda.py` | Logs raw Sidewalk event? | REVIEW | Line 317: `print(f"Received event: {json.dumps(event)}")` — Sidewalk event may include metadata fields. Currently safe (no PII in Sidewalk metadata) but verify after TASK-036 registry integration |
-| `decode_evse_lambda.py` | Logs registry fields? | N/A | Registry not yet integrated (TASK-036). **When integrated: must NOT log owner_name, owner_email, install_address, meter_number** |
+| `decode_evse_lambda.py` | Logs raw Sidewalk event? | OK | Line 407: `print(f"Received event: {json.dumps(event)}")` — Sidewalk event contains WirelessDeviceId, PayloadData, WirelessMetadata (link type, RSSI, seq). No PII. **Re-verify if registry fields are ever added to the event path.** |
+| `decode_evse_lambda.py` | Logs registry fields? | OK | Registry integration (TASK-036) uses `device_registry.py` which only logs SC-XXXXXXXX short ID. No Tier 1 fields logged. |
 | `charge_scheduler_lambda.py` | Logs device ID? | OK | Device UUID is pseudonymous |
 | `charge_scheduler_lambda.py` | Logs meter number or address? | N/A | Utility lookup not yet integrated (TASK-037). **When integrated: must NOT log meter_number or install_address** |
 | `ota_sender_lambda.py` | Any PII exposure? | OK | Operates on device ID and binary data only |
+| `health_digest_lambda.py` | Logs device details? | OK | Logs only SC-XXXXXXXX device IDs, last-seen, app versions, and fault types. No PII fields read or logged. |
 
 **Rule**: Lambda code must never log Tier 1 fields (owner_name, owner_email, install_address, install_lat, install_lon, meter_number, installer_name). Log only the pseudonymous device_id (SC-XXXXXXXX or Sidewalk UUID). Enforce in code review.
 
@@ -190,8 +192,9 @@ Must be completed before first customer deployment.
 | Privacy policy draft | DONE | TASK-038 |
 | Data retention procedures | DONE | TASK-038 (this document) |
 | CCPA compliance checklist | DONE | TASK-038 (this document) |
+| CloudWatch PII audit | DONE | TASK-038 (section 4 of this document) |
 | Aggregation Lambda (daily summaries) | NOT STARTED | Future (pre-multi-customer) |
 | Deletion Lambda (PII + telemetry cleanup) | NOT STARTED | Future (pre-multi-customer) |
-| Device registry table | NOT STARTED | TASK-036 |
+| Device registry table | DEPLOYED | TASK-036 (merged) + TASK-049 (terraform applied) |
 | External privacy consultant engagement | NOT STARTED | TASK-042 recommendation |
 | Incident response / breach notification plan | NOT STARTED | Consultant deliverable |

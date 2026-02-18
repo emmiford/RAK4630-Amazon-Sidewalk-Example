@@ -428,10 +428,12 @@ def lambda_handler(event, context):
 
         # Create DynamoDB item
         timestamp_ms = int(time.time() * 1000)
+        ttl_seconds = int(timestamp_ms / 1000) + 7776000  # 90-day retention
 
         item = {
             'device_id': wireless_device_id,
             'timestamp': timestamp_ms,
+            'ttl': ttl_seconds,
             'event_type': 'evse_telemetry',
             'device_type': 'evse',
             'schema_version': '2.1',

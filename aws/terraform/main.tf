@@ -138,7 +138,7 @@ resource "aws_lambda_function" "evse_decoder" {
 # CloudWatch Log Group for Lambda
 resource "aws_cloudwatch_log_group" "evse_decoder_logs" {
   name              = "/aws/lambda/${var.lambda_function_name}"
-  retention_in_days = 14
+  retention_in_days = 30
 }
 
 # Permission for IoT to invoke Lambda
@@ -268,7 +268,7 @@ resource "aws_lambda_function" "charge_scheduler" {
 # CloudWatch Log Group for scheduler
 resource "aws_cloudwatch_log_group" "charge_scheduler_logs" {
   name              = "/aws/lambda/charge-scheduler"
-  retention_in_days = 14
+  retention_in_days = 30
 }
 
 # EventBridge rule — periodic schedule
@@ -445,7 +445,7 @@ resource "aws_lambda_function" "ota_sender" {
 # CloudWatch Log Group for OTA sender
 resource "aws_cloudwatch_log_group" "ota_sender_logs" {
   name              = "/aws/lambda/ota-sender"
-  retention_in_days = 14
+  retention_in_days = 30
 }
 
 # Permission for S3 to invoke OTA sender Lambda
@@ -742,7 +742,7 @@ resource "aws_lambda_function" "health_digest" {
 # CloudWatch Log Group for health digest
 resource "aws_cloudwatch_log_group" "health_digest_logs" {
   name              = "/aws/lambda/health-digest"
-  retention_in_days = 14
+  retention_in_days = 30
 }
 
 # EventBridge rule — daily at 08:00 UTC

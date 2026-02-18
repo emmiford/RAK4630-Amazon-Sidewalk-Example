@@ -22,9 +22,13 @@ Product scoping complete in PRD section 4.5. Designed the three-step lookup pipe
 - [x] Charge scheduler refactor path defined (4 specific changes)
 - [x] Configuration storage phased: v1.0 hardcoded, v1.1 DynamoDB table, v1.1+ OpenEI API
 - [x] Open question resolved: meter number vs. address roles clarified
-- [ ] Implementation (DynamoDB schedule table, scheduler refactor) — v1.1, NOT STARTED
+- [ ] Implementation (DynamoDB schedule table, scheduler refactor) — v1.1, NOT STARTED (Eliel)
 
 ## Deliverables
 - [x] PRD section 4.5
-- [ ] DynamoDB schedule table (v1.1)
-- [ ] Scheduler refactor (v1.1)
+- [x] `docs/design/utility-identification-scope.md`
+- [ ] DynamoDB schedule table (v1.1 — Eliel)
+- [ ] Scheduler refactor (v1.1 — Eliel)
+
+## Notes
+Pam's product scoping work is complete. The remaining v1.1 implementation (DynamoDB TOU schedule table + charge_scheduler refactor) is backend engineering work owned by Eliel, to be tracked as a separate task when v1.1 development begins.
