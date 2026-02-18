@@ -29,7 +29,7 @@ Special: deferred, declined
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-045 | not started | Eliel | ED25519 verify library integration | — |
+| TASK-045 | committed | Eliel | ED25519 verify library integration | — |
 | TASK-046 | not started | Eero | Signed OTA E2E verification | TASK-045 |
 | TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
 | TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
