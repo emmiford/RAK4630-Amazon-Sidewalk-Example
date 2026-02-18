@@ -61,6 +61,7 @@ extern "C" {
 #define OTA_STAGING_SIZE        0x24FFF   /* ~148KB (up to 0xF4FFF) */
 
 #define OTA_FLASH_PAGE_SIZE     4096      /* nRF52840 flash page size */
+#define OTA_VERIFY_BUF_SIZE     16384     /* ED25519 verify buffer — must hold full app image */
 
 /* Recovery metadata magic */
 #define OTA_META_MAGIC          0x4F544155  /* "OTAU" */

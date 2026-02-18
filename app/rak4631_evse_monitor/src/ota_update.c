@@ -284,9 +284,10 @@ static void erase_stale_app_pages(uint32_t image_size)
 /*  Apply: copy staging → primary                                       */
 /* ------------------------------------------------------------------ */
 
-/* Static buffer for page-at-a-time copy — avoids 4KB stack allocation
- * which overflows the shell thread stack during delta_test. */
-static uint8_t ota_page_buf[OTA_FLASH_PAGE_SIZE];
+/* Static buffer for page-at-a-time copy AND ED25519 signature verify.
+ * Must be large enough to hold the full app image for signature verification
+ * (ED25519 is not streaming — needs entire message at once). */
+static uint8_t ota_page_buf[OTA_VERIFY_BUF_SIZE];
 
 static int ota_apply(void)
 {
@@ -567,12 +568,11 @@ static int ota_verify_staged_signature(uint32_t staging_addr, uint32_t total_siz
 	 * buffer, so we pass staging address and let the verify function
 	 * handle it. However, the current API takes a flat buffer.
 	 *
-	 * Compromise: read firmware in page-sized chunks, feeding them to
-	 * a streaming verify would be ideal but ED25519 requires the full
-	 * message. Since our firmware is small (~4KB), we can read it into
-	 * the existing ota_page_buf (4KB). */
-	if (fw_size > OTA_FLASH_PAGE_SIZE) {
-		LOG_ERR("OTA: signed firmware too large for verify buffer (%u)", fw_size);
+	 * Compromise: ED25519 requires the full message at once (not streaming),
+	 * so we read the entire firmware into ota_page_buf (16KB). */
+	if (fw_size > OTA_VERIFY_BUF_SIZE) {
+		LOG_ERR("OTA: signed firmware too large for verify buffer (%u > %u)",
+			fw_size, OTA_VERIFY_BUF_SIZE);
 		return -ENOMEM;
 	}
 
@@ -683,12 +683,13 @@ static void delta_validate_and_apply(void)
 
 	/* ED25519 signature verification for delta mode.
 	 * The merged image is firmware+signature; we need to read the
-	 * merged content into RAM for verification. Since our app is ~4KB,
-	 * the page buffer suffices. */
+	 * merged content into RAM for verification. ED25519 requires the
+	 * full message, so ota_page_buf must be large enough. */
 	if (ota_state.is_signed) {
 		if (ota_state.total_size <= OTA_SIG_SIZE ||
-		    ota_state.total_size - OTA_SIG_SIZE > OTA_FLASH_PAGE_SIZE) {
-			LOG_ERR("OTA: delta signed image size invalid for verify");
+		    ota_state.total_size > OTA_VERIFY_BUF_SIZE) {
+			LOG_ERR("OTA: delta signed image too large for verify (%u > %u)",
+				ota_state.total_size, OTA_VERIFY_BUF_SIZE);
 			send_complete(OTA_STATUS_SIG_ERR, crc);
 			ota_state.phase = OTA_PHASE_ERROR;
 			return;
