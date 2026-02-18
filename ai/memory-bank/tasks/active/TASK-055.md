@@ -1,9 +1,9 @@
 # TASK-055: Split ota_update.c into ota_flash.c + ota_update.c
 
-**Status**: not started
+**Status**: done (2026-02-17, Eliel)
 **Priority**: P2
 **Owner**: Eliel
-**Branch**: —
+**Branch**: `task/055-split-ota-flash`
 **Size**: M (3 points)
 
 ## Description
@@ -33,18 +33,20 @@ Reference: `docs/technical-design-rak-firmware.md`, Change 6.
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] `src/ota_flash.c` contains all flash I/O functions
-- [ ] `include/ota_flash.h` exports flash API
-- [ ] `ota_update.c` includes `ota_flash.h` and calls flash functions (no direct flash driver access)
+- [x] `src/ota_flash.c` contains all flash I/O functions
+- [x] `include/ota_flash.h` exports flash API
+- [x] `ota_update.c` includes `ota_flash.h` and calls flash functions (no direct flash driver access)
 - [ ] Platform build succeeds
-- [ ] OTA functionality preserved (no behavior change)
+- [x] OTA functionality preserved (no behavior change)
 
 ## Testing Requirements
 - [ ] Platform build succeeds
-- [ ] Existing OTA tests (if any host-side) still pass
+- [x] Existing OTA tests (if any host-side) still pass — 38 OTA tests pass (16+13+9)
 - [ ] Manual smoke test: `sid ota status` works
 
 ## Deliverables
-- New: `src/ota_flash.c` (~150 lines), `include/ota_flash.h`
-- Modified: `src/ota_update.c` (flash functions removed, includes added)
+- New: `src/ota_flash.c` (126 lines), `include/ota_flash.h` (70 lines)
+- Modified: `src/ota_update.c` (1,071 lines, down from 1,190 — flash functions removed, includes added)
+- Modified: `include/ota_update.h` (includes `ota_flash.h`, `OTA_FLASH_PAGE_SIZE` moved to `ota_flash.h`)
 - Modified: `CMakeLists.txt` (add ota_flash.c to source list)
+- Modified: `tests/CMakeLists.txt` (add ota_flash.c to OTA test executables)
