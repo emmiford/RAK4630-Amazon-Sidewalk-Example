@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (24)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -47,6 +47,7 @@ Special: deferred, declined
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
 | TASK-075 | not started | — | On-device delay window verification | — |
+| TASK-084 | not started | Eliel | Populate registry app_version from diagnostics responses | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
