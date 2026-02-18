@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (22)
+## Open Tasks (21)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -36,7 +36,6 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-030 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
-| TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
 | TASK-064 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | — |
@@ -59,7 +58,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (61)
+## Completed Tasks (62)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -124,6 +123,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-073 | Automate remote diagnostic queries from health digest | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-046 | Signed OTA E2E verification | MERGED DONE | 2026-02-18 | Eero |
 | TASK-075 | On-device delay window verification | MERGED DONE | 2026-02-18 | Eero |
+| TASK-055 | Split ota_update.c → ota_flash.c + ota_update.c | MERGED DONE | 2026-02-18 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
