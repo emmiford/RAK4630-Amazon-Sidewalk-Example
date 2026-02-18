@@ -24,6 +24,8 @@ def reset_module():
     """Reset module-level state between tests."""
     hdl.heartbeat_interval_s = 900
     hdl.sns_topic_arn = "arn:aws:sns:us-east-1:123456:test-topic"
+    hdl.auto_diag_enabled = False
+    hdl.latest_app_version = 0
 
 
 def make_device(device_id, wireless_id="wid-001", last_seen=None,
@@ -54,6 +56,27 @@ def make_event_item(wireless_id, timestamp_ms, faults=None):
         "timestamp": timestamp_ms,
         "event_type": "evse_telemetry",
         "data": {"evse": evse_data},
+    }
+
+
+def make_diag_event(wireless_id, timestamp_ms, app_version=3, uptime=120,
+                    boot_count=0, error_name="none", pending=0):
+    """Create a DynamoDB device_diagnostics event item."""
+    return {
+        "device_id": wireless_id,
+        "timestamp": timestamp_ms,
+        "event_type": "device_diagnostics",
+        "data": {
+            "diagnostics": {
+                "payload_type": "diagnostics",
+                "diag_version": 1,
+                "app_version": app_version,
+                "uptime_seconds": uptime,
+                "boot_count": boot_count,
+                "last_error_name": error_name,
+                "event_buffer_pending": pending,
+            }
+        },
     }
 
 
@@ -144,6 +167,239 @@ class TestCheckDeviceHealth:
         assert result["online"] is False
         assert result["seconds_since_seen"] is None
 
+    def test_includes_wireless_device_id(self):
+        """Health result includes wireless_device_id for targeted sends."""
+        now = time.time()
+        last_seen = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 60)
+        )
+        device = make_device("SC-GGG", wireless_id="wid-777",
+                             last_seen=last_seen)
+
+        with patch.object(hdl, "get_recent_faults", return_value=[]):
+            result = hdl.check_device_health(device, now)
+
+        assert result["wireless_device_id"] == "wid-777"
+
+    def test_unhealthy_reasons_offline(self):
+        """Offline device has 'offline' in unhealthy_reasons."""
+        now = time.time()
+        last_seen = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 3600)
+        )
+        device = make_device("SC-HHH", last_seen=last_seen)
+
+        with patch.object(hdl, "get_recent_faults", return_value=[]):
+            result = hdl.check_device_health(device, now)
+
+        assert "offline" in result["unhealthy_reasons"]
+
+    def test_unhealthy_reasons_faults(self):
+        """Faulted device has 'faults' in unhealthy_reasons."""
+        now = time.time()
+        last_seen = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 60)
+        )
+        device = make_device("SC-III", last_seen=last_seen)
+
+        with patch.object(hdl, "get_recent_faults",
+                          return_value=["fault_sensor"]):
+            result = hdl.check_device_health(device, now)
+
+        assert "faults" in result["unhealthy_reasons"]
+        assert "offline" not in result["unhealthy_reasons"]
+
+    def test_unhealthy_reasons_healthy(self):
+        """Healthy online device has empty unhealthy_reasons."""
+        now = time.time()
+        last_seen = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 60)
+        )
+        device = make_device("SC-JJJ", last_seen=last_seen)
+
+        with patch.object(hdl, "get_recent_faults", return_value=[]):
+            result = hdl.check_device_health(device, now)
+
+        assert result["unhealthy_reasons"] == []
+
+
+# ================================================================
+# identify_unhealthy_reasons
+# ================================================================
+
+class TestIdentifyUnhealthyReasons:
+    def test_healthy(self):
+        """Online device with no faults and current firmware is healthy."""
+        reasons = hdl.identify_unhealthy_reasons(
+            online=True, recent_faults=[], app_version=3
+        )
+        assert reasons == []
+
+    def test_offline(self):
+        """Offline device is unhealthy."""
+        reasons = hdl.identify_unhealthy_reasons(
+            online=False, recent_faults=[], app_version=3
+        )
+        assert reasons == ["offline"]
+
+    def test_faults(self):
+        """Faulted device is unhealthy."""
+        reasons = hdl.identify_unhealthy_reasons(
+            online=True, recent_faults=["fault_sensor"], app_version=3
+        )
+        assert reasons == ["faults"]
+
+    def test_stale_firmware(self):
+        """Device with old firmware is unhealthy when LATEST_APP_VERSION set."""
+        hdl.latest_app_version = 5
+        reasons = hdl.identify_unhealthy_reasons(
+            online=True, recent_faults=[], app_version=3
+        )
+        assert reasons == ["stale_firmware"]
+
+    def test_stale_firmware_skipped_when_zero(self):
+        """Stale firmware check skipped when LATEST_APP_VERSION is 0."""
+        hdl.latest_app_version = 0
+        reasons = hdl.identify_unhealthy_reasons(
+            online=True, recent_faults=[], app_version=1
+        )
+        assert reasons == []
+
+    def test_current_firmware_not_flagged(self):
+        """Device at latest version is not flagged."""
+        hdl.latest_app_version = 3
+        reasons = hdl.identify_unhealthy_reasons(
+            online=True, recent_faults=[], app_version=3
+        )
+        assert reasons == []
+
+    def test_multiple_reasons(self):
+        """Device can have multiple unhealthy reasons."""
+        hdl.latest_app_version = 5
+        reasons = hdl.identify_unhealthy_reasons(
+            online=False, recent_faults=["fault_sensor"], app_version=2
+        )
+        assert reasons == ["offline", "faults", "stale_firmware"]
+
+
+# ================================================================
+# send_diagnostic_requests
+# ================================================================
+
+class TestSendDiagnosticRequests:
+    def test_sends_to_unhealthy_only(self):
+        """Only unhealthy devices receive diagnostic requests."""
+        health_list = [
+            {"device_id": "SC-001", "wireless_device_id": "wid-001",
+             "unhealthy_reasons": ["offline"]},
+            {"device_id": "SC-002", "wireless_device_id": "wid-002",
+             "unhealthy_reasons": []},
+            {"device_id": "SC-003", "wireless_device_id": "wid-003",
+             "unhealthy_reasons": ["faults"]},
+        ]
+
+        with patch.object(hdl, "send_sidewalk_msg") as mock_send:
+            queried = hdl.send_diagnostic_requests(health_list)
+
+        assert queried == ["SC-001", "SC-003"]
+        assert mock_send.call_count == 2
+        # Verify 0x40 byte sent to correct device IDs
+        for call in mock_send.call_args_list:
+            assert call[0][0] == bytes([0x40])
+            assert "wireless_device_id" in call[1]
+
+    def test_skips_device_without_wireless_id(self):
+        """Device without wireless_device_id is skipped."""
+        health_list = [
+            {"device_id": "SC-001", "wireless_device_id": "",
+             "unhealthy_reasons": ["offline"]},
+        ]
+
+        with patch.object(hdl, "send_sidewalk_msg") as mock_send:
+            queried = hdl.send_diagnostic_requests(health_list)
+
+        assert queried == []
+        mock_send.assert_not_called()
+
+    def test_send_failure_continues(self):
+        """Failure to send to one device doesn't block others."""
+        health_list = [
+            {"device_id": "SC-001", "wireless_device_id": "wid-001",
+             "unhealthy_reasons": ["offline"]},
+            {"device_id": "SC-002", "wireless_device_id": "wid-002",
+             "unhealthy_reasons": ["faults"]},
+        ]
+
+        with patch.object(hdl, "send_sidewalk_msg") as mock_send:
+            mock_send.side_effect = [Exception("Timeout"), None]
+            queried = hdl.send_diagnostic_requests(health_list)
+
+        # First failed, second succeeded
+        assert queried == ["SC-002"]
+
+    def test_no_unhealthy_devices(self):
+        """No requests sent when all devices are healthy."""
+        health_list = [
+            {"device_id": "SC-001", "wireless_device_id": "wid-001",
+             "unhealthy_reasons": []},
+        ]
+
+        with patch.object(hdl, "send_sidewalk_msg") as mock_send:
+            queried = hdl.send_diagnostic_requests(health_list)
+
+        assert queried == []
+        mock_send.assert_not_called()
+
+    def test_sends_correct_wireless_device_id(self):
+        """Verify the wireless_device_id kwarg matches the device."""
+        health_list = [
+            {"device_id": "SC-001", "wireless_device_id": "wid-xyz",
+             "unhealthy_reasons": ["offline"]},
+        ]
+
+        with patch.object(hdl, "send_sidewalk_msg") as mock_send:
+            hdl.send_diagnostic_requests(health_list)
+
+        mock_send.assert_called_once_with(
+            bytes([0x40]), wireless_device_id="wid-xyz"
+        )
+
+
+# ================================================================
+# get_recent_diagnostics
+# ================================================================
+
+class TestGetRecentDiagnostics:
+    def test_returns_most_recent(self):
+        """Returns the most recent diagnostics response."""
+        diag_item = make_diag_event("wid-001", 1000000, app_version=5,
+                                    uptime=3600, boot_count=2)
+
+        with patch.object(hdl.events_table, "query",
+                          return_value={"Items": [diag_item]}):
+            result = hdl.get_recent_diagnostics("wid-001", time.time())
+
+        assert result is not None
+        assert result["app_version"] == 5
+        assert result["uptime_seconds"] == 3600
+        assert result["boot_count"] == 2
+
+    def test_no_diagnostics(self):
+        """Returns None when no diagnostics events exist."""
+        with patch.object(hdl.events_table, "query",
+                          return_value={"Items": []}):
+            result = hdl.get_recent_diagnostics("wid-001", time.time())
+
+        assert result is None
+
+    def test_query_failure_returns_none(self):
+        """DynamoDB failure returns None."""
+        with patch.object(hdl.events_table, "query",
+                          side_effect=Exception("Timeout")):
+            result = hdl.get_recent_diagnostics("wid-001", time.time())
+
+        assert result is None
+
 
 # ================================================================
 # build_digest
@@ -224,6 +480,59 @@ class TestBuildDigest:
         assert digest["online"] == 0
         assert "0/0 online" in digest["subject"]
 
+    def test_with_diagnostics_responses(self):
+        """Digest includes DIAGNOSTICS RESPONSES section."""
+        health = [
+            {"device_id": "SC-001", "online": False, "last_seen": "x",
+             "seconds_since_seen": 7200, "app_version": 3, "recent_faults": []},
+        ]
+        diag_responses = {
+            "SC-001": {
+                "app_version": 3,
+                "uptime_seconds": 97200,
+                "boot_count": 5,
+                "last_error_name": "sensor",
+                "event_buffer_pending": 12,
+            }
+        }
+
+        digest = hdl.build_digest(health, diag_responses)
+
+        assert "DIAGNOSTICS RESPONSES" in digest["body"]
+        assert "SC-001" in digest["body"]
+        assert "v3" in digest["body"]
+        assert "27.0h" in digest["body"]
+        assert "boots 5" in digest["body"]
+        assert "err=sensor" in digest["body"]
+        assert "buf=12" in digest["body"]
+
+    def test_no_diagnostics_responses(self):
+        """Digest without diag_responses omits section."""
+        health = [
+            {"device_id": "SC-001", "online": True, "last_seen": "x",
+             "seconds_since_seen": 60, "app_version": 3, "recent_faults": []},
+        ]
+
+        digest = hdl.build_digest(health)
+
+        assert "DIAGNOSTICS RESPONSES" not in digest["body"]
+
+    def test_diag_queried_count(self):
+        """Digest includes diag_queried count."""
+        health = []
+        diag_responses = {
+            "SC-001": {"app_version": 3, "uptime_seconds": 100,
+                       "boot_count": 0, "last_error_name": "none",
+                       "event_buffer_pending": 0},
+            "SC-002": {"app_version": 3, "uptime_seconds": 200,
+                       "boot_count": 1, "last_error_name": "none",
+                       "event_buffer_pending": 0},
+        }
+
+        digest = hdl.build_digest(health, diag_responses)
+
+        assert digest["diag_queried"] == 2
+
 
 # ================================================================
 # get_recent_faults
@@ -291,6 +600,7 @@ class TestLambdaHandler:
 
         with patch.object(hdl, "get_all_devices", return_value=devices), \
              patch.object(hdl, "get_recent_faults", return_value=[]), \
+             patch.object(hdl, "get_recent_diagnostics", return_value=None), \
              patch.object(hdl, "publish_digest") as mock_pub:
             result = hdl.lambda_handler({}, None)
 
@@ -309,8 +619,81 @@ class TestLambdaHandler:
 
         with patch.object(hdl, "get_all_devices", return_value=devices), \
              patch.object(hdl, "get_recent_faults", return_value=[]), \
+             patch.object(hdl, "get_recent_diagnostics", return_value=None), \
              patch.object(hdl.sns, "publish") as mock_sns:
             result = hdl.lambda_handler({}, None)
 
         assert result["statusCode"] == 200
         mock_sns.assert_not_called()
+
+    def test_auto_diag_disabled_skips_send(self):
+        """When AUTO_DIAG_ENABLED is false, no diagnostic requests sent."""
+        hdl.auto_diag_enabled = False
+        now = time.time()
+        last_seen = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 3600)
+        )
+        devices = [make_device("SC-001", last_seen=last_seen)]
+
+        with patch.object(hdl, "get_all_devices", return_value=devices), \
+             patch.object(hdl, "get_recent_faults", return_value=[]), \
+             patch.object(hdl, "get_recent_diagnostics", return_value=None), \
+             patch.object(hdl, "send_sidewalk_msg") as mock_send, \
+             patch.object(hdl, "publish_digest"):
+            result = hdl.lambda_handler({}, None)
+
+        assert result["statusCode"] == 200
+        mock_send.assert_not_called()
+
+    def test_auto_diag_enabled_sends_to_unhealthy(self):
+        """When AUTO_DIAG_ENABLED is true, sends 0x40 to unhealthy devices."""
+        hdl.auto_diag_enabled = True
+        now = time.time()
+        # Offline device
+        last_seen = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 3600)
+        )
+        devices = [make_device("SC-001", wireless_id="wid-001",
+                               last_seen=last_seen)]
+
+        with patch.object(hdl, "get_all_devices", return_value=devices), \
+             patch.object(hdl, "get_recent_faults", return_value=[]), \
+             patch.object(hdl, "get_recent_diagnostics", return_value=None), \
+             patch.object(hdl, "send_sidewalk_msg") as mock_send, \
+             patch.object(hdl, "publish_digest"):
+            result = hdl.lambda_handler({}, None)
+
+        assert result["statusCode"] == 200
+        mock_send.assert_called_once_with(
+            bytes([0x40]), wireless_device_id="wid-001"
+        )
+        body = json.loads(result["body"])
+        assert body["diag_queried"] == 1
+
+    def test_response_includes_diag_counts(self):
+        """Lambda response body includes diag_queried and diag_responses."""
+        now = time.time()
+        last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 60))
+        devices = [make_device("SC-001", last_seen=last_seen)]
+
+        diag_data = {
+            "app_version": 3,
+            "uptime_seconds": 120,
+            "boot_count": 0,
+            "last_error_name": "none",
+            "event_buffer_pending": 0,
+        }
+
+        with patch.object(hdl, "get_all_devices", return_value=devices), \
+             patch.object(hdl, "get_recent_faults", return_value=[]), \
+             patch.object(hdl, "get_recent_diagnostics",
+                          return_value=diag_data), \
+             patch.object(hdl, "publish_digest"):
+            result = hdl.lambda_handler({}, None)
+
+        body = json.loads(result["body"])
+        assert body["diag_responses"] == 1
+
+
+# Need json for TestLambdaHandler
+import json  # noqa: E402

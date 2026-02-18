@@ -70,12 +70,19 @@ def get_device_id(target_sc_id=None):
     return _device_id
 
 
-def send_sidewalk_msg(payload_bytes, transmit_mode=1):
-    """Send a downlink message to the Sidewalk device."""
+def send_sidewalk_msg(payload_bytes, transmit_mode=1, wireless_device_id=None):
+    """Send a downlink message to a Sidewalk device.
+
+    Args:
+        payload_bytes: Raw payload bytes to send.
+        transmit_mode: 0=best-effort, 1=reliable (default).
+        wireless_device_id: Target device ID. If None, uses get_device_id().
+    """
+    device_id = wireless_device_id if wireless_device_id else get_device_id()
     b64 = base64.b64encode(payload_bytes).decode()
-    print(f"TX: {payload_bytes.hex()} ({len(payload_bytes)}B)")
+    print(f"TX: {payload_bytes.hex()} ({len(payload_bytes)}B) -> {device_id}")
     iot_wireless.send_data_to_wireless_device(
-        Id=get_device_id(),
+        Id=device_id,
         TransmitMode=transmit_mode,
         PayloadData=b64,
         WirelessMetadata={"Sidewalk": {"MessageType": "CUSTOM_COMMAND_ID_NOTIFY"}},
