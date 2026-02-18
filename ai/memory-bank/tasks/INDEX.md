@@ -35,7 +35,7 @@ Special: deferred, declined
 | TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
 | TASK-063 | not started | Eliel | Delay window support (device + cloud) | — |
 | TASK-066 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | — |
-| TASK-067 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |
+| TASK-067 | committed | Eliel | LED blink priority state machine (PRD §2.5.1) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |

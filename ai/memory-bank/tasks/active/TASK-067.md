@@ -1,9 +1,9 @@
 # TASK-067: LED blink priority state machine
 
-**Status**: not started
+**Status**: committed (2026-02-17, Eliel)
 **Priority**: P1
-**Owner**: —
-**Branch**: —
+**Owner**: Eliel
+**Branch**: task/067-led-blink-engine
 **Size**: M (3 points)
 
 ## Description
@@ -18,10 +18,10 @@ it, boot self-test failures are invisible (just a single instantaneous flash),
 error states have no visual indicator, and there's no "device is alive" heartbeat.
 
 **Scope (prototype — single green LED)**:
-1. Priority-based blink engine driven by the 500ms timer tick
+1. Priority-based blink engine driven by 100ms timer tick (decimated to 500ms for sensors)
 2. Patterns per §2.5.1 matrix (error=5Hz, OTA=double-blink, commissioning=1Hz, etc.)
-3. Commissioning mode auto-exit on first successful Sidewalk uplink
-4. Error state entry criteria per PRD §2.5.1 (ADC fail 3x, GPIO fail 3x, etc.)
+3. Commissioning mode auto-exit on first successful Sidewalk uplink or 5-min timeout
+4. Error state entry criteria per PRD §2.5.1 (ADC fail 3x, GPIO fail 3x, sidewalk 10-min timeout)
 5. Charge Now button acknowledgment (3 rapid blinks)
 6. Self-test blink codes continue to work (selftest_trigger.c takes over LEDs temporarily)
 
@@ -32,23 +32,25 @@ error states have no visual indicator, and there's no "device is alive" heartbea
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] Blink engine runs in app layer, driven by 500ms `on_timer` tick
-- [ ] All 8 priority levels from PRD §2.5.1 implemented
-- [ ] Highest-priority active state wins when multiple states are active
-- [ ] Commissioning mode (1Hz) starts on boot, exits on first successful uplink
-- [ ] Error/fault state triggers 5Hz rapid flash per entry criteria
-- [ ] Self-test blink codes override normal patterns during test, restore after
-- [ ] Idle heartbeat blip (50ms every 10s) confirms device is alive
-- [ ] Unit tests for priority resolution and state transitions
+- [x] Blink engine runs in app layer, driven by 100ms `on_timer` tick (500ms decimation for sensors)
+- [x] All 8 priority levels from PRD §2.5.1 implemented
+- [x] Highest-priority active state wins when multiple states are active
+- [x] Commissioning mode (1Hz) starts on boot, exits on first successful uplink or 5-min timeout
+- [x] Error/fault state triggers 5Hz rapid flash per entry criteria
+- [x] Self-test blink codes override normal patterns during test, restore after
+- [x] Idle heartbeat blip (100ms every 10s) confirms device is alive
+- [x] Unit tests for priority resolution and state transitions
 
 ## Testing Requirements
-- [ ] Unit tests for blink state machine priority resolution
-- [ ] Unit tests for commissioning mode entry/exit
-- [ ] Unit tests for error state entry criteria (3x consecutive ADC fail, etc.)
+- [x] Unit tests for blink state machine priority resolution (10 tests)
+- [x] Unit tests for commissioning mode entry/exit (2 tests)
+- [x] Unit tests for error state entry criteria (4 tests: 3x ADC fail, success resets, sidewalk timeout, timeout clears)
 - [ ] On-device verification: observe correct LED patterns for each state
 
 ## Deliverables
-- New source file: `src/app_evse/led_engine.c` (or similar)
+- New source file: `src/app_evse/led_engine.c`
 - New header: `include/led_engine.h`
-- Integration in `app_entry.c::app_on_timer()`
-- Unit tests
+- Integration in `app_entry.c::app_on_timer()` — timer 500ms → 100ms with 5-count decimation
+- 21 new unit tests (96 total, all passing)
+- Mock LED call history array for pattern verification
+- CMakeLists.txt + Makefile updated
