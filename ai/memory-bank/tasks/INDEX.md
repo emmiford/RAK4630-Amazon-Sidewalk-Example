@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (25)
+## Open Tasks (26)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -34,7 +34,7 @@ Special: deferred, declined
 | TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
 | TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
 | TASK-063 | not started | Eliel | Delay window support (device + cloud) | — |
-| TASK-066 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | TASK-068 |
+| TASK-066 | not started | — | Button re-test clears FAULT_SELFTEST on all-pass | — |
 | TASK-067 | not started | — | LED blink priority state machine (PRD §2.5.1) | — |
 
 ### P2 — Important but not blocking v1.0
@@ -46,7 +46,7 @@ Special: deferred, declined
 | TASK-037 | planned | Pam | Utility identification (PRD scoping done) | — |
 | TASK-038 | not started | Pam | Data privacy — policy + retention + CCPA | — |
 | TASK-042 | not started | Pam | Privacy agent | TASK-038 |
-| TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | TASK-065 |
+| TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
@@ -61,7 +61,7 @@ Special: deferred, declined
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | TASK-062 |
+| TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
 
 ## Completed Tasks (48)
