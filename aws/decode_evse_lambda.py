@@ -31,6 +31,7 @@ dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
 table_name = os.environ.get('DYNAMODB_TABLE', 'sidewalk-v1-device_events_v2')
 ota_lambda_name = os.environ.get('OTA_LAMBDA_NAME', 'ota-sender')
+scheduler_lambda_name = os.environ.get('SCHEDULER_LAMBDA_NAME', 'charge-scheduler')
 registry_table_name = os.environ.get('DEVICE_REGISTRY_TABLE', 'sidecharge-device-registry')
 table = dynamodb.Table(table_name)
 registry_table = dynamodb.Table(registry_table_name)
@@ -40,7 +41,11 @@ TIME_SYNC_CMD_TYPE = 0x30
 SIDECHARGE_EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z as Unix timestamp
 TIME_SYNC_INTERVAL_S = 86400  # Re-sync daily
 
-from sidewalk_utils import send_sidewalk_msg  # noqa: E402
+from sidewalk_utils import send_sidewalk_msg, get_device_id  # noqa: E402
+
+# Scheduler divergence detection (TASK-071)
+DIVERGENCE_MAX_RETRIES = 3
+DIVERGENCE_GRACE_S = 60  # Skip check within 60s of last command send
 
 # EVSE payload magic byte and versions
 EVSE_MAGIC = 0xE5
@@ -126,6 +131,102 @@ def maybe_send_time_sync(device_id, device_timestamp=None):
         'last_sync_unix': now_unix,
         'last_sync_epoch': sc_epoch,
     })
+
+
+def check_scheduler_divergence(device_id, charge_allowed):
+    """Compare device's charge_allowed against scheduler sentinel.
+
+    If the sentinel's last_command disagrees with the device state,
+    re-invoke the scheduler to re-send. A separate divergence tracker
+    (timestamp=-3) caps retries at DIVERGENCE_MAX_RETRIES.
+    """
+    now_unix = int(time.time())
+
+    # Read scheduler sentinel (timestamp=0)
+    try:
+        resp = table.get_item(Key={'device_id': device_id, 'timestamp': 0})
+    except Exception as e:
+        print(f"Divergence check: sentinel read error: {e}")
+        return
+    sentinel = resp.get('Item')
+    if not sentinel:
+        return  # No scheduler state yet
+
+    last_command = sentinel.get('last_command')
+    if last_command not in ('delay_window', 'allow'):
+        return  # Only check when cloud explicitly sent a command
+
+    # Grace period: skip if command was sent very recently
+    sent_unix = int(sentinel.get('sent_unix', 0))
+    if sent_unix and (now_unix - sent_unix) < DIVERGENCE_GRACE_S:
+        return
+
+    # Determine expected device state from sentinel
+    # delay_window → device should have charge_allowed=False
+    # allow → device should have charge_allowed=True
+    expected_allowed = (last_command == 'allow')
+
+    if charge_allowed == expected_allowed:
+        # No divergence — reset tracker if it was active
+        try:
+            resp = table.get_item(Key={'device_id': device_id, 'timestamp': -3})
+            tracker = resp.get('Item')
+            if tracker and int(tracker.get('retry_count', 0)) > 0:
+                table.put_item(Item={
+                    'device_id': device_id,
+                    'timestamp': -3,
+                    'event_type': 'divergence_state',
+                    'retry_count': 0,
+                })
+                print("Divergence resolved, tracker reset")
+        except Exception as e:
+            print(f"Divergence tracker reset error: {e}")
+        return
+
+    # Divergence detected
+    print(f"DIVERGENCE: sentinel={last_command}, device charge_allowed={charge_allowed}")
+
+    # Read divergence tracker
+    try:
+        resp = table.get_item(Key={'device_id': device_id, 'timestamp': -3})
+        tracker = resp.get('Item')
+        retry_count = int(tracker.get('retry_count', 0)) if tracker else 0
+    except Exception as e:
+        print(f"Divergence tracker read error: {e}")
+        retry_count = 0
+
+    if retry_count >= DIVERGENCE_MAX_RETRIES:
+        print(f"DIVERGENCE_RETRIES_EXHAUSTED: {retry_count} retries, "
+              f"sentinel={last_command}, device={charge_allowed}")
+        return
+
+    # Increment tracker and re-invoke scheduler
+    retry_count += 1
+    try:
+        table.put_item(Item={
+            'device_id': device_id,
+            'timestamp': -3,
+            'event_type': 'divergence_state',
+            'retry_count': retry_count,
+            'last_divergence_unix': now_unix,
+            'sentinel_command': last_command,
+            'device_charge_allowed': charge_allowed,
+        })
+    except Exception as e:
+        print(f"Divergence tracker write error: {e}")
+        return
+
+    # Re-invoke scheduler with force_resend flag
+    try:
+        lambda_client.invoke(
+            FunctionName=scheduler_lambda_name,
+            InvocationType='Event',  # async
+            Payload=json.dumps({'force_resend': True}),
+        )
+        print(f"Divergence retry {retry_count}/{DIVERGENCE_MAX_RETRIES}: "
+              f"re-invoked scheduler")
+    except Exception as e:
+        print(f"Divergence: scheduler invoke failed: {e}")
 
 
 def decode_raw_evse_payload(raw_bytes):
@@ -505,6 +606,13 @@ def lambda_handler(event, context):
                 maybe_send_time_sync(wireless_device_id, device_timestamp=device_ts)
             except Exception as e:
                 print(f"TIME_SYNC error: {e}")
+
+            # Check scheduler divergence (TASK-071)
+            try:
+                check_scheduler_divergence(
+                    wireless_device_id, decoded.get('charge_allowed', False))
+            except Exception as e:
+                print(f"Divergence check error: {e}")
         else:
             item['data'] = {'decode_result': decoded}
 

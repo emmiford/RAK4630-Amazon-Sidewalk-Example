@@ -96,7 +96,10 @@ resource "aws_iam_role_policy" "evse_decoder_policy" {
         Action = [
           "lambda:InvokeFunction"
         ]
-        Resource = "arn:aws:lambda:${var.aws_region}:*:function:${aws_lambda_function.ota_sender.function_name}"
+        Resource = [
+          "arn:aws:lambda:${var.aws_region}:*:function:${aws_lambda_function.ota_sender.function_name}",
+          "arn:aws:lambda:${var.aws_region}:*:function:${aws_lambda_function.charge_scheduler.function_name}"
+        ]
       },
       {
         Effect = "Allow"
@@ -125,6 +128,7 @@ resource "aws_lambda_function" "evse_decoder" {
     variables = {
       DYNAMODB_TABLE         = var.dynamodb_table_name
       OTA_LAMBDA_NAME        = aws_lambda_function.ota_sender.function_name
+      SCHEDULER_LAMBDA_NAME  = aws_lambda_function.charge_scheduler.function_name
       DEVICE_REGISTRY_TABLE  = var.device_registry_table_name
     }
   }
@@ -635,6 +639,44 @@ resource "aws_cloudwatch_log_metric_filter" "interlock_activation" {
     namespace     = "SideCharge"
     value         = "1"
     default_value = "0"
+  }
+}
+
+# --- Scheduler Divergence Alarm (TASK-071) ---
+# Fires when the decode Lambda logs DIVERGENCE_RETRIES_EXHAUSTED,
+# meaning the device has not acknowledged a scheduler command after 3 re-sends.
+
+resource "aws_cloudwatch_log_metric_filter" "divergence_exhausted" {
+  name           = "divergence-retries-exhausted"
+  log_group_name = aws_cloudwatch_log_group.evse_decoder_logs.name
+  pattern        = "\"DIVERGENCE_RETRIES_EXHAUSTED\""
+
+  metric_transformation {
+    name          = "DivergenceRetriesExhausted"
+    namespace     = "SideCharge"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "divergence_exhausted" {
+  alarm_name          = "scheduler-divergence-exhausted"
+  alarm_description   = "Device has not acknowledged scheduler command after 3 re-sends. LoRa link may be down."
+  namespace           = "SideCharge"
+  metric_name         = "DivergenceRetriesExhausted"
+  statistic           = "Sum"
+  period              = 3600  # 1 hour
+  evaluation_periods  = 1
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  treat_missing_data  = "notBreaching"
+  actions_enabled     = var.alarms_enabled
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  tags = {
+    Project     = "evse-monitor"
+    Environment = var.environment
   }
 }
 
