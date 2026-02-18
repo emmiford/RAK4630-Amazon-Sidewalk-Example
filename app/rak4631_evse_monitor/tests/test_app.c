@@ -751,7 +751,6 @@ static void test_continuous_interlock_clears_when_charge_resumes(void)
 static void test_continuous_pilot_out_of_range_sets_after_5s(void)
 {
 	init_selftest();
-	mock_get()->adc_fail[0] = true;  /* pilot ADC fails */
 	mock_get()->uptime = 8000000;
 	selftest_continuous_tick(6, 0, 0, true, false);  /* J1772_STATE_UNKNOWN */
 	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
@@ -771,7 +770,6 @@ static void test_continuous_pilot_clears_on_resolve(void)
 {
 	init_selftest();
 	/* Trigger pilot fault */
-	mock_get()->adc_fail[0] = true;
 	mock_get()->uptime = 9000000;
 	selftest_continuous_tick(6, 0, 0, true, false);
 	mock_get()->uptime = 9005000;
@@ -779,9 +777,23 @@ static void test_continuous_pilot_clears_on_resolve(void)
 	assert(selftest_get_fault_flags() & FAULT_SENSOR);
 
 	/* Resolve */
-	mock_get()->adc_fail[0] = false;
 	mock_get()->uptime = 9006000;
 	selftest_continuous_tick(0, 2980, 0, true, false);
+	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
+}
+
+static void test_continuous_pilot_uses_state_not_adc(void)
+{
+	init_selftest();
+	/* ADC fails, but we pass a valid state — no fault should be raised */
+	mock_get()->adc_fail[0] = true;
+	mock_get()->uptime = 12000000;
+	selftest_continuous_tick(0, 2980, 0, true, 0x00);  /* state A, valid */
+	mock_get()->uptime = 12005000;
+	selftest_continuous_tick(0, 2980, 0, true, 0x00);
+	mock_get()->uptime = 12010000;
+	selftest_continuous_tick(0, 2980, 0, true, 0x00);
+	/* No FAULT_SENSOR because continuous_tick uses j1772_state, not ADC */
 	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
 }
 
@@ -793,8 +805,8 @@ static void test_continuous_thermostat_chatter_fault(void)
 	/* Toggle cool_call >10 times within 60s */
 	for (int i = 0; i < 12; i++) {
 		mock_get()->uptime = 10000000 + (i * 2000);
-		bool cool = (i % 2 == 0);
-		selftest_continuous_tick(0, 2980, 0, true, cool);
+		uint8_t therm = (i % 2 == 0) ? 0x02 : 0x00;
+		selftest_continuous_tick(0, 2980, 0, true, therm);
 	}
 
 	assert(selftest_get_fault_flags() & FAULT_SENSOR);
@@ -808,8 +820,8 @@ static void test_continuous_thermostat_no_chatter(void)
 	/* Toggle <10 times in 60s — no fault */
 	for (int i = 0; i < 6; i++) {
 		mock_get()->uptime = 11000000 + (i * 5000);
-		bool cool = (i % 2 == 0);
-		selftest_continuous_tick(0, 2980, 0, true, cool);
+		uint8_t therm = (i % 2 == 0) ? 0x02 : 0x00;
+		selftest_continuous_tick(0, 2980, 0, true, therm);
 	}
 
 	assert((selftest_get_fault_flags() & FAULT_SENSOR) == 0);
@@ -973,12 +985,11 @@ static void test_diag_sensor_error_code(void)
 {
 	init_diag();
 
-	/* Trigger sensor fault via continuous tick */
-	mock_get()->adc_fail[0] = true;
+	/* Trigger sensor fault via continuous tick (UNKNOWN state for 5s) */
 	mock_get()->uptime = 8000000;
-	selftest_continuous_tick(6, 0, 0, true, false);
+	selftest_continuous_tick(6, 0, 0, true, 0x00);
 	mock_get()->uptime = 8005000;
-	selftest_continuous_tick(6, 0, 0, true, false);
+	selftest_continuous_tick(6, 0, 0, true, 0x00);
 	assert(selftest_get_fault_flags() & FAULT_SENSOR);
 
 	uint8_t err = diag_request_get_error_code();
@@ -2352,6 +2363,7 @@ int main(void)
 	RUN_TEST(test_continuous_interlock_clears_when_charge_resumes);
 	RUN_TEST(test_continuous_pilot_out_of_range_sets_after_5s);
 	RUN_TEST(test_continuous_pilot_clears_on_resolve);
+	RUN_TEST(test_continuous_pilot_uses_state_not_adc);
 	RUN_TEST(test_continuous_thermostat_chatter_fault);
 	RUN_TEST(test_continuous_thermostat_no_chatter);
 
