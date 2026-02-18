@@ -35,6 +35,12 @@ struct platform_api;
 #define TRIGGER_PRESS_COUNT    5
 #define TRIGGER_WINDOW_MS      5000
 
+/* Single press: fires after this timeout with no additional presses */
+#define SINGLE_PRESS_TIMEOUT_MS  1500
+
+/* Long press: held continuously for this duration cancels Charge Now */
+#define LONG_PRESS_MS            3000
+
 /* Pause between green and red blink sequences (in 500ms ticks) */
 #define BLINK_PAUSE_TICKS      2
 

@@ -8,6 +8,7 @@
 
 #include <app_rx.h>
 #include <charge_control.h>
+#include <charge_now.h>
 #include <delay_window.h>
 #include <time_sync.h>
 #include <diag_request.h>
@@ -30,6 +31,12 @@ void app_rx_process_msg(const uint8_t *data, size_t len)
 
 	/* Charge control command family (0x10) */
 	if (data[0] == CHARGE_CONTROL_CMD_TYPE) {
+		/* Charge Now override: ignore all charge control commands */
+		if (charge_now_is_active()) {
+			api->log_inf("Charge Now active, ignoring cloud charge control");
+			return;
+		}
+
 		/* Delay window subtype (0x02): 10-byte payload */
 		if (len >= DELAY_WINDOW_PAYLOAD_SIZE &&
 		    data[1] == DELAY_WINDOW_SUBTYPE) {

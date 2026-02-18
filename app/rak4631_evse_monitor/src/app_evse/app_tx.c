@@ -5,6 +5,7 @@
 #include <app_tx.h>
 #include <evse_payload.h>
 #include <charge_control.h>
+#include <charge_now.h>
 #include <time_sync.h>
 #include <platform_api.h>
 #include <string.h>
@@ -83,7 +84,9 @@ int app_tx_send_evse_data(void)
 	if (charge_control_is_allowed()) {
 		flags |= FLAG_CHARGE_ALLOWED;
 	}
-	/* FLAG_CHARGE_NOW: reserved for future Charge Now button (TASK-040) */
+	if (charge_now_is_active()) {
+		flags |= FLAG_CHARGE_NOW;
+	}
 
 	/* Get device-side timestamp (0 if not yet synced) */
 	uint32_t timestamp = time_sync_get_epoch();

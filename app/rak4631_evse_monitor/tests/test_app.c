@@ -16,11 +16,13 @@
 #include "mock_platform.h"
 #include <evse_sensors.h>
 #include <charge_control.h>
+#include <charge_now.h>
 #include <thermostat_inputs.h>
 #include <selftest.h>
 #include <selftest_trigger.h>
 #include <diag_request.h>
 #include <app_tx.h>
+#include <app_rx.h>
 #include <time_sync.h>
 #include <event_buffer.h>
 #include <delay_window.h>
@@ -1922,6 +1924,365 @@ static void test_rx_routes_legacy_charge_control(void)
 }
 
 /* ================================================================== */
+/*  charge_now: 30-minute latch                                        */
+/* ================================================================== */
+
+static void init_charge_now_test(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 1489;  /* State C (charging) */
+	mock_get()->adc_values[1] = 1650;  /* current flowing */
+	mock_get()->gpio_values[0] = 1;    /* charge enable */
+	mock_get()->gpio_values[2] = 0;    /* no cool */
+	mock_get()->uptime = 2000000;
+	mock_get()->ready = true;
+
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	charge_now_set_api(mock_api());
+	charge_now_init();
+	delay_window_set_api(mock_api());
+	delay_window_init();
+	evse_sensors_set_api(mock_api());
+	thermostat_inputs_set_api(mock_api());
+	app_tx_set_api(mock_api());
+	app_tx_set_ready(true);
+	app_rx_set_api(mock_api());
+	selftest_set_api(mock_api());
+	selftest_reset();
+	led_engine_set_api(mock_api());
+	led_engine_init();
+	/* Force commissioning exit */
+	led_engine_notify_uplink_sent();
+	led_engine_tick();
+	time_sync_set_api(mock_api());
+	time_sync_init();
+}
+
+static void test_charge_now_activate_sets_active(void)
+{
+	init_charge_now_test();
+	assert(charge_now_is_active() == false);
+	charge_now_activate();
+	assert(charge_now_is_active() == true);
+}
+
+static void test_charge_now_activate_forces_charging_on(void)
+{
+	init_charge_now_test();
+	/* Pause charging first */
+	charge_control_set(false, 0);
+	assert(charge_control_is_allowed() == false);
+
+	charge_now_activate();
+	assert(charge_control_is_allowed() == true);
+	assert(mock_get()->gpio_last_val == 1);
+}
+
+static void test_charge_now_activate_clears_delay_window(void)
+{
+	init_charge_now_test();
+	sync_time_to(1500);
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+	assert(delay_window_has_window() == true);
+
+	charge_now_activate();
+	assert(delay_window_has_window() == false);
+}
+
+static void test_charge_now_activate_sets_led_override(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+	/* Tick past the 6-tick button-ack overlay */
+	for (int i = 0; i < 7; i++) {
+		led_engine_tick();
+	}
+	assert(led_engine_get_active_priority() == LED_PRI_CHARGE_NOW);
+}
+
+static void test_charge_now_cancel_clears_active(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+	assert(charge_now_is_active() == true);
+	charge_now_cancel();
+	assert(charge_now_is_active() == false);
+}
+
+static void test_charge_now_cancel_clears_led_override(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+	/* Tick past the 6-tick button-ack overlay */
+	for (int i = 0; i < 7; i++) {
+		led_engine_tick();
+	}
+	assert(led_engine_get_active_priority() == LED_PRI_CHARGE_NOW);
+
+	charge_now_cancel();
+	led_engine_tick();
+	assert(led_engine_get_active_priority() != LED_PRI_CHARGE_NOW);
+}
+
+static void test_charge_now_flag_in_uplink(void)
+{
+	init_charge_now_test();
+	mock_get()->send_count = 0;
+	mock_get()->uptime = 2100000;
+
+	charge_now_activate();
+
+	int ret = app_tx_send_evse_data();
+	assert(ret == 0);
+	assert(mock_get()->send_count == 1);
+
+	/* byte 7 = flags; bit 3 = FLAG_CHARGE_NOW (0x08) */
+	uint8_t flags = mock_get()->sends[0].data[7];
+	assert(flags & 0x08);
+}
+
+static void test_charge_now_flag_cleared_after_cancel(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+	charge_now_cancel();
+
+	mock_get()->send_count = 0;
+	mock_get()->uptime = 2200000;
+
+	app_tx_send_evse_data();
+	uint8_t flags = mock_get()->sends[0].data[7];
+	assert((flags & 0x08) == 0);
+}
+
+static void test_charge_now_cloud_pause_ignored(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+
+	/* Send a cloud pause command (0x10 0x00 = pause) */
+	uint8_t cmd[] = {0x10, 0x00, 0x00, 0x00};
+	app_rx_process_msg(cmd, sizeof(cmd));
+
+	/* Charging should still be allowed (pause was ignored) */
+	assert(charge_control_is_allowed() == true);
+	assert(charge_now_is_active() == true);
+}
+
+static void test_charge_now_delay_window_ignored(void)
+{
+	init_charge_now_test();
+	sync_time_to(1500);
+	charge_now_activate();
+
+	/* Try to set a delay window while Charge Now active */
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	app_rx_process_msg(cmd, sizeof(cmd));
+
+	/* Delay window should not be stored */
+	assert(delay_window_has_window() == false);
+	assert(charge_now_is_active() == true);
+}
+
+static void test_charge_now_expires_after_30min(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+	assert(charge_now_is_active() == true);
+
+	/* Advance 29 minutes — still active */
+	mock_get()->uptime = 2000000 + (29UL * 60 * 1000);
+	charge_now_tick(2);  /* State C */
+	assert(charge_now_is_active() == true);
+
+	/* Advance to 30 minutes — should expire */
+	mock_get()->uptime = 2000000 + (30UL * 60 * 1000);
+	charge_now_tick(2);
+	assert(charge_now_is_active() == false);
+}
+
+static void test_charge_now_unplug_cancels(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+	assert(charge_now_is_active() == true);
+
+	/* J1772 state A = unplugged */
+	charge_now_tick(0);
+	assert(charge_now_is_active() == false);
+}
+
+static void test_charge_now_state_b_does_not_cancel(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+
+	/* State B = connected but not charging — should NOT cancel */
+	charge_now_tick(1);
+	assert(charge_now_is_active() == true);
+}
+
+static void test_charge_now_cancel_when_not_active_is_noop(void)
+{
+	init_charge_now_test();
+	assert(charge_now_is_active() == false);
+	/* Should not crash or change state */
+	charge_now_cancel();
+	assert(charge_now_is_active() == false);
+}
+
+static void test_charge_now_power_loss_safe(void)
+{
+	init_charge_now_test();
+	charge_now_activate();
+	assert(charge_now_is_active() == true);
+
+	/* Simulate power loss by re-initializing */
+	charge_now_init();
+	assert(charge_now_is_active() == false);
+}
+
+/* ================================================================== */
+/*  Button dispatch: single press → charge now, 5 press → selftest    */
+/* ================================================================== */
+
+static void init_button_test(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 1489;  /* State C */
+	mock_get()->adc_values[1] = 0;
+	mock_get()->gpio_values[0] = 1;
+	mock_get()->gpio_values[2] = 0;
+	mock_get()->gpio_values[3] = 0;  /* button not pressed */
+	mock_get()->uptime = 3000000;
+	mock_get()->ready = true;
+
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	charge_now_set_api(mock_api());
+	charge_now_init();
+	delay_window_set_api(mock_api());
+	delay_window_init();
+	evse_sensors_set_api(mock_api());
+	thermostat_inputs_set_api(mock_api());
+	selftest_set_api(mock_api());
+	selftest_reset();
+	selftest_trigger_set_api(mock_api());
+	selftest_trigger_init();
+	led_engine_set_api(mock_api());
+	led_engine_init();
+	led_engine_notify_uplink_sent();
+}
+
+static void test_single_press_activates_charge_now(void)
+{
+	init_button_test();
+	assert(charge_now_is_active() == false);
+
+	/* Simulate single button press: pressed for 1 tick, released */
+	mock_get()->gpio_values[3] = 1;
+	selftest_trigger_tick();  /* rising edge detected, press_count=1, single_press_pending=true */
+
+	mock_get()->gpio_values[3] = 0;
+	/* Advance time by 500ms (1 tick) */
+	mock_get()->uptime = 3000500;
+	selftest_trigger_tick();  /* button released, <1.5s, still pending */
+	assert(charge_now_is_active() == false);
+
+	/* Advance to 1.5s after press */
+	mock_get()->uptime = 3001500;
+	selftest_trigger_tick();  /* single_press_pending fires */
+	assert(charge_now_is_active() == true);
+}
+
+static void test_five_presses_trigger_selftest_not_charge_now(void)
+{
+	init_button_test();
+
+	/* 5 rapid presses within 5s */
+	for (int i = 0; i < 5; i++) {
+		mock_get()->gpio_values[3] = 1;
+		mock_get()->uptime = 3000000 + (i * 600);
+		selftest_trigger_tick();
+
+		mock_get()->gpio_values[3] = 0;
+		mock_get()->uptime = 3000000 + (i * 600) + 200;
+		selftest_trigger_tick();
+	}
+
+	/* Self-test should be running, not Charge Now */
+	assert(selftest_trigger_is_running() == true);
+	assert(charge_now_is_active() == false);
+}
+
+static void test_long_press_cancels_charge_now(void)
+{
+	init_button_test();
+
+	/* Activate charge now first */
+	charge_now_activate();
+	assert(charge_now_is_active() == true);
+
+	/* Simulate long press: button held for 3s */
+	mock_get()->gpio_values[3] = 1;
+	mock_get()->uptime = 3100000;
+	selftest_trigger_tick();  /* rising edge */
+
+	/* Hold for 3 seconds */
+	mock_get()->uptime = 3103000;
+	selftest_trigger_tick();  /* still pressed, 3s elapsed → long press fires */
+	assert(charge_now_is_active() == false);
+}
+
+static void test_long_press_without_charge_now_is_noop(void)
+{
+	init_button_test();
+	assert(charge_now_is_active() == false);
+
+	/* Long press when charge_now is not active — should not crash */
+	mock_get()->gpio_values[3] = 1;
+	mock_get()->uptime = 3100000;
+	selftest_trigger_tick();
+
+	mock_get()->uptime = 3103000;
+	selftest_trigger_tick();
+	assert(charge_now_is_active() == false);
+}
+
+static void test_two_presses_no_charge_now(void)
+{
+	init_button_test();
+
+	/* Two presses: should NOT activate charge now */
+	mock_get()->gpio_values[3] = 1;
+	mock_get()->uptime = 3000000;
+	selftest_trigger_tick();
+
+	mock_get()->gpio_values[3] = 0;
+	mock_get()->uptime = 3000200;
+	selftest_trigger_tick();
+
+	mock_get()->gpio_values[3] = 1;
+	mock_get()->uptime = 3000600;
+	selftest_trigger_tick();
+
+	mock_get()->gpio_values[3] = 0;
+	mock_get()->uptime = 3000800;
+	selftest_trigger_tick();
+
+	/* Wait past single-press timeout */
+	mock_get()->uptime = 3002500;
+	selftest_trigger_tick();
+
+	assert(charge_now_is_active() == false);
+}
+
+/* ================================================================== */
 /*  Main                                                               */
 /* ================================================================== */
 
@@ -2077,6 +2438,30 @@ int main(void)
 	RUN_TEST(test_cc_legacy_cmd_clears_window);
 	RUN_TEST(test_rx_routes_delay_window);
 	RUN_TEST(test_rx_routes_legacy_charge_control);
+
+	printf("\ncharge_now latch:\n");
+	RUN_TEST(test_charge_now_activate_sets_active);
+	RUN_TEST(test_charge_now_activate_forces_charging_on);
+	RUN_TEST(test_charge_now_activate_clears_delay_window);
+	RUN_TEST(test_charge_now_activate_sets_led_override);
+	RUN_TEST(test_charge_now_cancel_clears_active);
+	RUN_TEST(test_charge_now_cancel_clears_led_override);
+	RUN_TEST(test_charge_now_flag_in_uplink);
+	RUN_TEST(test_charge_now_flag_cleared_after_cancel);
+	RUN_TEST(test_charge_now_cloud_pause_ignored);
+	RUN_TEST(test_charge_now_delay_window_ignored);
+	RUN_TEST(test_charge_now_expires_after_30min);
+	RUN_TEST(test_charge_now_unplug_cancels);
+	RUN_TEST(test_charge_now_state_b_does_not_cancel);
+	RUN_TEST(test_charge_now_cancel_when_not_active_is_noop);
+	RUN_TEST(test_charge_now_power_loss_safe);
+
+	printf("\nbutton dispatch:\n");
+	RUN_TEST(test_single_press_activates_charge_now);
+	RUN_TEST(test_five_presses_trigger_selftest_not_charge_now);
+	RUN_TEST(test_long_press_cancels_charge_now);
+	RUN_TEST(test_long_press_without_charge_now_is_noop);
+	RUN_TEST(test_two_presses_no_charge_now);
 
 	printf("\n=== %d/%d tests passed ===\n\n", tests_passed, tests_run);
 	return (tests_passed == tests_run) ? 0 : 1;
