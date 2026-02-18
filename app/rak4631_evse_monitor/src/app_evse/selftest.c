@@ -7,6 +7,7 @@
  */
 
 #include <selftest.h>
+#include <selftest_trigger.h>
 #include <evse_sensors.h>
 #include <charge_control.h>
 #include <thermostat_inputs.h>
@@ -228,6 +229,7 @@ int selftest_run_shell(void (*print)(const char *, ...),
 	print("  ADC pilot:     %s", result.adc_pilot_ok ? "PASS" : "FAIL");
 	print("  GPIO cool:     %s", result.gpio_cool_ok ? "PASS" : "FAIL");
 	print("  Charge block:  %s", result.charge_block_ok ? "PASS" : "FAIL");
+	print("  Button GPIO:   %d", platform->gpio_get(PIN_CHARGE_NOW_BUTTON));
 
 	/* Snapshot cross-checks against current sensor readings */
 	j1772_state_t state;
