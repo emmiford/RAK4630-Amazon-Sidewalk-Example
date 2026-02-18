@@ -90,20 +90,25 @@ def _build_time_sync_bytes(sc_epoch, watermark):
     return bytes(payload)
 
 
-def maybe_send_time_sync(device_id):
-    """Send TIME_SYNC if no sentinel exists or sentinel is >24h old."""
-    try:
-        resp = table.get_item(Key={
-            'device_id': device_id,
-            'timestamp': -2,
-        })
-        item = resp.get('Item')
-        if item:
-            last_sync = item.get('last_sync_unix', 0)
-            if (int(time.time()) - last_sync) < TIME_SYNC_INTERVAL_S:
-                return  # Recently synced, skip
-    except Exception as e:
-        print(f"TIME_SYNC sentinel read error: {e}")
+def maybe_send_time_sync(device_id, device_timestamp=None):
+    """Send TIME_SYNC if no sentinel exists, sentinel is >24h old,
+    or device reports timestamp=0 (lost sync after reboot/reflash)."""
+    device_needs_sync = device_timestamp is not None and device_timestamp == 0
+    if not device_needs_sync:
+        try:
+            resp = table.get_item(Key={
+                'device_id': device_id,
+                'timestamp': -2,
+            })
+            item = resp.get('Item')
+            if item:
+                last_sync = item.get('last_sync_unix', 0)
+                if (int(time.time()) - last_sync) < TIME_SYNC_INTERVAL_S:
+                    return  # Recently synced, skip
+        except Exception as e:
+            print(f"TIME_SYNC sentinel read error: {e}")
+    else:
+        print("Device reports ts=0 (unsynced), forcing TIME_SYNC")
 
     # Build and send TIME_SYNC
     now_unix = int(time.time())
@@ -494,7 +499,8 @@ def lambda_handler(event, context):
 
             # Auto-send TIME_SYNC on EVSE uplinks
             try:
-                maybe_send_time_sync(wireless_device_id)
+                device_ts = decoded.get('device_timestamp_epoch')
+                maybe_send_time_sync(wireless_device_id, device_timestamp=device_ts)
             except Exception as e:
                 print(f"TIME_SYNC error: {e}")
         else:

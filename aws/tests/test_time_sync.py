@@ -155,6 +155,40 @@ class TestMaybeSendTimeSync:
         # and still attempts to send
         mock_send.assert_called_once()
 
+    @patch("decode_evse_lambda.send_sidewalk_msg")
+    @patch.object(decode.table, "get_item")
+    @patch.object(decode.table, "put_item")
+    def test_forces_sync_when_device_timestamp_zero(self, mock_put, mock_get, mock_send):
+        """Should force TIME_SYNC when device reports timestamp=0 (unsynced)."""
+        mock_get.return_value = {
+            "Item": {"last_sync_unix": int(time.time()) - 60}  # 1 min ago
+        }
+        decode.maybe_send_time_sync("dev-001", device_timestamp=0)
+        mock_send.assert_called_once()
+        assert mock_send.call_args[0][0][0] == 0x30
+
+    @patch("decode_evse_lambda.send_sidewalk_msg")
+    @patch.object(decode.table, "get_item")
+    @patch.object(decode.table, "put_item")
+    def test_respects_sentinel_when_device_has_timestamp(self, mock_put, mock_get, mock_send):
+        """Should respect sentinel TTL when device has a valid timestamp."""
+        mock_get.return_value = {
+            "Item": {"last_sync_unix": int(time.time()) - 60}  # 1 min ago
+        }
+        decode.maybe_send_time_sync("dev-001", device_timestamp=4157000)
+        mock_send.assert_not_called()
+
+    @patch("decode_evse_lambda.send_sidewalk_msg")
+    @patch.object(decode.table, "get_item")
+    @patch.object(decode.table, "put_item")
+    def test_forces_sync_when_device_timestamp_none(self, mock_put, mock_get, mock_send):
+        """Should use sentinel logic when device_timestamp is None (v0x06)."""
+        mock_get.return_value = {
+            "Item": {"last_sync_unix": int(time.time()) - 60}  # 1 min ago
+        }
+        decode.maybe_send_time_sync("dev-001", device_timestamp=None)
+        mock_send.assert_not_called()
+
 
 # --- Integration: TIME_SYNC triggered on EVSE uplink ---
 
