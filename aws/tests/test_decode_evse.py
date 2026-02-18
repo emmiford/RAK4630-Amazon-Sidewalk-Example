@@ -198,6 +198,17 @@ class TestLambdaHandler:
         item = self.mock_table.put_item.call_args[1]["Item"]
         assert item["event_type"] == "evse_telemetry"
 
+    def test_ttl_attribute_set_for_90_day_retention(self):
+        """DynamoDB items must have a ttl attribute for automatic expiration."""
+        raw = bytes([0xE5, 0x01, 0x01, 0xA4, 0x0B, 0x00, 0x00, 0x00])
+        result = decode.lambda_handler(self._make_event(raw), None)
+        assert result["statusCode"] == 200
+        item = self.mock_table.put_item.call_args[1]["Item"]
+        assert "ttl" in item
+        # TTL should be ~90 days (7776000s) after the event timestamp
+        expected_ttl = int(item["timestamp"] / 1000) + 7776000
+        assert item["ttl"] == expected_ttl
+
     def test_ota_ack_forwarded(self):
         raw = struct.pack("<BBbHH", 0x20, 0x80, 0, 1, 1)
         with patch.object(decode, "lambda_client") as mock_lambda:
