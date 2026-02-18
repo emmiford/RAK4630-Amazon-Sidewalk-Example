@@ -13,6 +13,7 @@
 #include <platform_api.h>
 #include <evse_sensors.h>
 #include <charge_control.h>
+#include <charge_now.h>
 #include <thermostat_inputs.h>
 #include <evse_payload.h>
 #include <app_tx.h>
@@ -73,6 +74,7 @@ static int shell_evse_status(void (*print)(const char *, ...), void (*error)(con
 	print("  Pilot voltage: %d mV", voltage_mv);
 	print("  Current: %d mA", current_ma);
 	print("  Charging allowed: %s", cc_state.charging_allowed ? "YES" : "NO");
+	print("  Charge Now active: %s", charge_now_is_active() ? "YES" : "NO");
 	print("  Simulation active: %s", evse_sensors_is_simulating() ? "YES" : "NO");
 	return 0;
 }
@@ -106,6 +108,7 @@ static int app_init(const struct platform_api *platform)
 	selftest_set_api(api);
 	selftest_trigger_set_api(api);
 	time_sync_set_api(api);
+	charge_now_set_api(api);
 
 	/* Initialize app subsystems */
 	evse_sensors_init();
@@ -114,6 +117,7 @@ static int app_init(const struct platform_api *platform)
 	time_sync_init();
 	delay_window_init();
 	event_buffer_init();
+	charge_now_init();
 	selftest_trigger_set_send_fn(app_tx_send_evse_data);
 	selftest_trigger_init();
 	led_engine_set_api(api);
@@ -244,6 +248,9 @@ static void app_on_timer(void)
 		};
 		event_buffer_add(&snap);
 	}
+
+	/* --- Charge Now latch expiry/cancel check --- */
+	charge_now_tick((uint8_t)last_j1772_state);
 
 	/* --- Continuous self-test monitoring --- */
 	selftest_continuous_tick((uint8_t)state, voltage_mv, current_ma,

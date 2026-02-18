@@ -27,6 +27,7 @@ SRCS = \
     $(APP_SRC)/app_rx.c \
     $(APP_SRC)/selftest.c \
     $(APP_SRC)/selftest_trigger.c \
+    $(APP_SRC)/charge_now.c \
     $(APP_SRC)/time_sync.c \
     $(APP_SRC)/event_buffer.c \
     $(APP_SRC)/delay_window.c \

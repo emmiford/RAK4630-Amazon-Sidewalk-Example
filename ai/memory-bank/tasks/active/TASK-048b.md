@@ -1,9 +1,9 @@
 # TASK-048b: Charge Now 30-minute latch — device-side override logic
 
-**Status**: not started
+**Status**: in progress (2026-02-17, Eliel)
 **Priority**: P2
 **Owner**: Eliel
-**Branch**: —
+**Branch**: `task/048b-charge-now-latch`
 **Size**: M (5 points)
 
 ## Description
