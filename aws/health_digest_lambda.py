@@ -4,11 +4,18 @@ Scans the device registry for all active devices, checks last-seen timestamps
 against the heartbeat interval, queries recent fault events, and publishes a
 summary email via SNS.
 
+When AUTO_DIAG_ENABLED is true, the digest also sends a 0x40 diagnostics
+request to any unhealthy device (offline too long, recent faults, or stale
+firmware). Diagnostics responses received since the last digest are included
+in the report.
+
 Environment variables:
     DEVICE_REGISTRY_TABLE: DynamoDB table for device registry
     DYNAMODB_TABLE: DynamoDB table for EVSE events
     SNS_TOPIC_ARN: SNS topic for alert delivery
     HEARTBEAT_INTERVAL_S: Device heartbeat interval in seconds (default 900)
+    AUTO_DIAG_ENABLED: Enable auto-diagnostics queries (default "false")
+    LATEST_APP_VERSION: Latest deployed app version number (default 0 = skip check)
 """
 
 import calendar
@@ -18,6 +25,8 @@ import time
 
 import boto3
 
+from sidewalk_utils import send_sidewalk_msg
+
 dynamodb = boto3.resource("dynamodb")
 sns = boto3.client("sns")
 
@@ -25,12 +34,17 @@ registry_table_name = os.environ.get("DEVICE_REGISTRY_TABLE", "sidecharge-device
 events_table_name = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
 sns_topic_arn = os.environ.get("SNS_TOPIC_ARN", "")
 heartbeat_interval_s = int(os.environ.get("HEARTBEAT_INTERVAL_S", "900"))
+auto_diag_enabled = os.environ.get("AUTO_DIAG_ENABLED", "false").lower() == "true"
+latest_app_version = int(os.environ.get("LATEST_APP_VERSION", "0"))
 
 registry_table = dynamodb.Table(registry_table_name)
 events_table = dynamodb.Table(events_table_name)
 
 # Device is considered offline if no uplink for 2x heartbeat
 OFFLINE_THRESHOLD_MULTIPLIER = 2
+
+# Diagnostics request command byte (TDD §4.4)
+DIAG_REQUEST_CMD = 0x40
 
 
 def get_all_devices():
@@ -62,13 +76,16 @@ def check_device_health(device, now_unix):
 
     Returns a dict with:
         device_id: SC-XXXXXXXX short ID
+        wireless_device_id: AWS IoT Wireless device ID
         online: bool
         last_seen: ISO timestamp string
         seconds_since_seen: int (or None if never seen)
         app_version: int
         recent_faults: list of fault type strings
+        unhealthy_reasons: list of reason strings (empty if healthy)
     """
     device_id = device.get("device_id", "unknown")
+    wireless_id = device.get("wireless_device_id", "")
     last_seen_str = device.get("last_seen", "")
     app_version = device.get("app_version", 0)
 
@@ -88,18 +105,39 @@ def check_device_health(device, now_unix):
 
     # Query recent fault events (last 24h)
     recent_faults = []
-    wireless_id = device.get("wireless_device_id", "")
     if wireless_id:
         recent_faults = get_recent_faults(wireless_id, now_unix)
 
+    # Determine unhealthy reasons
+    unhealthy_reasons = identify_unhealthy_reasons(
+        online, recent_faults, app_version
+    )
+
     return {
         "device_id": device_id,
+        "wireless_device_id": wireless_id,
         "online": online,
         "last_seen": last_seen_str,
         "seconds_since_seen": seconds_since_seen,
         "app_version": app_version,
         "recent_faults": recent_faults,
+        "unhealthy_reasons": unhealthy_reasons,
     }
+
+
+def identify_unhealthy_reasons(online, recent_faults, app_version):
+    """Determine why a device is unhealthy.
+
+    Returns a list of reason strings. Empty list means healthy.
+    """
+    reasons = []
+    if not online:
+        reasons.append("offline")
+    if recent_faults:
+        reasons.append("faults")
+    if latest_app_version > 0 and app_version < latest_app_version:
+        reasons.append("stale_firmware")
+    return reasons
 
 
 def get_recent_faults(wireless_device_id, now_unix):
@@ -136,8 +174,70 @@ def get_recent_faults(wireless_device_id, now_unix):
     return sorted(faults_seen)
 
 
-def build_digest(device_health_list):
+def send_diagnostic_requests(health_list):
+    """Send 0x40 diagnostic requests to unhealthy devices.
+
+    Returns list of device_ids that were queried.
+    """
+    queried = []
+    for device in health_list:
+        if not device["unhealthy_reasons"]:
+            continue
+        wireless_id = device.get("wireless_device_id", "")
+        if not wireless_id:
+            continue
+        try:
+            send_sidewalk_msg(
+                bytes([DIAG_REQUEST_CMD]),
+                wireless_device_id=wireless_id,
+            )
+            queried.append(device["device_id"])
+            print(
+                f"Sent 0x40 diag request to {device['device_id']} "
+                f"({wireless_id}): {', '.join(device['unhealthy_reasons'])}"
+            )
+        except Exception as e:
+            print(f"Failed to send diag to {device['device_id']}: {e}")
+    return queried
+
+
+def get_recent_diagnostics(wireless_device_id, now_unix):
+    """Query DynamoDB for diagnostics responses in the last 24 hours.
+
+    Returns the most recent diagnostics dict, or None.
+    """
+    cutoff_ms = int((now_unix - 86400) * 1000)
+
+    try:
+        resp = events_table.query(
+            KeyConditionExpression="#did = :did AND #ts > :cutoff",
+            FilterExpression="event_type = :dtype",
+            ExpressionAttributeNames={"#did": "device_id", "#ts": "timestamp"},
+            ExpressionAttributeValues={
+                ":did": wireless_device_id,
+                ":cutoff": cutoff_ms,
+                ":dtype": "device_diagnostics",
+            },
+            ScanIndexForward=False,
+            Limit=1,
+        )
+
+        items = resp.get("Items", [])
+        if items:
+            return items[0].get("data", {}).get("diagnostics")
+
+    except Exception as e:
+        print(f"Diagnostics query failed for {wireless_device_id}: {e}")
+
+    return None
+
+
+def build_digest(device_health_list, diag_responses=None):
     """Build a human-readable health digest from device health data.
+
+    Args:
+        device_health_list: List of device health dicts.
+        diag_responses: Optional dict mapping device_id to diagnostics data.
 
     Returns a dict with:
         subject: email subject line
@@ -146,7 +246,11 @@ def build_digest(device_health_list):
         online: int
         offline: int
         faulted: int
+        diag_queried: int (number of devices sent 0x40)
     """
+    if diag_responses is None:
+        diag_responses = {}
+
     total = len(device_health_list)
     online = sum(1 for d in device_health_list if d["online"])
     offline = total - online
@@ -200,6 +304,19 @@ def build_digest(device_health_list):
         lines.append("All devices healthy.")
         lines.append("")
 
+    # Diagnostics responses
+    if diag_responses:
+        lines.append("DIAGNOSTICS RESPONSES:")
+        for device_id, diag in sorted(diag_responses.items()):
+            uptime_h = diag.get("uptime_seconds", 0) / 3600
+            lines.append(
+                f"  {device_id}: v{diag.get('app_version', '?')}, "
+                f"uptime {uptime_h:.1f}h, boots {diag.get('boot_count', '?')}, "
+                f"err={diag.get('last_error_name', 'none')}, "
+                f"buf={diag.get('event_buffer_pending', 0)}"
+            )
+        lines.append("")
+
     subject = f"SideCharge Health: {online}/{total} online"
     if faulted:
         subject += f", {faulted} faulted"
@@ -211,6 +328,7 @@ def build_digest(device_health_list):
         "online": online,
         "offline": offline,
         "faulted": faulted,
+        "diag_queried": len(diag_responses),
     }
 
 
@@ -241,7 +359,26 @@ def lambda_handler(event, context):
         return {"statusCode": 200, "body": "No devices"}
 
     health_list = [check_device_health(d, now_unix) for d in devices]
-    digest = build_digest(health_list)
+
+    # Auto-diagnostics: send 0x40 to unhealthy devices
+    diag_queried = []
+    if auto_diag_enabled:
+        diag_queried = send_diagnostic_requests(health_list)
+        print(f"Sent diagnostic requests to {len(diag_queried)} device(s)")
+    else:
+        print("Auto-diagnostics disabled (set AUTO_DIAG_ENABLED=true to enable)")
+
+    # Collect diagnostics responses from the last 24h
+    diag_responses = {}
+    for device in health_list:
+        wireless_id = device.get("wireless_device_id", "")
+        if not wireless_id:
+            continue
+        diag = get_recent_diagnostics(wireless_id, now_unix)
+        if diag:
+            diag_responses[device["device_id"]] = diag
+
+    digest = build_digest(health_list, diag_responses)
 
     print(digest["body"])
     publish_digest(digest)
@@ -253,5 +390,7 @@ def lambda_handler(event, context):
             "online": digest["online"],
             "offline": digest["offline"],
             "faulted": digest["faulted"],
+            "diag_queried": len(diag_queried),
+            "diag_responses": len(diag_responses),
         }),
     }

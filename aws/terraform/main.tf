@@ -695,6 +695,10 @@ data "archive_file" "health_digest_zip" {
     content  = file("${path.module}/../device_registry.py")
     filename = "device_registry.py"
   }
+  source {
+    content  = file("${path.module}/../sidewalk_utils.py")
+    filename = "sidewalk_utils.py"
+  }
 }
 
 # IAM role for health digest Lambda
@@ -715,7 +719,7 @@ resource "aws_iam_role" "health_digest_role" {
   })
 }
 
-# IAM policy: CloudWatch logs + DynamoDB read + SNS publish
+# IAM policy: CloudWatch logs + DynamoDB read + SNS publish + IoT Wireless send
 resource "aws_iam_role_policy" "health_digest_policy" {
   name = "health-digest-lambda-policy"
   role = aws_iam_role.health_digest_role.id
@@ -750,6 +754,13 @@ resource "aws_iam_role_policy" "health_digest_policy" {
           "sns:Publish"
         ]
         Resource = aws_sns_topic.alerts.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iotwireless:SendDataToWirelessDevice"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -772,6 +783,8 @@ resource "aws_lambda_function" "health_digest" {
       DYNAMODB_TABLE        = var.dynamodb_table_name
       SNS_TOPIC_ARN         = aws_sns_topic.alerts.arn
       HEARTBEAT_INTERVAL_S  = tostring(var.heartbeat_interval_s)
+      AUTO_DIAG_ENABLED     = var.auto_diag_enabled
+      LATEST_APP_VERSION    = tostring(var.latest_app_version)
     }
   }
 
