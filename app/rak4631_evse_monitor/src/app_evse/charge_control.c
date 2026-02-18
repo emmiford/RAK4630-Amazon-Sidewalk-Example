@@ -5,6 +5,8 @@
  */
 
 #include <charge_control.h>
+#include <delay_window.h>
+#include <time_sync.h>
 #include <platform_api.h>
 #include <string.h>
 
@@ -48,6 +50,9 @@ int charge_control_process_cmd(const uint8_t *data, size_t len)
 		if (api) api->log_wrn("charge_control: unexpected cmd_type 0x%02x", cmd->cmd_type);
 		return -1;
 	}
+
+	/* Legacy command clears any active delay window */
+	delay_window_clear();
 
 	bool allowed = (cmd->charge_allowed != 0);
 	uint16_t duration = cmd->duration_min;
@@ -94,12 +99,44 @@ bool charge_control_is_allowed(void)
 
 void charge_control_tick(void)
 {
+	if (!api) {
+		return;
+	}
+
+	/* --- Delay window management (requires time sync) --- */
+	if (delay_window_has_window()) {
+		uint32_t now = time_sync_get_epoch();
+		if (now != 0) {
+			uint32_t start, end;
+			delay_window_get(&start, &end);
+
+			if (now > end) {
+				/* Window expired — resume and clear */
+				if (!current_state.charging_allowed) {
+					api->log_inf("Delay window expired, resuming");
+					current_state.charging_allowed = true;
+					current_state.auto_resume_min = 0;
+					current_state.pause_timestamp_ms = 0;
+					api->gpio_set(EVSE_PIN_CHARGE_EN, 1);
+				}
+				delay_window_clear();
+			} else if (now >= start && current_state.charging_allowed) {
+				/* Window active — pause charging */
+				api->log_inf("Delay window active, pausing");
+				current_state.charging_allowed = false;
+				api->gpio_set(EVSE_PIN_CHARGE_EN, 0);
+			}
+			return;  /* Delay window controls state — skip auto-resume */
+		}
+		/* Time not synced — fall through to auto-resume */
+	}
+
+	/* --- Auto-resume timer (legacy, uses relative uptime) --- */
 	if (!current_state.charging_allowed &&
 	    current_state.auto_resume_min > 0 &&
-	    current_state.pause_timestamp_ms > 0 &&
-	    api) {
-		uint32_t now = api->uptime_ms();
-		int64_t elapsed_ms = (int64_t)now - current_state.pause_timestamp_ms;
+	    current_state.pause_timestamp_ms > 0) {
+		uint32_t now_ms = api->uptime_ms();
+		int64_t elapsed_ms = (int64_t)now_ms - current_state.pause_timestamp_ms;
 		int64_t resume_threshold_ms = (int64_t)current_state.auto_resume_min * 60 * 1000;
 
 		if (elapsed_ms >= resume_threshold_ms) {

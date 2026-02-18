@@ -1,9 +1,9 @@
 # TASK-063: Delay window support — device storage + scheduler format change
 
-**Status**: not started
+**Status**: committed (2026-02-17, Eliel)
 **Priority**: P1
 **Owner**: Eliel
-**Branch**: —
+**Branch**: task/063-delay-window
 **Size**: L (8 points)
 
 ## Description
@@ -56,26 +56,26 @@ Old firmware ignores unknown subtypes (existing `cmd_type` check passes but
 delay window deletion added when this task merges)
 
 ## Acceptance Criteria
-- [ ] Device parses delay window downlink and stores `[start, end]` in RAM
-- [ ] Device pauses charging when `start ≤ now ≤ end`, resumes when `now > end`
-- [ ] New downlink replaces previous window (one window at a time)
-- [ ] Device with no TIME_SYNC (epoch=0) ignores delay windows (safe default)
-- [ ] Scheduler sends delay windows instead of pause/allow for TOU and MOER
-- [ ] Scheduler sentinel updated to track window boundaries
-- [ ] Heartbeat re-send: scheduler re-sends window if stale (>30 min since last send)
-- [ ] Legacy pause/allow commands still work (subtype 0x00 or absent)
-- [ ] Python Lambda tests updated for new downlink format
-- [ ] C unit tests for window parsing, storage, expiry, and replacement
+- [x] Device parses delay window downlink and stores `[start, end]` in RAM
+- [x] Device pauses charging when `start ≤ now ≤ end`, resumes when `now > end`
+- [x] New downlink replaces previous window (one window at a time)
+- [x] Device with no TIME_SYNC (epoch=0) ignores delay windows (safe default)
+- [x] Scheduler sends delay windows instead of pause/allow for TOU and MOER
+- [x] Scheduler sentinel updated to track window boundaries
+- [x] Heartbeat re-send: scheduler re-sends window if stale (>30 min since last send)
+- [x] Legacy pause/allow commands still work (subtype 0x00 or absent)
+- [x] Python Lambda tests updated for new downlink format
+- [x] C unit tests for window parsing, storage, expiry, and replacement
 
 ## Testing Requirements
-- [ ] C unit tests: window active → charging paused
-- [ ] C unit tests: window expired → charging allowed
-- [ ] C unit tests: new window replaces old
-- [ ] C unit tests: no TIME_SYNC → window ignored
-- [ ] C unit tests: legacy command still works
-- [ ] Python tests: scheduler sends window format
-- [ ] Python tests: heartbeat re-send logic
-- [ ] Python tests: sentinel tracks window boundaries
+- [x] C unit tests: window active → charging paused
+- [x] C unit tests: window expired → charging allowed
+- [x] C unit tests: new window replaces old
+- [x] C unit tests: no TIME_SYNC → window ignored
+- [x] C unit tests: legacy command still works
+- [x] Python tests: scheduler sends window format
+- [x] Python tests: heartbeat re-send logic
+- [x] Python tests: sentinel tracks window boundaries
 
 ## Deliverables
 - New `delay_window.c` / `delay_window.h` (device-side window storage + check)
