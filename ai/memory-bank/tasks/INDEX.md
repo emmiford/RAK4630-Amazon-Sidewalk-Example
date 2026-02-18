@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (24)
+## Open Tasks (32)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -61,6 +61,14 @@ Special: deferred, declined
 |----|--------|-------|-------|------------|
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
+| TASK-076 | not started | Pam | Engage external privacy consultant | — |
+| TASK-077 | not started | Eliel | Implement deletion Lambda (PII + telemetry cleanup) | — |
+| TASK-078 | not started | Eliel | Implement daily aggregation Lambda | — |
+| TASK-079 | not started | Pam | Consumer privacy request intake form | — |
+| TASK-080 | not started | Pam | Publish privacy policy (web hosting) | TASK-076 |
+| TASK-081 | not started | Pam | Formal incident response plan | TASK-076 |
+| TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
+| TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
 ## Completed Tasks (51)
 | ID | Title | Status | Date | Agent |
