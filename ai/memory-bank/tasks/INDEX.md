@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (21)
+## Open Tasks (20)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -37,7 +37,6 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
-| TASK-064 | committed | Eliel | Cloud Charge Now protocol (ADR-003) | — |
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
@@ -58,7 +57,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (63)
+## Completed Tasks (64)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -125,6 +124,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-075 | On-device delay window verification | MERGED DONE | 2026-02-18 | Eero |
 | TASK-055 | Split ota_update.c → ota_flash.c + ota_update.c | MERGED DONE | 2026-02-18 | Eliel |
 | TASK-057 | Route selftest through evse_sensors, not direct ADC | MERGED DONE | 2026-02-18 | Eero |
+| TASK-064 | Cloud Charge Now protocol (ADR-003) | MERGED DONE | 2026-02-18 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
