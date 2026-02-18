@@ -29,9 +29,9 @@ Special: deferred, declined
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
+| TASK-023 | REOPENED | — | PSA crypto -149 bug (intermittent on async downlinks) | — |
 | TASK-046 | not started | Eero | Signed OTA E2E verification | — |
-| TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
-| TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
+| TASK-047 | in progress | Eero | On-device verification (TIME_SYNC + buffer + v0x08) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -89,7 +89,7 @@ Special: deferred, declined
 | TASK-019 | clang-format CI | DECLINED | 2026-02-11 | — |
 | TASK-020 | E2E runbook execution | MERGED DONE | 2026-02-11 | Eero |
 | TASK-021 | Remove legacy rak1901_demo | MERGED DONE | 2026-02-11 | — |
-| TASK-023 | PSA crypto -149 bug | MERGED DONE | 2026-02-11 | Claude + Eero |
+| TASK-023 | PSA crypto -149 bug | REOPENED | 2026-02-17 | Eero |
 | TASK-024 | API version mismatch hard stop | MERGED DONE | 2026-02-11 | Claude |
 | TASK-025 | OTA chunk + delta bitmap tests | MERGED DONE | 2026-02-11 | Eero |
 | TASK-027 | Shell command dispatch tests | MERGED DONE | 2026-02-11 | Eero |
@@ -120,6 +120,7 @@ Special: deferred, declined
 | TASK-045 | ED25519 verify library integration | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-066 | Button re-test clears FAULT_SELFTEST on all-pass | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-067 | LED blink priority state machine (PRD §2.5.1) | MERGED DONE | 2026-02-17 | Eliel |
+| TASK-058 | On-device shell verification (post app.c refactor) | MERGED DONE | 2026-02-17 | Eero |
 | TASK-063 | Delay window support (device + cloud) | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-037 | Utility identification (PRD scoping done) | MERGED DONE | 2026-02-17 | Pam |
 | TASK-038 | Data privacy — policy + retention + CCPA | MERGED DONE | 2026-02-17 | Pam |

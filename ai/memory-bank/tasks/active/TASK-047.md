@@ -1,9 +1,9 @@
 # TASK-047: On-device verification — TIME_SYNC, event buffer, and uplink v0x07
 
-**Status**: not started
+**Status**: in progress (2026-02-17, Eero)
 **Priority**: P1
-**Owner**: —
-**Branch**: N/A (device testing, no code changes expected)
+**Owner**: Eero
+**Branch**: task/047-058-device-verification + task/047-timesync-resync-on-reboot (merged)
 **Size**: S (2 points)
 
 ## Description
@@ -14,19 +14,20 @@ Combined device verification for TASK-033 (TIME_SYNC), TASK-034 (event buffer), 
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] TIME_SYNC: `sid time` shell command shows synced time after first uplink
+- [x] TIME_SYNC: `sid time` shell command shows synced time after first uplink
 - [ ] TIME_SYNC: Clock drift < 10 seconds per day confirmed
-- [ ] Event buffer: `evse buffer` shell command shows fill level and timestamps
-- [ ] Event buffer: ACK watermark from TIME_SYNC trims buffer entries
-- [ ] Uplink v0x07: DynamoDB events include device-side timestamp, charge_allowed, version=0x07
-- [ ] Uplink v0x07: 12-byte payload confirmed in CloudWatch logs
-- [ ] Backward compat: decode Lambda still handles v0x06
+- [x] Event buffer: `evse buffer` shell command shows fill level and timestamps
+- [x] Event buffer: ACK watermark from TIME_SYNC trims buffer entries (zero-ts entries replaced)
+- [x] Uplink v0x08: DynamoDB events include device-side timestamp, charge_allowed, version=8
+- [x] Uplink v0x08: 12-byte payload confirmed (`e50804070144096000000000`)
+- [x] Backward compat: decode Lambda still handles v0x06/v0x07 (195 Python tests)
 
 ## Testing Requirements
-- [ ] Reflash platform + app with all three features
-- [ ] Monitor serial output during TIME_SYNC receipt
-- [ ] Verify DynamoDB event format matches expected v0x07 schema
+- [x] Reflash platform + app with all three features (MFG → platform → app)
+- [x] Monitor serial output during TIME_SYNC receipt
+- [x] Verify DynamoDB event format matches expected v0x08 schema
 - [ ] Simulate state changes and verify event buffer fill/trim cycle
+- [x] Fixed: Lambda now force-sends TIME_SYNC when device reports ts=0 (commit 9e0b165)
 
 ## Deliverables
 - Updated `tests/e2e/RUNBOOK.md`
