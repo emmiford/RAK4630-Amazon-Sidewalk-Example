@@ -234,6 +234,14 @@ resource "aws_iam_role_policy" "charge_scheduler_policy" {
       {
         Effect = "Allow"
         Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.device_registry.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "iotwireless:SendDataToWirelessDevice",
           "iotwireless:ListWirelessDevices"
         ]
@@ -256,10 +264,11 @@ resource "aws_lambda_function" "charge_scheduler" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE    = var.dynamodb_table_name
-      WATTTIME_USERNAME = var.watttime_username
-      WATTTIME_PASSWORD = var.watttime_password
-      MOER_THRESHOLD    = tostring(var.moer_threshold)
+      DYNAMODB_TABLE        = var.dynamodb_table_name
+      DEVICE_REGISTRY_TABLE = var.device_registry_table_name
+      WATTTIME_USERNAME     = var.watttime_username
+      WATTTIME_PASSWORD     = var.watttime_password
+      MOER_THRESHOLD        = tostring(var.moer_threshold)
     }
   }
 
@@ -413,6 +422,14 @@ resource "aws_iam_role_policy" "ota_sender_policy" {
       {
         Effect = "Allow"
         Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.device_registry.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "iotwireless:SendDataToWirelessDevice",
           "iotwireless:ListWirelessDevices"
         ]
@@ -435,8 +452,9 @@ resource "aws_lambda_function" "ota_sender" {
 
   environment {
     variables = {
-      DYNAMODB_TABLE = var.dynamodb_table_name
-      OTA_BUCKET     = var.ota_bucket_name
+      DYNAMODB_TABLE        = var.dynamodb_table_name
+      OTA_BUCKET            = var.ota_bucket_name
+      DEVICE_REGISTRY_TABLE = var.device_registry_table_name
     }
   }
 

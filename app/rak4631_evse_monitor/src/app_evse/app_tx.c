@@ -107,8 +107,8 @@ int app_tx_send_evse_data(void)
 		(timestamp >> 24) & 0xFF,
 	};
 
-	api->log_inf("EVSE TX v08: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u",
-		     data.j1772_state, data.j1772_mv, data.current_ma,
+	api->log_inf("EVSE TX v%02x: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u",
+		     EVSE_VERSION, data.j1772_state, data.j1772_mv, data.current_ma,
 		     flags, timestamp);
 
 	last_send_ms = now;
