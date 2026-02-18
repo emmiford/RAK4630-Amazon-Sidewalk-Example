@@ -163,7 +163,8 @@ def get_last_state():
 
 
 def write_state(command, reason, moer_percent, tou_peak,
-                window_start_sc=None, window_end_sc=None, sent_unix=None):
+                window_start_sc=None, window_end_sc=None, sent_unix=None,
+                charge_now_override_until=None):
     """Write the current scheduler state to the sentinel key."""
     now_iso = datetime.now(MT).isoformat()
     item = {
@@ -182,6 +183,8 @@ def write_state(command, reason, moer_percent, tou_peak,
         item["window_end_sc"] = window_end_sc
     if sent_unix is not None:
         item["sent_unix"] = sent_unix
+    if charge_now_override_until is not None:
+        item["charge_now_override_until"] = charge_now_override_until
     item = json.loads(json.dumps(item, default=str), parse_float=Decimal)
     table.put_item(Item=item)
 
@@ -264,21 +267,42 @@ def lambda_handler(event, context):
 
     print(f"Decision: {'pause' if should_pause else 'allow'} (reason: {reason})")
 
+    # Read sentinel once (used for opt-out check, heartbeat, and off-peak cancel)
+    sentinel = get_last_state()
+
+    # Extract Charge Now opt-out (preserve across writes if still active)
+    override_until = None
+    if sentinel:
+        raw_override = sentinel.get('charge_now_override_until')
+        if raw_override is not None and int(raw_override) > now_unix:
+            override_until = int(raw_override)
+
+    # 3.5 Charge Now opt-out guard (ADR-003)
+    if should_pause and override_until is not None:
+        print(f"Charge Now opt-out active (until {override_until}), "
+              f"suppressing pause")
+        write_state("charge_now_optout", reason, moer_percent, tou_peak,
+                    charge_now_override_until=override_until)
+        return {"statusCode": 200,
+                "body": f"suppressed: charge_now_optout ({reason})"}
+
     if not should_pause:
         # Off-peak: cancel any active delay window with legacy allow
-        last_state = get_last_state()
-        last_cmd = last_state.get("last_command") if last_state else None
+        last_cmd = sentinel.get("last_command") if sentinel else None
         if last_cmd == "delay_window" or (force_resend and last_cmd == "allow"):
             label = "force re-send allow" if force_resend else \
                     "Cancelling active delay window with legacy allow"
             print(label)
             send_charge_command(True)
-            write_state("allow", reason, moer_percent, tou_peak, sent_unix=now_unix)
+            write_state("allow", reason, moer_percent, tou_peak,
+                        sent_unix=now_unix,
+                        charge_now_override_until=override_until)
             log_command_event("allow", reason, moer_percent, tou_peak)
             return {"statusCode": 200, "body": f"sent: allow ({reason})"}
 
         # No window to cancel — just update sentinel
-        write_state("off_peak", reason, moer_percent, tou_peak)
+        write_state("off_peak", reason, moer_percent, tou_peak,
+                    charge_now_override_until=override_until)
         return {"statusCode": 200, "body": f"off_peak ({reason})"}
 
     # 4. Calculate delay window end
@@ -293,17 +317,17 @@ def lambda_handler(event, context):
     # 5. Heartbeat check — skip if recently sent same window
     #    Bypass when force_resend is set (divergence re-send)
     if not force_resend:
-        last_state = get_last_state()
-        if last_state and last_state.get("last_command") == "delay_window":
-            last_end = int(last_state.get("window_end_sc", 0))
-            last_sent = int(last_state.get("sent_unix", 0))
+        if sentinel and sentinel.get("last_command") == "delay_window":
+            last_end = int(sentinel.get("window_end_sc", 0))
+            last_sent = int(sentinel.get("sent_unix", 0))
             stale = (now_unix - last_sent) >= HEARTBEAT_RESEND_S
             changed = last_end != end_sc
             if not stale and not changed:
                 print(f"Recently sent same window (end={end_sc}), skipping")
                 write_state("delay_window", reason, moer_percent, tou_peak,
                             window_start_sc=now_sc, window_end_sc=end_sc,
-                            sent_unix=last_sent)
+                            sent_unix=last_sent,
+                            charge_now_override_until=override_until)
                 return {"statusCode": 200,
                         "body": f"no change: delay_window ({reason})"}
 
@@ -312,7 +336,8 @@ def lambda_handler(event, context):
 
     # 7. Record state
     write_state("delay_window", reason, moer_percent, tou_peak,
-                window_start_sc=now_sc, window_end_sc=end_sc, sent_unix=now_unix)
+                window_start_sc=now_sc, window_end_sc=end_sc, sent_unix=now_unix,
+                charge_now_override_until=override_until)
     log_command_event("delay_window", reason, moer_percent, tou_peak)
 
     print(f"Delay window sent: [{now_sc}, {end_sc}] ({reason})")
