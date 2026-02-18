@@ -38,7 +38,8 @@ void    selftest_set_api(const struct platform_api *api);
 void    selftest_reset(void);                           /* clear all state (for testing) */
 int     selftest_boot(selftest_boot_result_t *result);  /* <100ms, returns 0=pass -1=fail */
 void    selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,
-            uint16_t current_ma, bool charge_allowed, bool cool_call);
+            uint16_t current_ma, bool charge_allowed,
+            uint8_t thermostat_flags);
 uint8_t selftest_get_fault_flags(void);                 /* OR into uplink byte 7 */
 int     selftest_run_shell(void (*print)(const char *, ...),
             void (*error)(const char *, ...));

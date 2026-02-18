@@ -131,13 +131,14 @@ int selftest_boot(selftest_boot_result_t *result)
 
 void selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,
 			      uint16_t current_ma, bool charge_allowed,
-			      bool cool_call)
+			      uint8_t thermostat_flags)
 {
 	if (!api) {
 		return;
 	}
 
 	uint32_t now = api->uptime_ms();
+	bool cool_call = (thermostat_flags & 0x02) != 0;
 
 	/* --- Clamp mismatch: State C + no current, OR not-C + current --- */
 	bool state_c = (j1772_state == J1772_C);
@@ -178,9 +179,9 @@ void selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,
 	}
 	last_charge_allowed = charge_allowed;
 
-	/* --- Pilot out-of-range: ADC read failure or UNKNOWN state --- */
-	bool pilot_bad = (api->adc_read_mv(0) < 0) || (j1772_state == J1772_UNKNOWN);
-	(void)pilot_mv;  /* pilot_mv not used directly — we re-read ADC for freshness */
+	/* --- Pilot out-of-range: UNKNOWN state (covers ADC failure + out-of-range) --- */
+	(void)pilot_mv;  /* state already encodes pilot validity via evse_sensors */
+	bool pilot_bad = (j1772_state == J1772_UNKNOWN);
 
 	if (pilot_bad) {
 		if (pilot_fault_start == 0) {

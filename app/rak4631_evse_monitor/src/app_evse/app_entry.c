@@ -254,8 +254,7 @@ static void app_on_timer(void)
 
 	/* --- Continuous self-test monitoring --- */
 	selftest_continuous_tick((uint8_t)state, voltage_mv, current_ma,
-				charge_control_is_allowed(),
-				thermostat_cool_call_get());
+				charge_control_is_allowed(), flags);
 
 	/* --- Send on change or heartbeat --- */
 	uint32_t now = api->uptime_ms();
