@@ -31,7 +31,7 @@ device pauses charging → device auto-resumes on expiry.
    before first sync — device should remain in allow state)
 
 ## Dependencies
-**Blocked by**: TASK-063 (delay window — committed, not yet merged)
+**Blocked by**: none (TASK-063 merged to main 2026-02-17)
 **Blocks**: none
 
 ## Acceptance Criteria

@@ -53,7 +53,7 @@ Special: deferred, declined
 | TASK-071 | not started | Eliel | Scheduler sentinel divergence detection | — |
 | TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
 | TASK-073 | not started | Eliel | Automate remote diagnostic queries from health digest | — |
-| TASK-075 | not started | — | On-device delay window verification | TASK-063 |
+| TASK-075 | not started | — | On-device delay window verification | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
