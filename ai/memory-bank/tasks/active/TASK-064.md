@@ -1,9 +1,9 @@
 # TASK-064: Cloud Charge Now protocol — detection, opt-out guard, heartbeat
 
-**Status**: not started
+**Status**: in progress (2026-02-17, Eliel)
 **Priority**: P2
 **Owner**: Eliel
-**Branch**: —
+**Branch**: task/064-charge-now-protocol
 **Size**: M (5 points)
 
 ## Description
@@ -46,20 +46,20 @@ v1.0 can hardcode since we only have one deployment on Xcel Colorado.
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] Decode Lambda detects `FLAG_CHARGE_NOW=1` and writes `charge_now_override_until` to sentinel
-- [ ] Scheduler skips pause when `now < charge_now_override_until`
-- [ ] Scheduler logs "Charge Now opt-out active" when suppressing
-- [ ] Opt-out expires naturally after peak window ends
-- [ ] Heartbeat re-send: scheduler re-sends if last_sent > 30 min ago
-- [ ] Heartbeat suppressed during Charge Now opt-out
-- [ ] Sentinel `charge_now_override_until` field cleared or ignored after expiry
+- [x] Decode Lambda detects `FLAG_CHARGE_NOW=1` and writes `charge_now_override_until` to sentinel
+- [x] Scheduler skips pause when `now < charge_now_override_until`
+- [x] Scheduler logs "Charge Now opt-out active" when suppressing
+- [x] Opt-out expires naturally after peak window ends
+- [x] Heartbeat re-send: scheduler re-sends if last_sent > 30 min ago
+- [x] Heartbeat suppressed during Charge Now opt-out
+- [x] Sentinel `charge_now_override_until` field cleared or ignored after expiry
 
 ## Testing Requirements
-- [ ] Python tests: decode Lambda writes override_until on FLAG_CHARGE_NOW
-- [ ] Python tests: scheduler skips pause during opt-out window
-- [ ] Python tests: scheduler resumes after opt-out expires
-- [ ] Python tests: heartbeat re-sends stale commands
-- [ ] Python tests: heartbeat suppressed during opt-out
+- [x] Python tests: decode Lambda writes override_until on FLAG_CHARGE_NOW
+- [x] Python tests: scheduler skips pause during opt-out window
+- [x] Python tests: scheduler resumes after opt-out expires
+- [x] Python tests: heartbeat re-sends stale commands
+- [x] Python tests: heartbeat suppressed during opt-out
 
 ## Deliverables
 - Modified `decode_evse_lambda.py` (Charge Now detection + sentinel write)

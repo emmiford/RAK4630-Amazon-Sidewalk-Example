@@ -6,7 +6,9 @@ import os
 import struct
 import sys
 import time
+from datetime import datetime
 from unittest.mock import MagicMock, patch, call
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -775,3 +777,129 @@ class TestSchedulerDivergence:
         mock_put.assert_called_once()
         tracker_item = mock_put.call_args[1]["Item"]
         assert tracker_item["retry_count"] == 0
+
+
+# --- Charge Now override detection (TASK-064 / ADR-003) ---
+
+MT = ZoneInfo("America/Denver")
+
+
+class TestChargeNowOverride:
+    """Tests for handle_charge_now_override()."""
+
+    DEVICE_ID = "test-device"
+
+    def test_peak_override_until_9pm(self):
+        """During TOU peak, override_until should be 9 PM MT today."""
+        # Monday 6 PM MT
+        now_mt = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
+        now_unix = int(now_mt.timestamp())
+
+        with patch("decode_evse_lambda.time") as mock_time, \
+             patch.object(decode.table, "update_item") as mock_update:
+            mock_time.time.return_value = now_unix
+            decode.handle_charge_now_override(self.DEVICE_ID)
+
+        mock_update.assert_called_once()
+        call_kwargs = mock_update.call_args[1]
+        assert call_kwargs["Key"] == {"device_id": self.DEVICE_ID, "timestamp": 0}
+        override_val = call_kwargs["ExpressionAttributeValues"][":val"]
+        # Should be 9 PM MT today
+        expected_9pm = now_mt.replace(hour=21, minute=0, second=0, microsecond=0)
+        assert override_val == int(expected_9pm.timestamp())
+
+    def test_off_peak_override_until_now_plus_4h(self):
+        """Outside TOU peak, override_until should be now + 4 hours."""
+        # Monday 10 AM MT (off-peak)
+        now_mt = datetime(2026, 2, 16, 10, 0, tzinfo=MT)
+        now_unix = int(now_mt.timestamp())
+
+        with patch("decode_evse_lambda.time") as mock_time, \
+             patch.object(decode.table, "update_item") as mock_update:
+            mock_time.time.return_value = now_unix
+            decode.handle_charge_now_override(self.DEVICE_ID)
+
+        override_val = mock_update.call_args[1]["ExpressionAttributeValues"][":val"]
+        assert override_val == now_unix + decode.CHARGE_NOW_DEFAULT_DURATION_S
+
+    def test_weekend_override_until_now_plus_4h(self):
+        """On weekend during peak hours, no TOU → use 4h default."""
+        # Saturday 6 PM MT (weekday check fails)
+        now_mt = datetime(2026, 2, 14, 18, 0, tzinfo=MT)
+        now_unix = int(now_mt.timestamp())
+
+        with patch("decode_evse_lambda.time") as mock_time, \
+             patch.object(decode.table, "update_item") as mock_update:
+            mock_time.time.return_value = now_unix
+            decode.handle_charge_now_override(self.DEVICE_ID)
+
+        override_val = mock_update.call_args[1]["ExpressionAttributeValues"][":val"]
+        assert override_val == now_unix + decode.CHARGE_NOW_DEFAULT_DURATION_S
+
+    def test_uses_update_item_not_put(self):
+        """Should use update_item to preserve existing sentinel fields."""
+        now_mt = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
+        with patch("decode_evse_lambda.time") as mock_time, \
+             patch.object(decode.table, "update_item") as mock_update, \
+             patch.object(decode.table, "put_item") as mock_put:
+            mock_time.time.return_value = int(now_mt.timestamp())
+            decode.handle_charge_now_override(self.DEVICE_ID)
+
+        mock_update.assert_called_once()
+        mock_put.assert_not_called()
+
+
+class TestChargeNowInHandler:
+    """Tests for Charge Now override wiring in lambda_handler."""
+
+    def _make_v08(self, flags=0, timestamp=1000):
+        """Build a 12-byte v0x08 payload."""
+        return bytes([
+            0xE5, 0x08, 0x03,  # magic, version, state C
+            0xA4, 0x0B,  # 2980 mV
+            0xD0, 0x07,  # 2000 mA
+            flags,
+            timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+            (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+        ])
+
+    def _make_event(self, raw_bytes):
+        return {
+            "WirelessDeviceId": "test-device",
+            "PayloadData": encode_b64(raw_bytes),
+            "WirelessMetadata": {
+                "Sidewalk": {
+                    "LinkType": "LoRa", "Rssi": -80, "Seq": 1,
+                    "Timestamp": "2026-02-16T18:00:00Z",
+                    "SidewalkId": "sid-001",
+                }
+            },
+        }
+
+    def test_charge_now_flag_triggers_override(self):
+        """FLAG_CHARGE_NOW=1 should call handle_charge_now_override."""
+        raw = self._make_v08(flags=0x0C)  # charge_allowed + charge_now
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch.object(decode, "handle_charge_now_override") as mock_override, \
+             patch("device_registry.get_or_create_device"), \
+             patch("device_registry.update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw), None)
+
+        mock_override.assert_called_once_with("test-device")
+
+    def test_no_charge_now_flag_no_override(self):
+        """FLAG_CHARGE_NOW=0 should NOT call handle_charge_now_override."""
+        raw = self._make_v08(flags=0x04)  # charge_allowed only, no charge_now
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch.object(decode, "handle_charge_now_override") as mock_override, \
+             patch("device_registry.get_or_create_device"), \
+             patch("device_registry.update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw), None)
+
+        mock_override.assert_not_called()

@@ -412,3 +412,212 @@ class TestForceResend:
                 result = sched.lambda_handler({}, None)
         assert "off_peak" in result["body"]
         mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()
+
+
+# --- Charge Now opt-out guard (TASK-064 / ADR-003) ---
+
+class TestChargeNowOptOut:
+    """Tests for the Charge Now opt-out guard in the scheduler."""
+
+    def test_optout_suppresses_peak_pause(self):
+        """During TOU peak, if override_until is in the future, suppress pause."""
+        now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)  # Monday 6 PM
+        now_unix = int(now.timestamp())
+        override_until = now_unix + 3600  # 1 hour from now (still in peak)
+
+        sentinel = {
+            "last_command": "delay_window",
+            "charge_now_override_until": override_until,
+        }
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state") as mock_write, \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+
+        assert "charge_now_optout" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()
+        # write_state should preserve override_until
+        mock_write.assert_called_once()
+        call_kwargs = mock_write.call_args
+        assert call_kwargs[1].get("charge_now_override_until") == override_until
+
+    def test_optout_resumes_after_expiry(self):
+        """When override_until is in the past, normal scheduling resumes."""
+        now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)  # Monday 6 PM
+        now_unix = int(now.timestamp())
+        override_until = now_unix - 60  # Expired 1 minute ago
+
+        sentinel = {
+            "last_command": "delay_window",
+            "charge_now_override_until": override_until,
+        }
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+
+        # Should send delay_window normally (not suppressed)
+        assert "delay_window" in result["body"]
+        assert "charge_now_optout" not in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_called_once()
+
+    def test_optout_suppresses_moer_pause(self):
+        """High MOER with active opt-out should also be suppressed."""
+        now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)  # Monday 10 AM off-peak
+        now_unix = int(now.timestamp())
+        override_until = now_unix + 3600
+
+        sentinel = {
+            "last_command": "delay_window",
+            "charge_now_override_until": override_until,
+        }
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=85):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+
+        assert "charge_now_optout" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()
+
+    def test_optout_does_not_suppress_off_peak_allow(self):
+        """Off-peak allow should still be sent even if opt-out is active."""
+        now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)  # off-peak
+        now_unix = int(now.timestamp())
+        override_until = now_unix + 3600  # still active
+
+        sentinel = {
+            "last_command": "delay_window",
+            "charge_now_override_until": override_until,
+        }
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+
+        # Off-peak with delay_window → should send legacy allow
+        assert "allow" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_called_once()
+
+    def test_optout_suppresses_heartbeat_resend(self):
+        """Heartbeat re-send during peak should be suppressed by opt-out."""
+        now = datetime(2026, 2, 16, 18, 30, tzinfo=MT)
+        now_unix = int(now.timestamp())
+        override_until = now_unix + 1800  # still active
+
+        sentinel = {
+            "last_command": "delay_window",
+            "window_end_sc": sched.get_tou_peak_end_sc(now),
+            "sent_unix": now_unix - 2000,  # stale — would normally re-send
+            "charge_now_override_until": override_until,
+        }
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+
+        # Opt-out takes precedence over heartbeat
+        assert "charge_now_optout" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()
+
+    def test_no_override_field_normal_behavior(self):
+        """Sentinel without charge_now_override_until → normal scheduling."""
+        now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
+        sentinel = {"last_command": "off_peak"}  # no override field
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+
+        assert "delay_window" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_called_once()
+
+    def test_override_preserved_across_write_state(self):
+        """write_state should include charge_now_override_until when active."""
+        now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)  # off-peak
+        now_unix = int(now.timestamp())
+        override_until = now_unix + 3600
+
+        sentinel = {
+            "last_command": "off_peak",
+            "charge_now_override_until": override_until,
+        }
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state") as mock_write, \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                sched.lambda_handler({}, None)
+
+        # write_state should carry the override_until through
+        call_kwargs = mock_write.call_args
+        assert call_kwargs[1].get("charge_now_override_until") == override_until
+
+    def test_expired_override_not_preserved(self):
+        """Expired override_until should NOT be carried through."""
+        now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)  # off-peak
+        now_unix = int(now.timestamp())
+        override_until = now_unix - 60  # expired
+
+        sentinel = {
+            "last_command": "off_peak",
+            "charge_now_override_until": override_until,
+        }
+        with patch.object(sched, "get_last_state", return_value=sentinel), \
+             patch.object(sched, "write_state") as mock_write, \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                sched.lambda_handler({}, None)
+
+        call_kwargs = mock_write.call_args
+        assert call_kwargs[1].get("charge_now_override_until") is None

@@ -21,7 +21,9 @@ import base64
 import json
 import os
 import time
+from datetime import datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import boto3
 
@@ -46,6 +48,10 @@ from sidewalk_utils import send_sidewalk_msg, get_device_id  # noqa: E402
 # Scheduler divergence detection (TASK-071)
 DIVERGENCE_MAX_RETRIES = 3
 DIVERGENCE_GRACE_S = 60  # Skip check within 60s of last command send
+
+# Charge Now opt-out (TASK-064 / ADR-003)
+MT = ZoneInfo("America/Denver")
+CHARGE_NOW_DEFAULT_DURATION_S = 14400  # 4 hours fallback when not in TOU peak
 
 # EVSE payload magic byte and versions
 EVSE_MAGIC = 0xE5
@@ -227,6 +233,34 @@ def check_scheduler_divergence(device_id, charge_allowed):
               f"re-invoked scheduler")
     except Exception as e:
         print(f"Divergence: scheduler invoke failed: {e}")
+
+
+def handle_charge_now_override(device_id):
+    """Write charge_now_override_until to scheduler sentinel (ADR-003).
+
+    Called when FLAG_CHARGE_NOW=1 in an uplink. Sets the override to the
+    end of the current TOU peak window (9 PM MT for Xcel Colorado), or
+    now + 4 hours if no peak window is active.
+    """
+    now_unix = int(time.time())
+    now_mt = datetime.fromtimestamp(now_unix, MT)
+
+    # If currently in TOU peak (weekdays 5-9 PM MT), override until 9 PM
+    if now_mt.weekday() < 5 and 17 <= now_mt.hour < 21:
+        peak_end = now_mt.replace(hour=21, minute=0, second=0, microsecond=0)
+        override_until = int(peak_end.timestamp())
+    else:
+        override_until = now_unix + CHARGE_NOW_DEFAULT_DURATION_S
+
+    # Update sentinel — uses update_item to avoid overwriting scheduler fields
+    table.update_item(
+        Key={'device_id': device_id, 'timestamp': 0},
+        UpdateExpression='SET charge_now_override_until = :val',
+        ExpressionAttributeValues={':val': override_until},
+    )
+    override_mt = datetime.fromtimestamp(override_until, MT)
+    print(f"Charge Now opt-out: set override_until={override_until} "
+          f"({override_mt.isoformat()})")
 
 
 def decode_raw_evse_payload(raw_bytes):
@@ -613,6 +647,13 @@ def lambda_handler(event, context):
                     wireless_device_id, decoded.get('charge_allowed', False))
             except Exception as e:
                 print(f"Divergence check error: {e}")
+
+            # Charge Now override (TASK-064 / ADR-003)
+            if decoded.get('charge_now'):
+                try:
+                    handle_charge_now_override(wireless_device_id)
+                except Exception as e:
+                    print(f"Charge Now override error: {e}")
         else:
             item['data'] = {'decode_result': decoded}
 
