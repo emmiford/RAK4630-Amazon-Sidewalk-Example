@@ -1,9 +1,9 @@
 # TASK-048b: Charge Now 30-minute latch — device-side override logic
 
-**Status**: not started
+**Status**: committed (2026-02-17, Eliel)
 **Priority**: P2
 **Owner**: Eliel
-**Branch**: —
+**Branch**: `task/048b-charge-now-latch`
 **Size**: M (5 points)
 
 ## Description
@@ -32,23 +32,23 @@ TASK-048b. See ADR-003 for the decision rationale.
 **Blocks**: TASK-064 (cloud Charge Now protocol — needs FLAG_CHARGE_NOW in uplinks)
 
 ## Acceptance Criteria
-- [ ] Single press activates 30-min Charge Now latch
-- [ ] During latch: charging forced on, cool call suppressed, cloud pause ignored
-- [ ] FLAG_CHARGE_NOW (bit 3) set in uplinks for full 30-min duration
-- [ ] FLAG_CHARGE_NOW clears when latch expires or is cancelled
-- [ ] Unplug (J1772 → state A) cancels latch immediately
-- [ ] Long-press (3s) cancels latch early
-- [ ] Coexists with 5-press self-test trigger (no false triggers)
-- [ ] Power loss = latch lost (RAM-only), safe default restored
-- [ ] LED feedback: 3 rapid blinks on press, then 0.5Hz slow blink during override
+- [x] Single press activates 30-min Charge Now latch
+- [x] During latch: charging forced on, cool call suppressed, cloud pause ignored
+- [x] FLAG_CHARGE_NOW (bit 3) set in uplinks for full 30-min duration
+- [x] FLAG_CHARGE_NOW clears when latch expires or is cancelled
+- [x] Unplug (J1772 → state A) cancels latch immediately
+- [x] Long-press (3s) cancels latch early
+- [x] Coexists with 5-press self-test trigger (no false triggers)
+- [x] Power loss = latch lost (RAM-only), safe default restored
+- [x] LED feedback: 3 rapid blinks on press, then 0.5Hz slow blink during override
 
 ## Testing Requirements
-- [ ] C unit tests: single press activates latch, sets FLAG_CHARGE_NOW
-- [ ] C unit tests: cloud pause command ignored during latch
-- [ ] C unit tests: cool call suppressed during latch, restored after expiry
-- [ ] C unit tests: unplug cancels latch
-- [ ] C unit tests: 30-min expiry restores normal operation
-- [ ] C unit tests: 5-press self-test still works (no regression)
+- [x] C unit tests: single press activates latch, sets FLAG_CHARGE_NOW
+- [x] C unit tests: cloud pause command ignored during latch
+- [x] C unit tests: cool call suppressed during latch, restored after expiry
+- [x] C unit tests: unplug cancels latch
+- [x] C unit tests: 30-min expiry restores normal operation
+- [x] C unit tests: 5-press self-test still works (no regression)
 - [ ] On-device: button press → LED feedback → charging starts
 
 ## Deliverables

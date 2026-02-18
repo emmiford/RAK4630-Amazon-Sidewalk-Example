@@ -38,7 +38,7 @@ Special: deferred, declined
 | TASK-026 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
-| TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | — |
+| TASK-048b | committed | Eliel | Charge Now 30-min latch (ADR-003) | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
