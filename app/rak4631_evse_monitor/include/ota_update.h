@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
+#include <ota_flash.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,7 +61,7 @@ extern "C" {
 #define OTA_STAGING_ADDR        0xD0000   /* Staging area for incoming image */
 #define OTA_STAGING_SIZE        0x24FFF   /* ~148KB (up to 0xF4FFF) */
 
-#define OTA_FLASH_PAGE_SIZE     4096      /* nRF52840 flash page size */
+/* OTA_FLASH_PAGE_SIZE is defined in ota_flash.h */
 
 /* Recovery metadata magic */
 #define OTA_META_MAGIC          0x4F544155  /* "OTAU" */

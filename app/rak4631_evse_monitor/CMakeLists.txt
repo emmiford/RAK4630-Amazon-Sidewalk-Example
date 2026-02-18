@@ -21,6 +21,7 @@ target_sources(app PRIVATE
     src/tx_state.c
     src/app_leds.c
     src/platform_api_impl.c
+    src/ota_flash.c
     src/ota_update.c
     src/ota_signing.c
     src/mfg_health.c

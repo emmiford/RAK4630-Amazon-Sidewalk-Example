@@ -142,9 +142,10 @@ target_include_directories(mock_ota_signing PUBLIC
     ${APP_INC}
 )
 
-# OTA recovery test — compiles ota_update.c against mock Zephyr headers
+# OTA recovery test — compiles ota_update.c + ota_flash.c against mock Zephyr headers
 add_executable(test_ota_recovery
     ${CMAKE_CURRENT_SOURCE_DIR}/app/test_ota_recovery.c
+    ${APP_ROOT}/src/ota_flash.c
     ${APP_ROOT}/src/ota_update.c
 )
 target_include_directories(test_ota_recovery PRIVATE
@@ -172,6 +173,7 @@ add_test(NAME test_mfg_health COMMAND test_mfg_health)
 # OTA chunk receive + delta bitmap tests
 add_executable(test_ota_chunks
     ${CMAKE_CURRENT_SOURCE_DIR}/app/test_ota_chunks.c
+    ${APP_ROOT}/src/ota_flash.c
     ${APP_ROOT}/src/ota_update.c
 )
 target_include_directories(test_ota_chunks PRIVATE
@@ -185,6 +187,7 @@ add_test(NAME test_ota_chunks COMMAND test_ota_chunks)
 # OTA ED25519 signing tests — uses mock_ota_signing instead of real ota_signing.c
 add_executable(test_ota_signing
     ${CMAKE_CURRENT_SOURCE_DIR}/app/test_ota_signing.c
+    ${APP_ROOT}/src/ota_flash.c
     ${APP_ROOT}/src/ota_update.c
 )
 target_include_directories(test_ota_signing PRIVATE
