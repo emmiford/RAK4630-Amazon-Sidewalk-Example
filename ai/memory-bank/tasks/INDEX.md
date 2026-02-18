@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (31)
+## Open Tasks (28)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -39,9 +39,6 @@ Special: deferred, declined
 | TASK-026 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
-| TASK-037 | committed | Pam | Utility identification (PRD scoping done) | — |
-| TASK-038 | committed | Pam | Data privacy — policy + retention + CCPA | — |
-| TASK-042 | committed | Pam | Privacy agent | — |
 | TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
@@ -69,7 +66,7 @@ Special: deferred, declined
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (52)
+## Completed Tasks (55)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -124,6 +121,9 @@ Special: deferred, declined
 | TASK-066 | Button re-test clears FAULT_SELFTEST on all-pass | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-067 | LED blink priority state machine (PRD §2.5.1) | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-063 | Delay window support (device + cloud) | MERGED DONE | 2026-02-17 | Eliel |
+| TASK-037 | Utility identification (PRD scoping done) | MERGED DONE | 2026-02-17 | Pam |
+| TASK-038 | Data privacy — policy + retention + CCPA | MERGED DONE | 2026-02-17 | Pam |
+| TASK-042 | Privacy agent | MERGED DONE | 2026-02-17 | Pam |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
