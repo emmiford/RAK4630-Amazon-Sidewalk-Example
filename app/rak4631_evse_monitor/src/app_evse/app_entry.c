@@ -17,6 +17,7 @@
 #include <evse_payload.h>
 #include <app_tx.h>
 #include <app_rx.h>
+#include <delay_window.h>
 #include <diag_request.h>
 #include <selftest.h>
 #include <selftest_trigger.h>
@@ -100,6 +101,7 @@ static int app_init(const struct platform_api *platform)
 	evse_payload_set_api(api);
 	app_tx_set_api(api);
 	app_rx_set_api(api);
+	delay_window_set_api(api);
 	diag_request_set_api(api);
 	selftest_set_api(api);
 	selftest_trigger_set_api(api);
@@ -110,6 +112,7 @@ static int app_init(const struct platform_api *platform)
 	charge_control_init();
 	thermostat_inputs_init();
 	time_sync_init();
+	delay_window_init();
 	event_buffer_init();
 	selftest_trigger_set_send_fn(app_tx_send_evse_data);
 	selftest_trigger_init();

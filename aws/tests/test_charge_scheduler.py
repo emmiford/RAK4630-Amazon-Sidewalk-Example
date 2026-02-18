@@ -1,6 +1,7 @@
-"""Tests for charge_scheduler_lambda.py — TOU schedule and charge decisions."""
+"""Tests for charge_scheduler_lambda.py — TOU schedule, delay windows, and charge decisions."""
 
 import os
+import struct
 import sys
 from datetime import datetime
 from unittest.mock import MagicMock, patch
@@ -64,7 +65,26 @@ class TestTouPeak:
         assert sched.is_tou_peak(dt) is False
 
 
-# --- Charge command format ---
+# --- TOU peak end calculation ---
+
+class TestTouPeakEnd:
+    def test_peak_end_is_9pm_today(self):
+        now = datetime(2026, 2, 16, 18, 30, tzinfo=MT)  # Monday 6:30 PM
+        end_sc = sched.get_tou_peak_end_sc(now)
+        # 9 PM MT today as SideCharge epoch
+        expected_9pm = now.replace(hour=21, minute=0, second=0, microsecond=0)
+        expected_sc = int(expected_9pm.timestamp()) - sched.SIDECHARGE_EPOCH_OFFSET
+        assert end_sc == expected_sc
+
+    def test_peak_end_at_5pm_still_9pm(self):
+        now = datetime(2026, 2, 16, 17, 0, tzinfo=MT)  # Monday 5 PM
+        end_sc = sched.get_tou_peak_end_sc(now)
+        expected_9pm = now.replace(hour=21, minute=0, second=0, microsecond=0)
+        expected_sc = int(expected_9pm.timestamp()) - sched.SIDECHARGE_EPOCH_OFFSET
+        assert end_sc == expected_sc
+
+
+# --- Legacy charge command format ---
 
 class TestSendChargeCommand:
     def test_allow_payload(self):
@@ -86,7 +106,39 @@ class TestSendChargeCommand:
         assert mock_sidewalk_utils.send_sidewalk_msg.call_args[1]["transmit_mode"] == 0
 
 
-# --- Lambda handler decision logic ---
+# --- Delay window downlink format ---
+
+class TestSendDelayWindow:
+    def test_window_payload_format(self):
+        """10-byte payload: [0x10, 0x02, start_le_4B, end_le_4B]."""
+        mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+        sched.send_delay_window(1000, 2000)
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        assert len(payload) == 10
+        assert payload[0] == 0x10  # CHARGE_CONTROL_CMD
+        assert payload[1] == 0x02  # DELAY_WINDOW_SUBTYPE
+        start = struct.unpack_from("<I", payload, 2)[0]
+        end = struct.unpack_from("<I", payload, 6)[0]
+        assert start == 1000
+        assert end == 2000
+
+    def test_window_transmit_mode_zero(self):
+        mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+        sched.send_delay_window(1000, 2000)
+        assert mock_sidewalk_utils.send_sidewalk_msg.call_args[1]["transmit_mode"] == 0
+
+    def test_window_large_epoch_values(self):
+        """SideCharge epoch values can be large 32-bit numbers."""
+        mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+        sched.send_delay_window(4000000, 4014400)  # ~46 days + 4 hours
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        start = struct.unpack_from("<I", payload, 2)[0]
+        end = struct.unpack_from("<I", payload, 6)[0]
+        assert start == 4000000
+        assert end == 4014400
+
+
+# --- Lambda handler: delay window decision logic ---
 
 class TestLambdaHandler:
     @pytest.fixture(autouse=True)
@@ -99,67 +151,162 @@ class TestLambdaHandler:
              patch.object(sched, "get_moer_percent", return_value=None):
             yield
 
-    def test_off_peak_sends_allow(self):
-        # Monday 10 AM — off-peak, no MOER
-        with patch.object(sched, "datetime") if hasattr(sched, "datetime") else patch("charge_scheduler_lambda.datetime") as mock_dt:
-            now = datetime(2025, 1, 6, 10, 0, tzinfo=MT)
-            with patch("charge_scheduler_lambda.datetime") as mock_dt:
-                mock_dt.now.return_value = now
-                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-                result = sched.lambda_handler({}, None)
-        assert "allow" in result["body"]
-
-    def test_peak_sends_pause(self):
-        # Monday 6 PM — on-peak
-        now = datetime(2025, 1, 6, 18, 0, tzinfo=MT)
-        with patch("charge_scheduler_lambda.datetime") as mock_dt:
+    def test_peak_sends_delay_window(self):
+        """On-peak should send a delay window, not a legacy command."""
+        now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)  # Monday 6 PM
+        with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+             patch("charge_scheduler_lambda.time") as mock_time:
             mock_dt.now.return_value = now
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            mock_time.time.return_value = now.timestamp()
             result = sched.lambda_handler({}, None)
-        assert "pause" in result["body"]
+        assert "delay_window" in result["body"]
+        # Should have sent a 10-byte delay window payload
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        assert len(payload) == 10
+        assert payload[0] == 0x10
+        assert payload[1] == 0x02
 
-    def test_no_change_skips_downlink(self):
-        """If last command matches, don't re-send."""
+    def test_off_peak_no_downlink(self):
+        """Off-peak with no prior window should not send anything."""
+        now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)  # Monday 10 AM
+        with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+             patch("charge_scheduler_lambda.time") as mock_time:
+            mock_dt.now.return_value = now
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            mock_time.time.return_value = now.timestamp()
+            result = sched.lambda_handler({}, None)
+        assert "off_peak" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()
+
+    def test_off_peak_cancels_active_window(self):
+        """Off-peak after a delay window should send legacy allow to cancel."""
         with patch.object(sched, "get_last_state",
-                          return_value={"last_command": "allow"}):
-            now = datetime(2025, 1, 6, 10, 0, tzinfo=MT)
-            with patch("charge_scheduler_lambda.datetime") as mock_dt:
+                          return_value={"last_command": "delay_window"}):
+            now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
                 mock_dt.now.return_value = now
                 mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+        assert "allow" in result["body"]
+        # Should be a 4-byte legacy allow
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        assert payload == bytes([0x10, 0x01, 0x00, 0x00])
+
+    def test_tou_window_end_is_9pm(self):
+        """TOU delay window should end at 9 PM MT."""
+        now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
+        with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+             patch("charge_scheduler_lambda.time") as mock_time:
+            mock_dt.now.return_value = now
+            mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+            mock_time.time.return_value = now.timestamp()
+            sched.lambda_handler({}, None)
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        end_sc = struct.unpack_from("<I", payload, 6)[0]
+        expected_9pm = now.replace(hour=21, minute=0, second=0, microsecond=0)
+        expected_end_sc = int(expected_9pm.timestamp()) - sched.SIDECHARGE_EPOCH_OFFSET
+        assert end_sc == expected_end_sc
+
+
+# --- Heartbeat re-send logic ---
+
+class TestHeartbeat:
+    def test_recent_same_window_skips(self):
+        """If same window was sent <30 min ago, skip."""
+        now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
+        now_unix = int(now.timestamp())
+        now_sc = now_unix - sched.SIDECHARGE_EPOCH_OFFSET
+        peak_end_sc = sched.get_tou_peak_end_sc(now)
+
+        last_state = {
+            "last_command": "delay_window",
+            "window_end_sc": peak_end_sc,
+            "sent_unix": now_unix - 300,  # 5 min ago
+        }
+        with patch.object(sched, "get_last_state", return_value=last_state), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
                 result = sched.lambda_handler({}, None)
         assert "no change" in result["body"]
         mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()
+
+    def test_stale_window_resends(self):
+        """If same window was sent >30 min ago, re-send."""
+        now = datetime(2026, 2, 16, 18, 30, tzinfo=MT)
+        now_unix = int(now.timestamp())
+        peak_end_sc = sched.get_tou_peak_end_sc(now)
+
+        last_state = {
+            "last_command": "delay_window",
+            "window_end_sc": peak_end_sc,
+            "sent_unix": now_unix - 2000,  # ~33 min ago
+        }
+        with patch.object(sched, "get_last_state", return_value=last_state), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+        assert "delay_window" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_called_once()
 
 
 # --- MOER integration ---
 
 class TestMoerDecision:
-    def test_high_moer_causes_pause(self):
-        """MOER above threshold should pause even off-peak."""
+    def test_high_moer_sends_delay_window(self):
+        """MOER above threshold should send a delay window."""
         with patch.object(sched, "get_last_state", return_value=None), \
              patch.object(sched, "write_state"), \
              patch.object(sched, "log_command_event"), \
-             patch.object(sched, "get_moer_percent", return_value=85):  # > 70 threshold
-            now = datetime(2025, 1, 6, 10, 0, tzinfo=MT)  # off-peak
-            with patch("charge_scheduler_lambda.datetime") as mock_dt:
+             patch.object(sched, "get_moer_percent", return_value=85):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)  # off-peak
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
                 mock_dt.now.return_value = now
                 mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
                 result = sched.lambda_handler({}, None)
-        assert "pause" in result["body"]
+        assert "delay_window" in result["body"]
         assert "moer" in result["body"]
+        # MOER window should be 30 min from now
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        start_sc = struct.unpack_from("<I", payload, 2)[0]
+        end_sc = struct.unpack_from("<I", payload, 6)[0]
+        assert end_sc - start_sc == sched.MOER_WINDOW_DURATION_S
 
-    def test_low_moer_allows(self):
-        """MOER below threshold off-peak should allow."""
+    def test_low_moer_off_peak_no_downlink(self):
+        """MOER below threshold off-peak should not send anything."""
         with patch.object(sched, "get_last_state", return_value=None), \
              patch.object(sched, "write_state"), \
              patch.object(sched, "log_command_event"), \
              patch.object(sched, "get_moer_percent", return_value=30):
-            now = datetime(2025, 1, 6, 10, 0, tzinfo=MT)
-            with patch("charge_scheduler_lambda.datetime") as mock_dt:
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
                 mock_dt.now.return_value = now
                 mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
                 result = sched.lambda_handler({}, None)
-        assert "allow" in result["body"]
+        assert "off_peak" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()
 
     def test_moer_none_treated_as_low(self):
         """If WattTime is unavailable (None), don't pause for MOER."""
@@ -167,9 +314,35 @@ class TestMoerDecision:
              patch.object(sched, "write_state"), \
              patch.object(sched, "log_command_event"), \
              patch.object(sched, "get_moer_percent", return_value=None):
-            now = datetime(2025, 1, 6, 10, 0, tzinfo=MT)
-            with patch("charge_scheduler_lambda.datetime") as mock_dt:
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
                 mock_dt.now.return_value = now
                 mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
                 result = sched.lambda_handler({}, None)
-        assert "allow" in result["body"]
+        assert "off_peak" in result["body"]
+
+    def test_tou_plus_moer_uses_longer_window(self):
+        """When both TOU and MOER are active, use the longer window end."""
+        with patch.object(sched, "get_last_state", return_value=None), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=85):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            # On-peak + high MOER
+            now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+        assert "delay_window" in result["body"]
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        end_sc = struct.unpack_from("<I", payload, 6)[0]
+        # TOU ends at 9 PM (3 hours = 10800s), MOER window is 30 min (1800s)
+        # TOU end should be longer
+        tou_end = sched.get_tou_peak_end_sc(now)
+        assert end_sc == tou_end

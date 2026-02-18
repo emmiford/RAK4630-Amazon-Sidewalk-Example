@@ -8,6 +8,7 @@
 
 #include <app_rx.h>
 #include <charge_control.h>
+#include <delay_window.h>
 #include <time_sync.h>
 #include <diag_request.h>
 #include <event_buffer.h>
@@ -27,17 +28,33 @@ void app_rx_process_msg(const uint8_t *data, size_t len)
 		return;
 	}
 
-	/* Check for raw charge control command (first byte = 0x10) */
-	if (len >= sizeof(charge_control_cmd_t) &&
-	    data[0] == CHARGE_CONTROL_CMD_TYPE) {
-		api->log_inf("Raw charge control command received");
-		int ret = charge_control_process_cmd(data, len);
-		if (ret < 0) {
-			api->log_err("Charge control processing failed: %d", ret);
-		} else {
-			api->log_inf("Charge control: %s",
-				     charge_control_is_allowed() ? "ALLOW" : "PAUSE");
+	/* Charge control command family (0x10) */
+	if (data[0] == CHARGE_CONTROL_CMD_TYPE) {
+		/* Delay window subtype (0x02): 10-byte payload */
+		if (len >= DELAY_WINDOW_PAYLOAD_SIZE &&
+		    data[1] == DELAY_WINDOW_SUBTYPE) {
+			api->log_inf("Delay window command received");
+			int ret = delay_window_process_cmd(data, len);
+			if (ret < 0) {
+				api->log_err("Delay window processing failed: %d", ret);
+			}
+			return;
 		}
+
+		/* Legacy charge control (subtype 0x00/0x01): 4-byte payload */
+		if (len >= sizeof(charge_control_cmd_t)) {
+			api->log_inf("Charge control command received");
+			int ret = charge_control_process_cmd(data, len);
+			if (ret < 0) {
+				api->log_err("Charge control processing failed: %d", ret);
+			} else {
+				api->log_inf("Charge control: %s",
+					     charge_control_is_allowed() ? "ALLOW" : "PAUSE");
+			}
+			return;
+		}
+
+		api->log_wrn("Charge control: payload too short (%zu)", len);
 		return;
 	}
 

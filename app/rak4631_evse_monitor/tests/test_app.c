@@ -23,6 +23,7 @@
 #include <app_tx.h>
 #include <time_sync.h>
 #include <event_buffer.h>
+#include <delay_window.h>
 #include <led_engine.h>
 #include <stdio.h>
 #include <assert.h>
@@ -1571,6 +1572,343 @@ static void test_led_decimation_sensors_every_5th(void)
 }
 
 /* ================================================================== */
+/*  delay_window: time-based charge pause/resume                       */
+/* ================================================================== */
+
+/* Helper: sync time to a given epoch at the current mock uptime */
+static void sync_time_to(uint32_t epoch)
+{
+	uint8_t cmd[] = {0x30,
+		epoch & 0xFF, (epoch >> 8) & 0xFF,
+		(epoch >> 16) & 0xFF, (epoch >> 24) & 0xFF,
+		0x00, 0x00, 0x00, 0x00};
+	time_sync_process_cmd(cmd, sizeof(cmd));
+}
+
+/* Helper: build a delay window downlink payload */
+static void build_delay_window_cmd(uint8_t *buf, uint32_t start, uint32_t end)
+{
+	buf[0] = 0x10;  /* CHARGE_CONTROL_CMD_TYPE */
+	buf[1] = 0x02;  /* DELAY_WINDOW_SUBTYPE */
+	buf[2] = start & 0xFF;
+	buf[3] = (start >> 8) & 0xFF;
+	buf[4] = (start >> 16) & 0xFF;
+	buf[5] = (start >> 24) & 0xFF;
+	buf[6] = end & 0xFF;
+	buf[7] = (end >> 8) & 0xFF;
+	buf[8] = (end >> 16) & 0xFF;
+	buf[9] = (end >> 24) & 0xFF;
+}
+
+static void init_delay_window_test(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;  /* State A */
+	mock_get()->adc_values[1] = 0;
+	mock_get()->gpio_values[0] = 1;
+	mock_get()->gpio_values[2] = 0;
+	mock_get()->uptime = 50000;
+	mock_get()->ready = true;
+
+	time_sync_set_api(mock_api());
+	time_sync_init();
+	delay_window_set_api(mock_api());
+	delay_window_init();
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	charge_control_set(true, 0);  /* Reset to clean state after prior tests */
+}
+
+static void test_delay_window_no_window_not_paused(void)
+{
+	init_delay_window_test();
+	assert(delay_window_has_window() == false);
+	assert(delay_window_is_paused() == false);
+}
+
+static void test_delay_window_parse_and_store(void)
+{
+	init_delay_window_test();
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	assert(delay_window_process_cmd(cmd, sizeof(cmd)) == 0);
+	assert(delay_window_has_window() == true);
+
+	uint32_t start, end;
+	delay_window_get(&start, &end);
+	assert(start == 1000);
+	assert(end == 2000);
+}
+
+static void test_delay_window_active_during_window(void)
+{
+	init_delay_window_test();
+
+	/* Sync time to epoch 1500 */
+	sync_time_to(1500);
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* now=1500, within [1000, 2000] */
+	assert(delay_window_is_paused() == true);
+}
+
+static void test_delay_window_not_active_before_start(void)
+{
+	init_delay_window_test();
+
+	/* Sync time to epoch 500 (before window start) */
+	sync_time_to(500);
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* now=500, before start=1000 */
+	assert(delay_window_is_paused() == false);
+}
+
+static void test_delay_window_not_active_after_end(void)
+{
+	init_delay_window_test();
+
+	/* Sync time to epoch 2500 (after window end) */
+	sync_time_to(2500);
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* now=2500, after end=2000 */
+	assert(delay_window_is_paused() == false);
+}
+
+static void test_delay_window_ignored_without_time_sync(void)
+{
+	init_delay_window_test();
+	/* Don't sync time — epoch stays 0 */
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* Window stored but time not synced — should not pause */
+	assert(delay_window_has_window() == true);
+	assert(delay_window_is_paused() == false);
+}
+
+static void test_delay_window_new_replaces_old(void)
+{
+	init_delay_window_test();
+	sync_time_to(1500);
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+	assert(delay_window_is_paused() == true);
+
+	/* Send new window that doesn't cover now=1500 */
+	build_delay_window_cmd(cmd, 3000, 4000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+	assert(delay_window_is_paused() == false);
+
+	uint32_t start, end;
+	delay_window_get(&start, &end);
+	assert(start == 3000);
+	assert(end == 4000);
+}
+
+static void test_delay_window_clear(void)
+{
+	init_delay_window_test();
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+	assert(delay_window_has_window() == true);
+
+	delay_window_clear();
+	assert(delay_window_has_window() == false);
+	assert(delay_window_is_paused() == false);
+}
+
+static void test_delay_window_boundary_at_start(void)
+{
+	init_delay_window_test();
+	sync_time_to(1000);  /* exactly at start */
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	assert(delay_window_is_paused() == true);
+}
+
+static void test_delay_window_boundary_at_end(void)
+{
+	init_delay_window_test();
+	sync_time_to(2000);  /* exactly at end */
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	assert(delay_window_is_paused() == true);
+}
+
+static void test_delay_window_bad_payload_too_short(void)
+{
+	init_delay_window_test();
+
+	uint8_t cmd[] = {0x10, 0x02, 0x00, 0x00};
+	assert(delay_window_process_cmd(cmd, sizeof(cmd)) < 0);
+	assert(delay_window_has_window() == false);
+}
+
+/* ================================================================== */
+/*  charge_control + delay_window integration                          */
+/* ================================================================== */
+
+static void test_cc_tick_window_pauses_charging(void)
+{
+	init_delay_window_test();
+	sync_time_to(1500);
+
+	/* Set a window that covers now=1500 */
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* Charging is currently allowed */
+	assert(charge_control_is_allowed() == true);
+
+	/* Tick should detect window and pause */
+	charge_control_tick();
+	assert(charge_control_is_allowed() == false);
+	assert(mock_get()->gpio_last_val == 0);
+}
+
+static void test_cc_tick_window_expired_resumes(void)
+{
+	init_delay_window_test();
+	sync_time_to(1500);
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* Tick to pause */
+	charge_control_tick();
+	assert(charge_control_is_allowed() == false);
+
+	/* Advance time past window end */
+	mock_get()->uptime += 501000;  /* +501s → epoch ~ 1500 + 501 = 2001 */
+	charge_control_tick();
+	assert(charge_control_is_allowed() == true);
+	assert(mock_get()->gpio_last_val == 1);
+	assert(delay_window_has_window() == false);  /* cleared */
+}
+
+static void test_cc_tick_window_not_started_no_change(void)
+{
+	init_delay_window_test();
+	sync_time_to(500);
+
+	/* Window starts at 1000, we're at 500 */
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* Charging should remain allowed */
+	charge_control_tick();
+	assert(charge_control_is_allowed() == true);
+}
+
+static void test_cc_tick_window_no_sync_falls_through(void)
+{
+	init_delay_window_test();
+	/* Don't sync time */
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+
+	/* Window stored but time not synced — auto-resume logic should still work */
+	charge_control_set(false, 1);  /* Pause with 1-min auto-resume */
+	mock_get()->uptime = 50000;
+	charge_control_tick();
+	assert(charge_control_is_allowed() == false);
+
+	mock_get()->uptime = 111000;  /* 61s later */
+	charge_control_tick();
+	assert(charge_control_is_allowed() == true);
+}
+
+static void test_cc_legacy_cmd_clears_window(void)
+{
+	init_delay_window_test();
+	sync_time_to(1500);
+
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	delay_window_process_cmd(cmd, sizeof(cmd));
+	assert(delay_window_has_window() == true);
+
+	/* Send legacy allow command */
+	uint8_t legacy_cmd[] = {0x10, 0x01, 0x00, 0x00};
+	charge_control_process_cmd(legacy_cmd, sizeof(legacy_cmd));
+
+	/* Window should be cleared, charging allowed */
+	assert(delay_window_has_window() == false);
+	assert(charge_control_is_allowed() == true);
+}
+
+/* Integration: app_rx routes delay window correctly */
+static void test_rx_routes_delay_window(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;
+	mock_get()->uptime = 1000000;
+	mock_get()->ready = true;
+
+	app_cb.init(mock_api());
+
+	/* Sync time */
+	uint8_t sync[] = {0x30,
+		0xDC, 0x05, 0x00, 0x00,  /* epoch = 1500 */
+		0x00, 0x00, 0x00, 0x00};
+	app_cb.on_msg_received(sync, sizeof(sync));
+
+	/* Send delay window covering now */
+	uint8_t cmd[10];
+	build_delay_window_cmd(cmd, 1000, 2000);
+	app_cb.on_msg_received(cmd, sizeof(cmd));
+
+	assert(delay_window_has_window() == true);
+	assert(delay_window_is_paused() == true);
+}
+
+/* Integration: app_rx routes legacy charge control correctly */
+static void test_rx_routes_legacy_charge_control(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;
+	mock_get()->uptime = 1000000;
+	mock_get()->ready = true;
+
+	app_cb.init(mock_api());
+
+	/* Legacy pause command */
+	uint8_t cmd[] = {0x10, 0x00, 0x00, 0x00};
+	app_cb.on_msg_received(cmd, sizeof(cmd));
+
+	assert(charge_control_is_allowed() == false);
+}
+
+/* ================================================================== */
 /*  Main                                                               */
 /* ================================================================== */
 
@@ -1703,6 +2041,28 @@ int main(void)
 	printf("\nled_engine timer:\n");
 	RUN_TEST(test_led_timer_interval_100);
 	RUN_TEST(test_led_decimation_sensors_every_5th);
+
+	printf("\ndelay_window:\n");
+	RUN_TEST(test_delay_window_no_window_not_paused);
+	RUN_TEST(test_delay_window_parse_and_store);
+	RUN_TEST(test_delay_window_active_during_window);
+	RUN_TEST(test_delay_window_not_active_before_start);
+	RUN_TEST(test_delay_window_not_active_after_end);
+	RUN_TEST(test_delay_window_ignored_without_time_sync);
+	RUN_TEST(test_delay_window_new_replaces_old);
+	RUN_TEST(test_delay_window_clear);
+	RUN_TEST(test_delay_window_boundary_at_start);
+	RUN_TEST(test_delay_window_boundary_at_end);
+	RUN_TEST(test_delay_window_bad_payload_too_short);
+
+	printf("\ncharge_control + delay_window:\n");
+	RUN_TEST(test_cc_tick_window_pauses_charging);
+	RUN_TEST(test_cc_tick_window_expired_resumes);
+	RUN_TEST(test_cc_tick_window_not_started_no_change);
+	RUN_TEST(test_cc_tick_window_no_sync_falls_through);
+	RUN_TEST(test_cc_legacy_cmd_clears_window);
+	RUN_TEST(test_rx_routes_delay_window);
+	RUN_TEST(test_rx_routes_legacy_charge_control);
 
 	printf("\n=== %d/%d tests passed ===\n\n", tests_passed, tests_run);
 	return (tests_passed == tests_run) ? 0 : 1;
