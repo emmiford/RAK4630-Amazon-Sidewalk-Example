@@ -89,3 +89,15 @@ variable "heartbeat_interval_s" {
   type        = number
   default     = 900
 }
+
+variable "auto_diag_enabled" {
+  description = "Enable automatic 0x40 diagnostic queries to unhealthy devices in health digest."
+  type        = string
+  default     = "false"
+}
+
+variable "latest_app_version" {
+  description = "Latest deployed app firmware version. Devices below this are flagged as stale. 0 = skip check."
+  type        = number
+  default     = 0
+}
