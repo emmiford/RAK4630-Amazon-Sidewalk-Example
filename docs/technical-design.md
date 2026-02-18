@@ -353,6 +353,11 @@ dropped by the Sidewalk stack.
 
 ### 4.1 Charge Control (0x10)
 
+Two subtypes share command type 0x10: legacy pause/allow and delay windows.
+Byte 1 discriminates: 0x00/0x01 = legacy, 0x02 = delay window.
+
+#### 4.1.1 Legacy Pause/Allow (subtype 0x00/0x01)
+
 4 bytes. Controls the charging relay and optional auto-resume timer.
 
 ```
@@ -372,6 +377,42 @@ typedef struct __attribute__((packed)) {
 **Auto-resume logic**: When `duration_min > 0` and `charge_allowed == 0` (pause),
 `charge_control_tick()` checks `(now_ms - pause_timestamp_ms) / 60000 >= duration_min`
 on each poll cycle (500ms). When true, charging is automatically re-allowed.
+
+A legacy command also clears any active delay window (§4.1.2), so sending an
+"allow" immediately cancels a window without waiting for natural expiry.
+
+#### 4.1.2 Delay Window (subtype 0x02)
+
+10 bytes. Sends a time-bounded pause window. The device pauses autonomously
+when `start ≤ now ≤ end` and resumes when `now > end` — no cloud "allow"
+message needed for normal expiry.
+
+```
+Byte 0:   0x10  (CHARGE_CONTROL_CMD_TYPE)
+Byte 1:   0x02  (DELAY_WINDOW_SUBTYPE)
+Byte 2-5: start_time (uint32_le, SideCharge epoch seconds)
+Byte 6-9: end_time   (uint32_le, SideCharge epoch seconds)
+```
+
+Total: 10 bytes (within 19-byte LoRa MTU).
+
+**Device behavior**:
+- One window stored in RAM at a time; new downlink replaces previous
+- On each 500ms poll: if `start ≤ now ≤ end`, pause charging; if `now > end`,
+  resume and clear the stored window
+- If TIME_SYNC not received (epoch=0), delay windows are ignored (safe default:
+  charging continues, auto-resume timer still works)
+- Legacy allow (§4.1.1) clears the active window immediately
+- Charge Now button (TASK-048b) deletes the stored window
+
+**Backward compatibility**: Old firmware sees byte 1 = 0x02, which is treated as
+`charge_allowed = 2` (non-zero = allow). This is a safe fallback — old devices
+ignore the window and stay in allow state.
+
+**Cloud usage**: The charge scheduler (§8.2) sends delay windows for TOU peak
+(end = 9 PM MT) and high-MOER periods (end = now + 30 min). A heartbeat
+re-send mechanism re-transmits the window if the last send was >30 minutes ago
+and peak is still active, handling lost LoRa downlinks.
 
 ### 4.2 TIME_SYNC (0x30)
 
@@ -671,6 +712,12 @@ typedef struct {
 each 500ms poll cycle whether the duration has elapsed. If so, it sets
 `charging_allowed = true` and drives the GPIO high.
 
+**Delay window integration**: `charge_control_tick()` checks the delay window
+module first (see §4.1.2 and `delay_window.c`). If a window is active and
+TIME_SYNC is available: pauses when `start ≤ now ≤ end`, resumes and clears
+when `now > end`. If no window or time not synced, falls through to the
+auto-resume timer. A legacy command (§4.1.1) clears any active delay window.
+
 **Command sources** (in priority order):
 1. **Charge Now button** (TASK-048) — 30-min latch, overrides cloud and AC priority.
    Sets `charge_now_active = true` and a 30-min countdown. During the latch:
@@ -678,10 +725,12 @@ each 500ms poll cycle whether the duration has elapsed. If so, it sets
    are ignored, and `FLAG_CHARGE_NOW` is set in uplinks. On expiry (or unplug/full),
    the latch clears and normal interlock rules resume. The active delay window
    is deleted (not paused) — see PRD 4.4.5.
-2. Cloud downlink (0x10 command) — processed in `app_rx.c`. Ignored while
-   Charge Now latch is active.
-3. Shell command (`app evse allow` / `app evse pause`)
-4. Auto-resume timer expiry
+2. **Cloud delay window** (0x10/0x02) — time-bounded pause `[start, end]`. Device
+   manages transitions autonomously. Replaces previous window. See §4.1.2.
+3. Cloud legacy downlink (0x10/0x00-0x01) — processed in `app_rx.c`. Ignored while
+   Charge Now latch is active. Clears active delay window.
+4. Shell command (`app evse allow` / `app evse pause`)
+5. Auto-resume timer expiry
 
 ### 6.4 Thermostat Inputs
 
@@ -943,19 +992,35 @@ seq:           Sidewalk sequence number
 **Decision logic**:
 1. Check Xcel Colorado TOU peak: weekdays 5-9 PM Mountain Time
 2. Query WattTime MOER signal for PSCO region
-3. If TOU peak **or** MOER > threshold (default 70%): pause charging
-4. Otherwise: allow charging
+3. If TOU peak **or** MOER > threshold (default 70%): send delay window
+4. Otherwise: cancel any active window with legacy allow, or no-op
 
-**State tracking**: Sentinel key (`device_id` + `timestamp=0`) stores last command.
-Skips downlink if command hasn't changed (avoids redundant transmissions).
+**Delay window downlinks** (see §4.1.2): Instead of fire-and-forget pause/allow
+commands, the scheduler sends time-bounded delay windows `[start, end]` in
+SideCharge epoch. The device manages pause/resume transitions autonomously.
+
+- **TOU peak**: window end = 9 PM MT today (end of Xcel on-peak period)
+- **High MOER**: window end = now + 30 minutes (`MOER_WINDOW_DURATION_S`)
+- **TOU + MOER**: uses the later of the two end times
+- **Off-peak transition**: sends a legacy allow (§4.1.1) to cancel any active
+  delay window immediately, rather than waiting for natural expiry
+
+**Heartbeat re-send**: If the sentinel shows the last window was sent >30 minutes
+ago (`HEARTBEAT_RESEND_S`) and peak is still active, the scheduler re-sends the
+window. This handles lost LoRa downlinks — safe because the device manages
+expiry independently and a new window replaces the previous one.
+
+**State tracking**: Sentinel key (`device_id` + `timestamp=0`) stores last command,
+window boundaries (`window_start_sc`, `window_end_sc`), and send timestamp
+(`sent_unix`). The heartbeat check compares current time against `sent_unix` to
+decide whether to re-send. If the window end hasn't changed and the send is
+recent, the downlink is suppressed.
 
 **Charge Now opt-out**: The sentinel may contain a `charge_now_override_until` field
 (set by `decode_evse_lambda` when it sees `FLAG_CHARGE_NOW=1` in an uplink). If
 `now < charge_now_override_until`, the scheduler suppresses pause commands — the
 user has opted out of demand response for the remainder of this peak window. After
 the timestamp passes, normal scheduling resumes. See ADR-003.
-
-**Downlink**: Sends charge control command (0x10) with `duration_min=0` (indefinite).
 
 ### 8.3 ota_sender_lambda
 

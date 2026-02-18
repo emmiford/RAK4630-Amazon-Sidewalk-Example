@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (23)
+## Open Tasks (24)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -54,6 +54,7 @@ Special: deferred, declined
 | TASK-071 | not started | Eliel | Scheduler sentinel divergence detection | — |
 | TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
 | TASK-073 | not started | Eliel | Automate remote diagnostic queries from health digest | — |
+| TASK-075 | not started | — | On-device delay window verification | TASK-063 |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
