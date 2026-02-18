@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (25)
+## Open Tasks (26)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -42,12 +42,13 @@ Special: deferred, declined
 | TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
 | TASK-057 | not started | Eero | Route selftest through evse_sensors, not direct ADC | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
-| TASK-064 | not started | Eliel | Cloud Charge Now protocol (ADR-003) | — |
+| TASK-064 | committed | Eliel | Cloud Charge Now protocol (ADR-003) | — |
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
 | TASK-075 | not started | — | On-device delay window verification | — |
 | TASK-084 | not started | Eliel | Populate registry app_version from diagnostics responses | — |
+| TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
