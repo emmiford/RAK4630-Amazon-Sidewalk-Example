@@ -236,11 +236,13 @@ def send_delay_window(start_sc, end_sc):
 # --- Handler ---
 
 def lambda_handler(event, context):
-    """EventBridge scheduled handler."""
+    """EventBridge scheduled handler. Also handles divergence re-sends."""
     now_mt = datetime.now(MT)
     now_unix = int(time.time())
     now_sc = now_unix - SIDECHARGE_EPOCH_OFFSET
-    print(f"Charge scheduler invoked at {now_mt.isoformat()}")
+    force_resend = event.get("force_resend", False)
+    print(f"Charge scheduler invoked at {now_mt.isoformat()}"
+          f"{' (force_resend)' if force_resend else ''}")
 
     # 1. TOU check
     tou_peak = is_tou_peak(now_mt)
@@ -265,8 +267,11 @@ def lambda_handler(event, context):
     if not should_pause:
         # Off-peak: cancel any active delay window with legacy allow
         last_state = get_last_state()
-        if last_state and last_state.get("last_command") == "delay_window":
-            print("Cancelling active delay window with legacy allow")
+        last_cmd = last_state.get("last_command") if last_state else None
+        if last_cmd == "delay_window" or (force_resend and last_cmd == "allow"):
+            label = "force re-send allow" if force_resend else \
+                    "Cancelling active delay window with legacy allow"
+            print(label)
             send_charge_command(True)
             write_state("allow", reason, moer_percent, tou_peak, sent_unix=now_unix)
             log_command_event("allow", reason, moer_percent, tou_peak)
@@ -286,19 +291,21 @@ def lambda_handler(event, context):
         end_sc = max(end_sc, moer_end)
 
     # 5. Heartbeat check — skip if recently sent same window
-    last_state = get_last_state()
-    if last_state and last_state.get("last_command") == "delay_window":
-        last_end = int(last_state.get("window_end_sc", 0))
-        last_sent = int(last_state.get("sent_unix", 0))
-        stale = (now_unix - last_sent) >= HEARTBEAT_RESEND_S
-        changed = last_end != end_sc
-        if not stale and not changed:
-            print(f"Recently sent same window (end={end_sc}), skipping")
-            write_state("delay_window", reason, moer_percent, tou_peak,
-                        window_start_sc=now_sc, window_end_sc=end_sc,
-                        sent_unix=last_sent)
-            return {"statusCode": 200,
-                    "body": f"no change: delay_window ({reason})"}
+    #    Bypass when force_resend is set (divergence re-send)
+    if not force_resend:
+        last_state = get_last_state()
+        if last_state and last_state.get("last_command") == "delay_window":
+            last_end = int(last_state.get("window_end_sc", 0))
+            last_sent = int(last_state.get("sent_unix", 0))
+            stale = (now_unix - last_sent) >= HEARTBEAT_RESEND_S
+            changed = last_end != end_sc
+            if not stale and not changed:
+                print(f"Recently sent same window (end={end_sc}), skipping")
+                write_state("delay_window", reason, moer_percent, tou_peak,
+                            window_start_sc=now_sc, window_end_sc=end_sc,
+                            sent_unix=last_sent)
+                return {"statusCode": 200,
+                        "body": f"no change: delay_window ({reason})"}
 
     # 6. Send delay window
     send_delay_window(now_sc, end_sc)

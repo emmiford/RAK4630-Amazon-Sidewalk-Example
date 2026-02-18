@@ -346,3 +346,69 @@ class TestMoerDecision:
         # TOU end should be longer
         tou_end = sched.get_tou_peak_end_sc(now)
         assert end_sc == tou_end
+
+
+# --- Force re-send (divergence detection, TASK-071) ---
+
+class TestForceResend:
+    def test_force_resend_bypasses_heartbeat_dedup(self):
+        """force_resend=True should send delay window even if recently sent."""
+        now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
+        now_unix = int(now.timestamp())
+        peak_end_sc = sched.get_tou_peak_end_sc(now)
+
+        last_state = {
+            "last_command": "delay_window",
+            "window_end_sc": peak_end_sc,
+            "sent_unix": now_unix - 60,  # 1 min ago (normally would skip)
+        }
+        with patch.object(sched, "get_last_state", return_value=last_state), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({"force_resend": True}, None)
+        assert "delay_window" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_called_once()
+
+    def test_force_resend_off_peak_sends_allow(self):
+        """force_resend=True off-peak with sentinel=allow re-sends allow."""
+        last_state = {"last_command": "allow"}
+        with patch.object(sched, "get_last_state", return_value=last_state), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)  # off-peak
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({"force_resend": True}, None)
+        assert "allow" in result["body"]
+        payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
+        assert payload == bytes([0x10, 0x01, 0x00, 0x00])
+
+    def test_normal_off_peak_allow_sentinel_no_resend(self):
+        """Without force_resend, off-peak with sentinel=allow does NOT re-send."""
+        last_state = {"last_command": "allow"}
+        with patch.object(sched, "get_last_state", return_value=last_state), \
+             patch.object(sched, "write_state"), \
+             patch.object(sched, "log_command_event"), \
+             patch.object(sched, "get_moer_percent", return_value=None):
+            mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
+            now = datetime(2026, 2, 16, 10, 0, tzinfo=MT)
+            with patch("charge_scheduler_lambda.datetime") as mock_dt, \
+                 patch("charge_scheduler_lambda.time") as mock_time:
+                mock_dt.now.return_value = now
+                mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+                mock_time.time.return_value = now.timestamp()
+                result = sched.lambda_handler({}, None)
+        assert "off_peak" in result["body"]
+        mock_sidewalk_utils.send_sidewalk_msg.assert_not_called()

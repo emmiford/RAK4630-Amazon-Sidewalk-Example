@@ -1,9 +1,9 @@
 # TASK-071: Scheduler sentinel divergence detection
 
-**Status**: not started
+**Status**: in progress (2026-02-17, Eliel)
 **Priority**: P2
 **Owner**: Eliel
-**Branch**: —
+**Branch**: `task/071-sentinel-divergence`
 **Size**: S (2 points)
 
 ## Description
