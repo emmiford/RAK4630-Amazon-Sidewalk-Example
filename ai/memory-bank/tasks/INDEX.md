@@ -85,7 +85,7 @@ Special: deferred, declined
 | TASK-019 | clang-format CI | DECLINED | 2026-02-11 | — |
 | TASK-020 | E2E runbook execution | MERGED DONE | 2026-02-11 | Eero |
 | TASK-021 | Remove legacy rak1901_demo | MERGED DONE | 2026-02-11 | — |
-| TASK-023 | PSA crypto -149 bug | DONE | 2026-02-17 | Eliel (verified: Eero) |
+| TASK-023 | PSA crypto -149 bug | MERGED DONE | 2026-02-17 | Eliel (verified: Eero) |
 | TASK-024 | API version mismatch hard stop | MERGED DONE | 2026-02-11 | Claude |
 | TASK-025 | OTA chunk + delta bitmap tests | MERGED DONE | 2026-02-11 | Eero |
 | TASK-027 | Shell command dispatch tests | MERGED DONE | 2026-02-11 | Eero |
