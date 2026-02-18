@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (25)
+## Open Tasks (24)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -46,7 +46,6 @@ Special: deferred, declined
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | not started | — | On-device Charge Now button GPIO verification | — |
-| TASK-073 | not started | Eliel | Automate remote diagnostic queries from health digest | — |
 | TASK-075 | not started | — | On-device delay window verification | — |
 
 ### P3 — Nice-to-have
@@ -63,7 +62,7 @@ Special: deferred, declined
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (58)
+## Completed Tasks (59)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -125,6 +124,7 @@ Special: deferred, declined
 | TASK-047 | On-device verification (TIME_SYNC + buffer + v0x08) | MERGED DONE | 2026-02-17 | Eero |
 | TASK-048b | Charge Now 30-min latch (ADR-003) | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-071 | Scheduler sentinel divergence detection | MERGED DONE | 2026-02-17 | Eliel |
+| TASK-073 | Automate remote diagnostic queries from health digest | MERGED DONE | 2026-02-17 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
