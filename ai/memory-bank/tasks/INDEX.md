@@ -32,7 +32,7 @@ Special: deferred, declined
 | TASK-046 | not started | Eero | Signed OTA E2E verification | — |
 | TASK-047 | not started | — | On-device verification (TIME_SYNC + buffer + v0x08) | — |
 | TASK-058 | not started | Eero | On-device shell verification (post app.c refactor) | — |
-| TASK-063 | not started | Eliel | Delay window support (device + cloud) | — |
+| TASK-063 | committed | Eliel | Delay window support (device + cloud) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
