@@ -1,9 +1,9 @@
 # TASK-037: Utility identification — per-device meter number to utility/TOU schedule lookup
 
-**Status**: planned
+**Status**: committed (2026-02-17, Pam) — PRD scoping complete; v1.1 implementation deferred
 **Priority**: P2
-**Owner**: Pam
-**Branch**: `feature/prd-v1.5`
+**Owner**: Pam (scoping) / Eliel (v1.1 implementation)
+**Branch**: `task/038-data-privacy`
 **Size**: S (2 points) — PRD scoping complete; implementation is separate v1.1 task
 
 ## Description

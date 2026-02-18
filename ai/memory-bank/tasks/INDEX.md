@@ -40,9 +40,9 @@ Special: deferred, declined
 | TASK-026 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | not started | Eliel | Fleet command throttling | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
-| TASK-037 | planned | Pam | Utility identification (PRD scoping done) | — |
-| TASK-038 | not started | Pam | Data privacy — policy + retention + CCPA | — |
-| TASK-042 | not started | Pam | Privacy agent | TASK-038 |
+| TASK-037 | committed | Pam | Utility identification (PRD scoping done) | — |
+| TASK-038 | committed | Pam | Data privacy — policy + retention + CCPA | — |
+| TASK-042 | committed | Pam | Privacy agent | — |
 | TASK-048b | not started | Eliel | Charge Now 30-min latch (ADR-003) | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-055 | not started | Eliel | Split ota_update.c → ota_flash.c + ota_update.c | — |
