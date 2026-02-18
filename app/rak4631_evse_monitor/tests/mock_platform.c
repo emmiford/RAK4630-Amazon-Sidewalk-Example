@@ -12,6 +12,7 @@ void mock_reset(void)
 {
 	memset(&state, 0, sizeof(state));
 	state.ready = true;  /* default to ready */
+	state.led_call_count = 0;
 }
 
 struct mock_state *mock_get(void)
@@ -160,6 +161,12 @@ static void mock_led_set(int led_id, bool on)
 	state.led_set_count++;
 	state.led_last_id = led_id;
 	state.led_last_on = on;
+
+	if (state.led_call_count < MOCK_MAX_LED_CALLS) {
+		state.led_calls[state.led_call_count].led_id = led_id;
+		state.led_calls[state.led_call_count].on = on;
+	}
+	state.led_call_count++;
 }
 
 /* --- The mock API table --- */

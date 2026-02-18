@@ -12,10 +12,16 @@
 
 #define MOCK_MAX_SENDS 16
 #define MOCK_SEND_BUF_SIZE 64
+#define MOCK_MAX_LED_CALLS 512
 
 struct mock_send_record {
 	uint8_t data[MOCK_SEND_BUF_SIZE];
 	size_t len;
+};
+
+struct mock_led_record {
+	int led_id;
+	bool on;
 };
 
 struct mock_state {
@@ -49,6 +55,10 @@ struct mock_state {
 	int led_set_count;
 	int led_last_id;
 	bool led_last_on;
+
+	/* LED call history for pattern verification */
+	int led_call_count;
+	struct mock_led_record led_calls[MOCK_MAX_LED_CALLS];
 };
 
 /* Reset all mock state to defaults */
