@@ -41,14 +41,8 @@ static void on_sidewalk_msg_received(const struct sid_msg_desc *msg_desc,
 	if (msg_desc->type == SID_MSG_TYPE_RESPONSE &&
 	    msg_desc->msg_desc_attr.rx_attr.is_msg_ack) {
 		LOG_DBG("Received Ack for msg id %d", msg_desc->id);
-	} else if (msg->size >= 1 && ((const uint8_t *)msg->data)[0] == OTA_CMD_TYPE) {
-		/* OTA messages handled by platform, not forwarded to app */
-		ota_process_msg((const uint8_t *)msg->data, msg->size);
-	} else if (app_image_valid()) {
-		const struct app_callbacks *cb = app_get_callbacks();
-		if (cb->on_msg_received) {
-			cb->on_msg_received((const uint8_t *)msg->data, msg->size);
-		}
+	} else {
+		app_route_message((const uint8_t *)msg->data, msg->size);
 	}
 }
 

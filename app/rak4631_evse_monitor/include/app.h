@@ -9,6 +9,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 struct app_callbacks;  /* forward declaration */
 
@@ -40,5 +41,17 @@ const char *app_get_reject_reason(void);
  * @return 0 on success, -1 if out of range.
  */
 int app_set_timer_interval(uint32_t interval_ms);
+
+/**
+ * @brief Route an incoming message to OTA engine or app callback.
+ *
+ * Messages with first byte == OTA_CMD_TYPE (0x20) go to the OTA engine.
+ * Other messages are forwarded to the app's on_msg_received callback
+ * if a valid app image is loaded.
+ *
+ * @param data  Message payload
+ * @param len   Length of payload
+ */
+void app_route_message(const uint8_t *data, size_t len);
 
 #endif /* SAMPLE_APP_H */

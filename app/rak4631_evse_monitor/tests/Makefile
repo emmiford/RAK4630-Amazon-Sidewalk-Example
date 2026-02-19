@@ -36,13 +36,26 @@ SRCS = \
 
 OUT = test_app
 
+# Boot path tests — platform-side code (app.c) with mock Zephyr/Sidewalk
+BOOT_INC = -Imock_include -I../include -I.
+BOOT_SRCS = \
+    test_boot_path.c \
+    mock_boot.c \
+    ../src/app.c
+
+BOOT_OUT = test_boot_path
+
 .PHONY: test clean
 
-test: $(OUT)
+test: $(OUT) $(BOOT_OUT)
 	./$(OUT)
+	./$(BOOT_OUT)
 
 $(OUT): $(SRCS)
 	$(CC) $(CFLAGS) $(INC) -o $@ $^
 
+$(BOOT_OUT): $(BOOT_SRCS)
+	$(CC) $(CFLAGS) -Wno-unused-function $(BOOT_INC) -o $@ $^
+
 clean:
-	rm -f $(OUT)
+	rm -f $(OUT) $(BOOT_OUT)
