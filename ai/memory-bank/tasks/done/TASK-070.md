@@ -1,6 +1,6 @@
 # TASK-070: Production heartbeat interval (60s → 15min)
 
-**Status**: committed (2026-02-19, Eliel)
+**Status**: merged done (2026-02-19, Eliel)
 **Priority**: P2
 **Owner**: Eliel
 **Branch**: task/070-heartbeat-interval

@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (19)
+## Open Tasks (18)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -38,7 +38,6 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
-| TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
 | TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
 
@@ -125,6 +124,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-057 | Route selftest through evse_sensors, not direct ADC | MERGED DONE | 2026-02-18 | Eero |
 | TASK-064 | Cloud Charge Now protocol (ADR-003) | MERGED DONE | 2026-02-18 | Eliel |
 | TASK-084 | Populate registry app_version from diagnostics responses | MERGED DONE | 2026-02-19 | Eliel |
+| TASK-070 | Production heartbeat interval (60s → 15min) | MERGED DONE | 2026-02-19 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
