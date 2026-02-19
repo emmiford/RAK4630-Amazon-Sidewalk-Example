@@ -22,6 +22,9 @@ typedef enum {
     J1772_STATE_UNKNOWN
 } j1772_state_t;
 
+/* Current clamp threshold: >= this value means "charging current flowing" */
+#define CURRENT_ON_THRESHOLD_MA  500
+
 int evse_sensors_init(void);
 int evse_pilot_voltage_read(uint16_t *voltage_mv);
 int evse_j1772_state_get(j1772_state_t *state, uint16_t *voltage_mv);

@@ -124,10 +124,8 @@ static void start_selftest(void)
 	blink_tick = 0;
 	state = TRIG_BLINKING;
 
-	if (platform) {
-		platform->log_inf("Self-test triggered: %d pass, %d fail",
-			     passed_count, failed_count);
-	}
+	LOG_INF("Self-test triggered: %d pass, %d fail",
+		passed_count, failed_count);
 }
 
 /* ------------------------------------------------------------------ */
@@ -136,10 +134,7 @@ static void start_selftest(void)
 
 static void poll_button(void)
 {
-	if (!platform) {
-		return;
-	}
-
+	/* platform guaranteed non-NULL by selftest_trigger_tick() */
 	bool pressed = (platform->gpio_get(EVSE_PIN_BUTTON) == 1);
 	uint32_t now = platform->uptime_ms();
 
@@ -213,10 +208,7 @@ static void poll_button(void)
 
 static void drive_blinks(void)
 {
-	if (!platform) {
-		return;
-	}
-
+	/* platform guaranteed non-NULL by selftest_trigger_tick() */
 	if (blink_tick < green_end_tick) {
 		/* Green phase: even ticks = ON, odd ticks = OFF */
 		bool on = (blink_tick % 2 == 0);

@@ -26,14 +26,12 @@ void delay_window_init(void)
 int delay_window_process_cmd(const uint8_t *data, size_t len)
 {
 	if (!data || len < DELAY_WINDOW_PAYLOAD_SIZE) {
-		if (platform) platform->log_wrn("delay_window: payload too short (%u)",
-				      (unsigned)len);
+		LOG_WRN("delay_window: payload too short (%u)", (unsigned)len);
 		return -1;
 	}
 
 	if (data[1] != DELAY_WINDOW_SUBTYPE) {
-		if (platform) platform->log_wrn("delay_window: wrong subtype 0x%02x",
-				      data[1]);
+		LOG_WRN("delay_window: wrong subtype 0x%02x", data[1]);
 		return -1;
 	}
 
@@ -53,10 +51,8 @@ int delay_window_process_cmd(const uint8_t *data, size_t len)
 	window.end_epoch = end;
 	window.has_window = true;
 
-	if (platform) {
-		platform->log_inf("Delay window: start=%u end=%u (duration=%us)",
-			     start, end, end - start);
-	}
+	LOG_INF("Delay window: start=%u end=%u (duration=%us)",
+		start, end, end - start);
 
 	return 0;
 }
@@ -83,8 +79,8 @@ bool delay_window_has_window(void)
 
 void delay_window_clear(void)
 {
-	if (window.has_window && platform) {
-		platform->log_inf("Delay window cleared");
+	if (window.has_window) {
+		LOG_INF("Delay window cleared");
 	}
 	window.start_epoch = 0;
 	window.end_epoch = 0;

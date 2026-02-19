@@ -34,22 +34,22 @@ int charge_control_init(void)
 	/* Platform owns GPIO init — just set default state */
 	if (platform) {
 		platform->gpio_set(EVSE_PIN_CHARGE_EN, 1);
-		platform->log_inf("Charge control initialized");
 	}
+	LOG_INF("Charge control initialized");
 	return 0;
 }
 
 int charge_control_process_cmd(const uint8_t *data, size_t len)
 {
 	if (data == NULL || len < sizeof(charge_control_cmd_t)) {
-		if (platform) platform->log_wrn("charge_control: bad args data=%p len=%u", data, (unsigned)len);
+		LOG_WRN("charge_control: bad args data=%p len=%u", data, (unsigned)len);
 		return -1;
 	}
 
 	const charge_control_cmd_t *cmd = (const charge_control_cmd_t *)data;
 
 	if (cmd->cmd_type != CHARGE_CONTROL_CMD_TYPE) {
-		if (platform) platform->log_wrn("charge_control: unexpected cmd_type 0x%02x", cmd->cmd_type);
+		LOG_WRN("charge_control: unexpected cmd_type 0x%02x", cmd->cmd_type);
 		return -1;
 	}
 
@@ -59,10 +59,8 @@ int charge_control_process_cmd(const uint8_t *data, size_t len)
 	bool allowed = (cmd->charge_allowed != 0);
 	uint16_t duration = cmd->duration_min;
 
-	if (platform) {
-		platform->log_inf("Charge control command: allowed=%d, duration=%d min",
-			     allowed, duration);
-	}
+	LOG_INF("Charge control command: allowed=%d, duration=%d min",
+		allowed, duration);
 
 	charge_control_set_with_reason(allowed, duration, TRANSITION_REASON_CLOUD_CMD);
 	return 0;
@@ -87,10 +85,10 @@ void charge_control_set_with_reason(bool allowed, uint16_t auto_resume_min,
 
 	if (platform) {
 		platform->gpio_set(EVSE_PIN_CHARGE_EN, allowed ? 1 : 0);
-		platform->log_inf("Charge control: %s%s",
-			     allowed ? "ALLOW" : "PAUSE",
-			     (!allowed && auto_resume_min > 0) ? " (with auto-resume)" : "");
 	}
+	LOG_INF("Charge control: %s%s",
+		allowed ? "ALLOW" : "PAUSE",
+		(!allowed && auto_resume_min > 0) ? " (with auto-resume)" : "");
 }
 
 void charge_control_set(bool allowed, uint16_t auto_resume_min)

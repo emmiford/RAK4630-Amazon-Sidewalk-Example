@@ -51,9 +51,7 @@ void charge_now_cancel(void)
 	active = false;
 	led_engine_set_charge_now_override(false);
 
-	if (platform) {
-		platform->log_inf("Charge Now: cancelled");
-	}
+	LOG_INF("Charge Now: cancelled");
 }
 
 void charge_now_tick(uint8_t j1772_state)

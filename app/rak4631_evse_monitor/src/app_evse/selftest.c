@@ -17,7 +17,6 @@
 #define EVSE_PIN_COOL       2
 
 /* Continuous monitoring thresholds */
-#define CURRENT_ON_THRESHOLD_MA  500
 #define CLAMP_MISMATCH_TIMEOUT_MS  10000
 #define INTERLOCK_TIMEOUT_MS       30000
 #define PILOT_FAULT_TIMEOUT_MS     5000
@@ -131,7 +130,7 @@ void selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,
 	}
 
 	uint32_t now = platform->uptime_ms();
-	bool cool_call = (thermostat_flags & 0x02) != 0;
+	bool cool_call = (thermostat_flags & THERMOSTAT_FLAG_COOL) != 0;
 
 	/* --- Clamp mismatch: State C + no current, OR not-C + current --- */
 	bool state_c = (j1772_state == J1772_C);

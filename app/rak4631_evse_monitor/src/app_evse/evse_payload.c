@@ -16,18 +16,18 @@ int evse_payload_init(void)
 
 	err = evse_sensors_init();
 	if (err) {
-		if (platform) platform->log_err("Failed to initialize EVSE sensors: %d", err);
+		LOG_ERR("Failed to initialize EVSE sensors: %d", err);
 		return err;
 	}
 
 	err = thermostat_inputs_init();
 	if (err) {
-		if (platform) platform->log_err("Failed to initialize thermostat inputs: %d", err);
+		LOG_ERR("Failed to initialize thermostat inputs: %d", err);
 		return err;
 	}
 
 	evse_initialized = true;
-	if (platform) platform->log_inf("EVSE subsystems initialized");
+	LOG_INF("EVSE subsystems initialized");
 	return 0;
 }
 
@@ -68,11 +68,9 @@ evse_payload_t evse_payload_get(void)
 
 	payload.thermostat_flags = thermostat_flags_get() | selftest_get_fault_flags();
 
-	if (platform) {
-		platform->log_inf("EVSE: J1772=%d (%dmV) I=%dmA therm=0x%02x",
-			     payload.j1772_state, payload.j1772_mv,
-			     payload.current_ma, payload.thermostat_flags);
-	}
+	LOG_INF("EVSE: J1772=%d (%dmV) I=%dmA therm=0x%02x",
+		payload.j1772_state, payload.j1772_mv,
+		payload.current_ma, payload.thermostat_flags);
 
 	return payload;
 }

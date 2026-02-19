@@ -39,8 +39,6 @@
 #ifndef HEARTBEAT_INTERVAL_MS
 #define HEARTBEAT_INTERVAL_MS   900000   /* 15 min; override with -DHEARTBEAT_INTERVAL_MS=60000 for dev */
 #endif
-#define CURRENT_ON_THRESHOLD_MA 500
-
 static uint8_t decimation_counter;
 static j1772_state_t last_j1772_state;
 static bool last_current_on;
@@ -93,7 +91,7 @@ static int shell_hvac_status(void (*print)(const char *, ...), void (*error)(con
 	(void)error;
 	uint8_t flags = thermostat_flags_get();
 	print("Thermostat flags: 0x%02x", flags);
-	print("  Cool: %s", (flags & 0x02) ? "ON" : "OFF");
+	print("  Cool: %s", (flags & THERMOSTAT_FLAG_COOL) ? "ON" : "OFF");
 	return 0;
 }
 
@@ -242,7 +240,7 @@ static void app_on_timer(void)
 	/* Thermostat inputs */
 	uint8_t flags = thermostat_flags_get();
 	if (flags != last_thermostat_flags) {
-		platform->log_inf("Thermostat: cool=%d", (flags & 0x02) ? 1 : 0);
+		platform->log_inf("Thermostat: cool=%d", (flags & THERMOSTAT_FLAG_COOL) ? 1 : 0);
 		last_thermostat_flags = flags;
 		changed = true;
 	}
