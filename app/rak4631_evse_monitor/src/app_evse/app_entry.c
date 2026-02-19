@@ -35,7 +35,9 @@ static const struct platform_api *api;
 
 #define POLL_INTERVAL_MS        100
 #define SENSOR_DECIMATION       5
-#define HEARTBEAT_INTERVAL_MS   60000
+#ifndef HEARTBEAT_INTERVAL_MS
+#define HEARTBEAT_INTERVAL_MS   900000   /* 15 min; override with -DHEARTBEAT_INTERVAL_MS=60000 for dev */
+#endif
 #define CURRENT_ON_THRESHOLD_MA 500
 
 static uint8_t decimation_counter;

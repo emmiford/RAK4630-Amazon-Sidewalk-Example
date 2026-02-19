@@ -251,7 +251,7 @@ devices sending v0x07 or v0x06 continue to be decoded correctly.
 | Parameter | Value | Source |
 |-----------|-------|--------|
 | Minimum uplink interval | 5 seconds | `MIN_SEND_INTERVAL_MS` in `app_tx.c` |
-| Heartbeat interval | 60 seconds | `HEARTBEAT_INTERVAL_MS` in `app_entry.c` |
+| Heartbeat interval | 15 minutes (900 000 ms) | `HEARTBEAT_INTERVAL_MS` in `app_entry.c`; override via `-D` for dev |
 | Poll interval | 500 ms | `POLL_INTERVAL_MS` in `app_entry.c` |
 | Change detection threshold | J1772 state, current on/off (>500mA), thermostat flags | `app_on_timer()` in `app_entry.c` |
 

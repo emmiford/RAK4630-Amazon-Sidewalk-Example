@@ -63,9 +63,16 @@ set(COMMON_FLAGS
 )
 
 add_compile_options(${COMMON_FLAGS})
+
 add_compile_definitions(
     __ZEPHYR__=0
 )
+
+# Override heartbeat interval for dev builds: cmake ... -DHEARTBEAT_INTERVAL_MS=60000
+# Default (900000 / 15 min) lives in the C source (#ifndef guard in app_entry.c).
+if(DEFINED HEARTBEAT_INTERVAL_MS)
+    add_compile_definitions(HEARTBEAT_INTERVAL_MS=${HEARTBEAT_INTERVAL_MS})
+endif()
 
 # Include paths
 include_directories(
