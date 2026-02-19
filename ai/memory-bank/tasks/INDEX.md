@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (17)
+## Open Tasks (20)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -33,12 +33,15 @@ _No open P1 tasks — all v1.0 requirements met._
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
-| TASK-032 | not started | Eliel | Cloud command authentication | — |
+| TASK-032 | in progress | Eliel | Cloud command authentication | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
 | TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
+| TASK-086 | not started | Eliel | Terraform: add CMD_AUTH_KEY to scheduler Lambda | TASK-032 |
+| TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
+| TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |

@@ -96,6 +96,7 @@ set(APP_SOURCES
     ${APP_SRC}/delay_window.c
     ${APP_SRC}/diag_request.c
     ${APP_SRC}/led_engine.c
+    ${APP_SRC}/cmd_auth.c
 )
 
 # Build the ELF

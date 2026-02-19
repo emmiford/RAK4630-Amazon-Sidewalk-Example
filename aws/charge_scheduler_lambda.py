@@ -29,6 +29,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import boto3
+from cmd_auth import get_auth_key, sign_command
 from sidewalk_utils import get_device_id, send_sidewalk_msg
 
 # --- Clients (created once per container) ---
@@ -212,9 +213,13 @@ def send_charge_command(allowed):
     """
     Send a legacy charge-control downlink (subtype 0x00/0x01).
 
-    Payload: [0x10, allowed, 0x00, 0x00]
+    Payload: [0x10, allowed, 0x00, 0x00] + [8-byte HMAC tag]
     """
     payload_bytes = bytes([CHARGE_CONTROL_CMD, 0x01 if allowed else 0x00, 0x00, 0x00])
+    auth_key = get_auth_key()
+    if auth_key:
+        tag = sign_command(payload_bytes, auth_key)
+        payload_bytes = payload_bytes + tag
     print(f"Sending legacy downlink: allowed={allowed}, payload={payload_bytes.hex()}")
     send_sidewalk_msg(payload_bytes, transmit_mode=1)
 
@@ -223,7 +228,7 @@ def send_delay_window(start_sc, end_sc):
     """
     Send a delay window downlink to the device.
 
-    Payload (10 bytes): [0x10, 0x02, start_le_4B, end_le_4B]
+    Payload (10 bytes): [0x10, 0x02, start_le_4B, end_le_4B] + [8-byte HMAC tag]
     Device pauses when start <= now <= end, resumes when now > end.
     """
     payload = bytearray(10)
@@ -231,9 +236,14 @@ def send_delay_window(start_sc, end_sc):
     payload[1] = DELAY_WINDOW_SUBTYPE
     struct.pack_into("<I", payload, 2, start_sc)
     struct.pack_into("<I", payload, 6, end_sc)
+    payload_bytes = bytes(payload)
+    auth_key = get_auth_key()
+    if auth_key:
+        tag = sign_command(payload_bytes, auth_key)
+        payload_bytes = payload_bytes + tag
     print(f"Sending delay window: start={start_sc} end={end_sc} "
-          f"(duration={end_sc - start_sc}s), payload={payload.hex()}")
-    send_sidewalk_msg(bytes(payload), transmit_mode=1)
+          f"(duration={end_sc - start_sc}s), payload={payload_bytes.hex()}")
+    send_sidewalk_msg(payload_bytes, transmit_mode=1)
 
 
 # --- Handler ---
