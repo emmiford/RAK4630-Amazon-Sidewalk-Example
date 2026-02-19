@@ -4,14 +4,12 @@
 
 #include "unity.h"
 #include "mock_platform_api.h"
+#include "app_platform.h"
 #include "evse_sensors.h"
-
-static const struct platform_api *api;
 
 void setUp(void)
 {
-	api = mock_platform_api_init();
-	evse_sensors_set_api(api);
+	platform = mock_platform_api_init();
 	evse_sensors_init();
 	/* Cancel any leftover simulation */
 	evse_sensors_simulate_state(0, 0);
@@ -104,10 +102,10 @@ void test_pilot_voltage_null_output(void)
 
 void test_pilot_voltage_no_api(void)
 {
-	evse_sensors_set_api(NULL);
+	platform = NULL;
 	uint16_t mv;
 	TEST_ASSERT_EQUAL_INT(-1, evse_pilot_voltage_read(&mv));
-	evse_sensors_set_api(api);
+	platform = mock_platform_api_get();
 }
 
 void test_adc_error_propagated(void)

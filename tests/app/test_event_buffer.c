@@ -233,7 +233,7 @@ void test_snapshot_fields_preserved(void)
 		.j1772_state = 3,
 		.thermostat_flags = 0x03,
 		.charge_flags = EVENT_FLAG_CHARGE_ALLOWED,
-		._reserved = 0,
+		.transition_reason = 0,
 	};
 	event_buffer_add(&s);
 

@@ -4,11 +4,11 @@
 
 #include "unity.h"
 #include "mock_platform_api.h"
+#include "app_platform.h"
 #include "selftest_trigger.h"
 #include "selftest.h"
 #include <string.h>
 
-static const struct platform_api *api;
 static int mock_send_called;
 
 static int mock_send(void)
@@ -71,10 +71,8 @@ static int run_blinks_to_completion(void)
 
 void setUp(void)
 {
-	api = mock_platform_api_init();
-	selftest_set_api(api);
+	platform = mock_platform_api_init();
 	selftest_reset();
-	selftest_trigger_set_api(api);
 	selftest_trigger_set_send_fn(mock_send);
 	selftest_trigger_init();
 	mock_send_called = 0;

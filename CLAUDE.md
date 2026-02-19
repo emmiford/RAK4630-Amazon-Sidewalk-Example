@@ -55,11 +55,11 @@ bash rak-sid/app/rak4631_evse_monitor/flash.sh app
 
 ## Tests
 
-### Host-side C unit tests (app layer)
+### Host-side C unit tests
 ```
-make -C rak-sid/app/rak4631_evse_monitor/tests/ clean test
+cmake -S rak-sid/tests -B rak-sid/tests/build && cmake --build rak-sid/tests/build && ctest --test-dir rak-sid/tests/build --output-on-failure
 ```
-32 tests. Uses Grenning dual-target pattern: same app sources compiled against mock_platform.c on the host.
+15 test executables (Unity + assert-based). Covers app modules, OTA, MFG health, boot path.
 
 ### Lambda Python tests
 ```

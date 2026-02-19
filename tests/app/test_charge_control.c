@@ -4,14 +4,12 @@
 
 #include "unity.h"
 #include "mock_platform_api.h"
+#include "app_platform.h"
 #include "charge_control.h"
-
-static const struct platform_api *api;
 
 void setUp(void)
 {
-	api = mock_platform_api_init();
-	charge_control_set_api(api);
+	platform = mock_platform_api_init();
 	charge_control_init();
 }
 
