@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (18)
+## Open Tasks (17)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -32,7 +32,6 @@ _No open P1 tasks — all v1.0 requirements met._
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-026 | not started | Eero | Boot path + app discovery tests | — |
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
@@ -55,7 +54,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (66)
+## Completed Tasks (67)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
@@ -125,6 +124,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-064 | Cloud Charge Now protocol (ADR-003) | MERGED DONE | 2026-02-18 | Eliel |
 | TASK-084 | Populate registry app_version from diagnostics responses | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-070 | Production heartbeat interval (60s → 15min) | MERGED DONE | 2026-02-19 | Eliel |
+| TASK-026 | Boot path + app discovery tests (10 tests) | MERGED DONE | 2026-02-19 | Eero |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
