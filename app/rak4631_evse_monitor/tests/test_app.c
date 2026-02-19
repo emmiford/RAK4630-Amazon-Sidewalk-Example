@@ -2458,6 +2458,23 @@ static void test_event_filter_heartbeat_resets_after_change(void)
 	assert(event_buffer_count() == 3);
 }
 
+static void test_event_filter_writes_on_transition_reason(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	/* Baseline: charge allowed, no reason */
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	s.transition_reason = 0;
+	event_filter_submit(&s, 100000);  /* baseline */
+	assert(event_buffer_count() == 1);
+
+	/* Same state but with a transition reason — must still write */
+	s.transition_reason = TRANSITION_REASON_CLOUD_CMD;
+	assert(event_filter_submit(&s, 100500) == true);
+	assert(event_buffer_count() == 2);
+}
+
 /* ================================================================== */
 /*  transition reason tracking                                         */
 /* ================================================================== */
@@ -3032,6 +3049,7 @@ int main(void)
 	RUN_TEST(test_event_filter_voltage_large_change_writes);
 	RUN_TEST(test_event_filter_first_submit_always_writes);
 	RUN_TEST(test_event_filter_heartbeat_resets_after_change);
+	RUN_TEST(test_event_filter_writes_on_transition_reason);
 
 	printf("\ntransition reason tracking:\n");
 	RUN_TEST(test_transition_reason_allow_to_pause_cloud_cmd);
