@@ -191,10 +191,10 @@ Cloud-initiated AC pause is architecturally possible but **out of scope for v1.0
 |-------------|--------|
 | Interlock state reported in uplink payload | IMPLEMENTED (SW) |
 | Cloud override status reported in uplink payload | IMPLEMENTED (SW, EV charger only) |
-| Interlock transition events logged to cloud (AC→EV, EV→AC, override) | NOT STARTED |
-| "Charge Now" button press events reported in next uplink | DESIGNED |
+| Interlock transition events logged to cloud (AC→EV, EV→AC, override) | IMPLEMENTED (SW) (TASK-069) |
+| "Charge Now" button press events reported in next uplink | IMPLEMENTED (SW) (TASK-048b — FLAG_CHARGE_NOW in uplink bit 3) |
 
-Logging is how the cloud knows what the interlock is doing. The current uplink payload includes interlock state, but detailed transition logging -- timestamps, reasons, durations -- is not yet implemented. This data is essential for demand response reporting, debugging, and demonstrating code compliance to inspectors.
+Logging is how the cloud knows what the interlock is doing. The current uplink payload includes interlock state, charge_control flags (including FLAG_CHARGE_NOW), and fault flags. Interlock transition events with reason codes are logged via the event buffer (TASK-069). This data supports demand response reporting, debugging, and demonstrating code compliance to inspectors.
 
 #### 2.0.3 Hardware Interfaces
 
@@ -354,7 +354,7 @@ The interlock logic for the cool call can be implemented entirely in hardware (t
 | GPIO output for charge relay (P0.06, active high) | IMPLEMENTED |
 | Allow/pause via cloud downlink command (0x10) | IMPLEMENTED |
 | Auto-resume timer (configurable duration in minutes) | IMPLEMENTED |
-| Default state on boot: read thermostat, then decide | DESIGNED (currently unconditional allow -- needs code change) |
+| Default state on boot: read thermostat, then decide | IMPLEMENTED (SW) (TASK-065) |
 
 The auto-resume timer is a safety net: if the cloud goes silent, charging resumes after the configured timeout.
 
@@ -461,7 +461,7 @@ Two LEDs eliminate ambiguity. Green answers "is the device healthy and connected
 
 **BOM impact**: One additional blue LED (0603/0805 SMD), one current-limiting resistor, one GPIO pin. The `app_leds` module already supports LED_ID_0 through LED_ID_3 -- no architecture change needed.
 
-**Implementation**: LED control via `app_leds` module is implemented. Blink state machine, patterns, and remaining LED features tracked in TASK-067 (LED blink priority state machine). Production dual-LED requires TASK-019 PCB.
+**Implementation**: LED control via `app_leds` module is implemented. The blink priority state machine with all 8 priority levels and patterns is implemented in `led_engine.c` (TASK-067). Production dual-LED requires TASK-019 PCB.
 
 #### 2.5.2 Commissioning Test Sequence
 
@@ -558,8 +558,8 @@ There is no remote reboot or remote fault-clear command. The continuous monitors
 | Production 5-press button trigger for self-test (5s window, polling-based — see limitation note above) | IMPLEMENTED (SW) (TASK-040) | P1 |
 | Platform GPIO interrupt callback for tighter 3s button detection | NOT STARTED (TASK-049b) | P3 |
 | Self-test results in uplink fault flags (byte 7, bits 4-7) | IMPLEMENTED (SW) (TASK-039) | P0 |
-| Button re-test clears FAULT_SELFTEST on all-pass | NOT STARTED (TASK-066) | P1 |
-| LED blink priority state machine (§2.5.1 patterns) | NOT STARTED (TASK-067) | P1 |
+| Button re-test clears FAULT_SELFTEST on all-pass | IMPLEMENTED (SW) (TASK-066) | P1 |
+| LED blink priority state machine (§2.5.1 patterns) | IMPLEMENTED (SW) (TASK-067) | P1 |
 
 #### 2.5.4 Installation Failure Modes
 
@@ -663,16 +663,16 @@ The MFG key health check is particularly important: if the MFG partition is empt
 
 The device uplinks on two triggers: a **15-minute heartbeat** (periodic, whether or not anything changed) and **on state change** (any sensor transition). Both carry the same payload format with a device-side timestamp.
 
-The 100ms minimum TX rate limiter prevents the device from flooding the LoRa link when multiple sensors change in rapid succession (for example, a J1772 state change and current change within milliseconds). The limiter coalesces rapid changes into a single uplink after a 100ms quiet period.
+The 5-second minimum TX rate limiter prevents the device from flooding the LoRa link when multiple sensors change in rapid succession (for example, a J1772 state change and current change within milliseconds). The limiter coalesces rapid changes into a single uplink after the quiet period.
 
 **Note**: The on-state-change uplink may be removed in a future version. It is redundant with the 15-minute heartbeat for steady-state monitoring, could generate excessive uplinks during rapid state transitions, and does not help detect when the device has gone offline (only periodic heartbeats can do that). It is included in v1.0 to capture high-resolution transition data during field validation.
 
 | Requirement | Status |
 |-------------|--------|
-| 12-byte payload: J1772 state + pilot voltage + current + flags + 4-byte timestamp | IMPLEMENTED (v0x07 is 12 bytes; v0x08 retains same size) |
+| 12-byte payload: J1772 state + pilot voltage + current + flags + 4-byte timestamp | IMPLEMENTED v0x08 (TASK-035/060) |
 | Transmit on sensor state change | IMPLEMENTED |
-| 15-minute heartbeat (transmit even if no change) | NOT STARTED (currently 60s testing interval) |
-| 100ms minimum TX rate limiter | IMPLEMENTED |
+| 15-minute heartbeat (transmit even if no change) | IMPLEMENTED (TASK-070) |
+| 5-second minimum TX rate limiter | IMPLEMENTED |
 | Fits within 19-byte Sidewalk LoRa MTU | IMPLEMENTED (12 bytes = 7 bytes spare) |
 
 #### 3.2.1 Payload Format (Bit-Level)
@@ -742,10 +742,10 @@ The ACK watermark tells the device "I have all your data through this timestamp"
 
 | Requirement | Status |
 |-------------|--------|
-| TIME_SYNC downlink command (0x30) | NOT STARTED |
-| Device-side time tracking (sync + uptime offset) | NOT STARTED |
-| Cloud-side auto-sync on first uplink after boot | NOT STARTED |
-| Periodic drift correction (daily) | NOT STARTED |
+| TIME_SYNC downlink command (0x30) | IMPLEMENTED (TASK-033) |
+| Device-side time tracking (sync + uptime offset) | IMPLEMENTED (TASK-033) |
+| Cloud-side auto-sync on first uplink after boot | IMPLEMENTED (decode Lambda) |
+| Periodic drift correction (daily) | IMPLEMENTED (decode Lambda) |
 
 #### Charge Control (0x10)
 
@@ -798,7 +798,7 @@ The decode Lambda is the entry point for all device-to-cloud data. Every uplink 
 | Lambda decodes raw 12-byte EVSE payload (v0x07/v0x08) | IMPLEMENTED |
 | Decoded events stored in DynamoDB (device_id + timestamp) | IMPLEMENTED |
 | TTL expiration on DynamoDB records | IMPLEMENTED |
-| Backward compatibility: payload version field (byte 1) enables format evolution | DESIGNED |
+| Backward compatibility: payload version field (byte 1) enables format evolution | IMPLEMENTED (v0x07 and v0x08 both decoded) |
 
 The payload format is identified by byte 0 (`0xE5` for EVSE telemetry) and versioned by byte 1. If the format changes, the decode Lambda must continue to handle older versions -- devices in the field may not all update at the same time. The version byte gives a clean path to evolve the format without breaking existing deployments.
 
@@ -882,8 +882,8 @@ The 70% threshold has not been validated against real PSCO data. A threshold too
 | EventBridge-triggered scheduler Lambda (configurable rate) | IMPLEMENTED |
 | Xcel Colorado TOU peak detection (weekdays 5-9 PM MT) | IMPLEMENTED |
 | WattTime MOER grid signal for PSCO region | IMPLEMENTED |
-| Delay window downlink format (start_time, end_time) | DESIGNED (replaces pause/allow commands) |
-| Device-side window storage and autonomous resume | NOT STARTED |
+| Delay window downlink format (start_time, end_time) | IMPLEMENTED (TASK-063) |
+| Device-side window storage and autonomous resume | IMPLEMENTED (TASK-063) |
 | Per-device utility/rate schedule lookup (from device registry meter_number) | NOT STARTED |
 | State deduplication: skip downlink if same window already sent | IMPLEMENTED (needs update for window format) |
 | DynamoDB state tracking (sentinel key timestamp=0) | IMPLEMENTED |
@@ -1094,9 +1094,9 @@ During development and factory provisioning, all firmware is flashed via USB (py
 | Delta OTA for fast incremental updates (~5 min for 2-3 chunks) | IMPLEMENTED |
 | Full OTA fallback (~69 minutes) | IMPLEMENTED |
 | Recovery from power loss during apply | IMPLEMENTED |
-| OTA recovery runbook / operator documentation | NOT STARTED |
+| OTA recovery runbook / operator documentation | IMPLEMENTED (TASK-008) |
 
-**Notes**: The missing recovery runbook (TASK-008) is a real gap: if an OTA goes wrong, the operator currently needs tribal knowledge to diagnose it.
+**Notes**: The OTA recovery runbook is documented at `docs/ota-recovery.md` (TASK-008).
 
 ### 5.2 Device Provisioning
 
@@ -1105,9 +1105,9 @@ During development and factory provisioning, all firmware is flashed via USB (py
 | Sidewalk credentials in MFG partition (0xFF000) | IMPLEMENTED |
 | `credentials.example/` template directory | IMPLEMENTED |
 | Flash script for all partitions (`flash.sh all`) | IMPLEMENTED |
-| Provisioning documentation (step-by-step workflow) | NOT STARTED |
+| Provisioning documentation (step-by-step workflow) | IMPLEMENTED (TASK-011) |
 
-**Notes**: Provisioning works, but the knowledge of how to do it lives in one person's head and in MEMORY.md. TASK-011 exists to fix that.
+**Notes**: Provisioning workflow is documented at `docs/provisioning.md` (TASK-011).
 
 ### 5.3 Observability
 
@@ -1136,14 +1136,12 @@ Once deployed, the device has no USB port, no serial console, and no local inter
 | Cloud-side OTA status monitoring (`ota_deploy.py status`) | IMPLEMENTED |
 | DynamoDB event history (queryable per device) | IMPLEMENTED |
 | Device heartbeat (detects liveness via periodic uplinks) | IMPLEMENTED (15-min production via TASK-070, 60s development) |
-| Dashboard or alerting for device offline detection | NOT STARTED |
-| Remote device state query (request status uplink on demand) | NOT STARTED |
-| OTA failure alerting (notify operator when OTA stalls or aborts) | NOT STARTED |
-| Interlock state change logging (cloud-side, from uplink payload) | NOT STARTED |
+| Dashboard or alerting for device offline detection | IMPLEMENTED (TASK-029) |
+| Remote device state query (request status uplink on demand) | IMPLEMENTED (TASK-029) |
+| OTA failure alerting (notify operator when OTA stalls or aborts) | IMPLEMENTED (TASK-029) |
+| Interlock state change logging (cloud-side, from uplink payload) | IMPLEMENTED (TASK-069) |
 
-> **Note:** See TASK-029 (in progress) — Tier 1 + Tier 2 being implemented together.
-
-The production observability story is thin. Today, if a deployed device stops reporting, nobody gets notified until someone manually checks DynamoDB. The heartbeat confirms liveness, but there is no alerting when it stops. We also cannot remotely query the device -- we can only wait for the next uplink.
+Production observability is implemented across Tier 1 (CloudWatch alarms for device offline, OTA failures, daily health digest Lambda) and Tier 2 (remote status query via 0x40 downlink / 0xE6 response). See TASK-029.
 
 #### 5.3.3 Production Observability Options
 
@@ -1162,7 +1160,7 @@ No device firmware changes. Uses existing uplink data and AWS infrastructure.
 
 **Tier 2 — Remote Status Query (requires device firmware change)**
 
-Adds a new downlink command `0x40` that triggers an on-demand uplink with extended diagnostics. For v1.0, triggering is manual only — operator sends `0x40` via `aws iot` CLI or `sidewalk_utils.send_sidewalk_msg()`. Automated triggering (health digest sends `0x40` to unhealthy devices) deferred to TASK-073.
+Adds a new downlink command `0x40` that triggers an on-demand uplink with extended diagnostics. Triggering is available both manually (operator sends `0x40` via `aws iot` CLI or `sidewalk_utils.send_sidewalk_msg()`) and automatically (health digest Lambda sends `0x40` to unhealthy devices, TASK-073 implemented).
 
 | Capability | How | Effort |
 |------------|-----|--------|
@@ -1196,7 +1194,7 @@ Extended diagnostics wire format (`0xE6`, 14 bytes):
 | 6 | Time synced (has valid epoch) |
 | 7 | Reserved |
 
-**Recommendation**: Tier 1 infrastructure should be deployed early but with alarms initially disabled (or set to very generous thresholds) until there's a stable deployment to calibrate against — otherwise every development reboot and test cycle fires alerts. Enable alarms once the first field installation is live. Tier 2 remote diagnostics is implemented alongside Tier 1 with manual triggering. Automated diagnostic queries (health digest sends `0x40` to unhealthy devices) deferred to TASK-073. BLE diagnostics are out of scope — BLE stays disabled post-registration (see 6.3.2). See TASK-029.
+**Status**: Tier 1 (CloudWatch alarms, daily health digest) and Tier 2 (remote status query 0x40/0xE6) are implemented (TASK-029). Automated diagnostic queries (health digest sends 0x40 to unhealthy devices) are also implemented (TASK-073). BLE diagnostics are out of scope — BLE stays disabled post-registration (see 6.3.2).
 
 ### 5.4 Testing
 
@@ -1273,11 +1271,11 @@ SideCharge v1.0 is USB-powered via the RAK4631 USB-C port. The production design
 | OTA recovery from power loss during apply | IMPLEMENTED |
 | Lost ACK recovery via cloud retry timer | IMPLEMENTED |
 | Stale session detection and abort | IMPLEMENTED |
-| Heartbeat for liveness detection (60s) | IMPLEMENTED |
+| Heartbeat for liveness detection (15-min) | IMPLEMENTED (TASK-070) |
 | Quantified reliability targets (uptime %, delivery rate) | NOT STARTED |
 | Field-tested under real LoRa conditions | NOT STARTED |
 
-The system has multiple recovery mechanisms -- OTA power-loss recovery, cloud-side retries, stale session cleanup, and a 60-second heartbeat. What it does not have yet is quantified reliability targets or field data from real LoRa conditions. The device has been tested on a desk 20 feet from a gateway, not in a detached garage 200 meters away through two walls.
+The system has multiple recovery mechanisms -- OTA power-loss recovery, cloud-side retries, stale session cleanup, and a 15-minute heartbeat (TASK-070). What it does not have yet is quantified reliability targets or field data from real LoRa conditions. The device has been tested on a desk 20 feet from a gateway, not in a detached garage 200 meters away through two walls.
 
 ### 6.3 Security
 
@@ -1290,12 +1288,12 @@ The system has multiple recovery mechanisms -- OTA power-loss recovery, cloud-si
 | HUK for PSA crypto key derivation | IMPLEMENTED |
 | MFG key health check (detect empty/missing keys) | IMPLEMENTED |
 | OTA image CRC32 validation | IMPLEMENTED |
-| OTA image cryptographic signing | NOT STARTED |
+| OTA image cryptographic signing (ED25519) | IMPLEMENTED (TASK-031/045) |
 | Credential rotation procedure | NOT STARTED |
 | Rate limiting on cloud-to-device commands | NOT STARTED |
 | Fleet-wide command throttling | NOT STARTED |
 
-Sidewalk provides transport-layer encryption, and PSA crypto handles on-device key derivation from the hardware unique key. OTA images are validated by CRC32 only -- there is no cryptographic signature. A compromised S3 bucket or Lambda could push malicious firmware. ED25519 signing keys are already in the MFG store, waiting to be used.
+Sidewalk provides transport-layer encryption, and PSA crypto handles on-device key derivation from the hardware unique key. OTA images are validated by CRC32 and ED25519 cryptographic signature (TASK-031/045). The device-side signature verification is in `ota_signing.c` and the cloud-side signing is in `ota_signing.py`.
 
 #### 6.3.2 Threat Model: What Could Go Wrong
 
@@ -1314,7 +1312,7 @@ This is an **open design question** (PDL-OPEN-005). The core challenge: any miti
 
 The right design likely combines several of these. The key constraint is that **any layer that can be compromised by the attacker must not be the sole line of defense**. See TASK-030 for the design investigation.
 
-**Malicious firmware via OTA**: A compromised S3 bucket or Lambda could push firmware that disables the interlock, reports false sensor data, or bricks the device. CRC32 validation only confirms the image isn't corrupted -- it does not confirm the image is authentic. ED25519 signing is the fix, and the keys are already provisioned in the MFG store.
+**Malicious firmware via OTA**: ED25519 image signing (TASK-031/045) mitigates this risk. The device verifies the cryptographic signature of every OTA image before applying it. A compromised S3 bucket or Lambda cannot push unsigned or incorrectly signed firmware. The signing keys are provisioned in the MFG store and the private key is held offline.
 
 **Physical access**: After factory sealing, the device has no USB port and no debug headers. Physical tampering requires opening the enclosure. This is adequate for residential deployment but should be documented in the installation guide (tamper-evident sealing, mounting location guidance).
 
@@ -1324,9 +1322,9 @@ The right design likely combines several of these. The key constraint is that **
 
 | Risk | Severity | Mitigation | Status |
 |------|----------|------------|--------|
-| Malicious OTA firmware | High | ED25519 image signing | NOT STARTED |
+| Malicious OTA firmware | High | ED25519 image signing | IMPLEMENTED (TASK-031/045) |
 | Fleet-wide coordinated command | High | Open design question (PDL-OPEN-005) — must survive cloud compromise | NOT STARTED |
-| Cloud compromise → load switching | High | Command authentication (signed downlinks) | NOT STARTED |
+| Cloud compromise → load switching | High | Command authentication (HMAC-SHA256 signed downlinks) | IMPLEMENTED (TASK-032) |
 | Double-load (interlock bypass) | Critical | Hardware interlock (circuit-level mutual exclusion) | IMPLEMENTED (HW) |
 | Credential theft from flash | Medium | HUK encryption + PSA key derivation | IMPLEMENTED |
 | Man-in-the-middle | Low | Sidewalk transport encryption | IMPLEMENTED |
@@ -1473,7 +1471,6 @@ Add strategy 8: OCPP integration. This is the long-term answer for compatible EV
 - User-facing mobile app or web dashboard
 - Battery-powered operation
 - BLE-only mode (LoRa is the primary link)
-- OTA image cryptographic signing
 - On-device data logging (the device is stateless; the cloud stores everything)
 - OCPP (Open Charge Point Protocol) integration
 - Solar/battery storage integration
@@ -1488,7 +1485,6 @@ These are the natural extensions once v1.0 is proven in the field:
 - **UL/safety certification**: Required for any product that switches AC control signals and interfaces with EV charger equipment
 - Fleet provisioning and management tooling for multi-device deployments
 - Real-time monitoring dashboard (DynamoDB -> API Gateway -> frontend)
-- OTA image signing with ED25519 (the keys are already in the MFG store, waiting)
 - Battery-powered variant with sleep modes and a longer heartbeat interval
 - Additional utility TOU schedules beyond Xcel Colorado
 - OCPP gateway for commercial EVSE integration
@@ -1582,7 +1578,7 @@ These decisions and deliverables feed into PCB design. Some are already resolved
 | Dual interlock layers | PDL-002 | DECIDED (HW + SW redundancy) | Hardware interlock circuit is a hard requirement on the PCB, not just a relay driven by GPIO. |
 | J1772 Cp duty cycle measurement | TASK-022 | NOT STARTED (firmware) | The analog conditioning circuit for AIN0 must preserve PWM shape. No separate hardware, but affects component selection (bandwidth). |
 | Car-side interlock mechanism (PWM 0%) | TASK-023 / EXP-001 | NOT VALIDATED | If PWM 0% works across car makes, the J1772 spoof circuit needs a PWM output path in addition to the resistance spoof. May affect charge_block circuit design. |
-| Self-test toggle-and-verify | TASK-039 | NOT STARTED (firmware) | Relay readback path needed on PCB (GPIO or analog feedback from relay coil/contact). |
+| Self-test toggle-and-verify | TASK-039 | IMPLEMENTED (firmware, TASK-039) | Relay readback path needed on PCB (GPIO or analog feedback from relay coil/contact). |
 | BLE diagnostics (future) | PDL-016 | DECIDED (hard no for v1.0) | No BLE antenna optimization needed for post-registration use. BLE antenna only needs to work for initial registration (one-time, close range). |
 
 #### 7.4.3 Outputs / Deliverables
