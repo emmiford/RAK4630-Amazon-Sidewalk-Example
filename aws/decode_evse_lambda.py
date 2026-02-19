@@ -38,9 +38,10 @@ registry_table_name = os.environ.get('DEVICE_REGISTRY_TABLE', 'sidecharge-device
 table = dynamodb.Table(table_name)
 registry_table = dynamodb.Table(registry_table_name)
 
+from protocol_constants import OTA_CMD_TYPE, OTA_SUB_ACK, OTA_SUB_COMPLETE, OTA_SUB_STATUS, SIDECHARGE_EPOCH_OFFSET
+
 # TIME_SYNC constants
 TIME_SYNC_CMD_TYPE = 0x30
-SIDECHARGE_EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z as Unix timestamp
 TIME_SYNC_INTERVAL_S = 86400  # Re-sync daily
 
 from sidewalk_utils import send_sidewalk_msg, get_device_id  # noqa: E402
@@ -66,11 +67,8 @@ DIAG_PAYLOAD_SIZE = 14
 # Legacy payload type
 LEGACY_EVSE_TYPE = 0x01
 
-# OTA protocol constants
-OTA_CMD_TYPE = 0x20
-OTA_SUB_ACK = 0x80
-OTA_SUB_COMPLETE = 0x81
-OTA_SUB_STATUS = 0x82
+
+
 
 # Transition reason mapping (matches charge_control.h)
 TRANSITION_REASONS = {

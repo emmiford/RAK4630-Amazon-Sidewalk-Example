@@ -31,16 +31,12 @@ CHUNK_DATA_SIZE = int(os.environ.get("OTA_CHUNK_SIZE", "15"))  # 15B data + 4B h
 
 table = dynamodb.Table(TABLE_NAME)
 
+from protocol_constants import OTA_CMD_TYPE, crc32
+
 # --- Protocol constants (must match ota_update.h) ---
-OTA_CMD_TYPE = 0x20
 OTA_SUB_START = 0x01
 OTA_SUB_CHUNK = 0x02
 OTA_SUB_ABORT = 0x03
-
-# Uplink subtypes
-OTA_SUB_ACK = 0x80
-OTA_SUB_COMPLETE = 0x81
-OTA_SUB_STATUS = 0x82
 
 # Status codes
 OTA_STATUS_OK = 0
@@ -55,12 +51,6 @@ OTA_START_FLAGS_SIGNED = 0x01
 
 # Module-level cache
 _firmware_cache = {}  # key -> bytes
-
-
-def crc32(data):
-    """Compute CRC32 (IEEE) matching Zephyr's crc32_ieee."""
-    import binascii
-    return binascii.crc32(data) & 0xFFFFFFFF
 
 
 def crc16_ccitt(data, init=0xFFFF):
