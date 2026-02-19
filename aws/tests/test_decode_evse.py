@@ -596,6 +596,63 @@ class TestDecodeDiagPayload:
         assert "diagnostics" in item["data"]
         assert item["data"]["diagnostics"]["app_version"] == 3
 
+    def test_diag_updates_registry_app_version(self):
+        """Diagnostics response should update registry app_version (TASK-084)."""
+        raw = self._make_diag(app_ver=7)
+        event = {
+            "WirelessDeviceId": "test-device-456",
+            "PayloadData": encode_b64(raw),
+            "WirelessMetadata": {
+                "Sidewalk": {
+                    "LinkType": "LORA",
+                    "Rssi": -85,
+                    "Seq": 10,
+                    "Timestamp": "2026-02-19T12:00:00Z",
+                    "SidewalkId": "sid-002",
+                }
+            },
+        }
+
+        with patch.object(decode.table, "put_item"), \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch("device_registry.get_or_create_device"), \
+             patch("device_registry.update_last_seen") as mock_last_seen:
+            decode.lambda_handler(event, None)
+
+        mock_last_seen.assert_called_once()
+        call_args = mock_last_seen.call_args
+        assert call_args[0][1] == "test-device-456"
+        assert call_args[1]["app_version"] == 7
+
+    def test_evse_telemetry_passes_none_app_version(self):
+        """EVSE telemetry should NOT update registry app_version (TASK-084)."""
+        raw = bytes([0xE5, 0x08, 0x01, 0xA4, 0x0B, 0x00, 0x00, 0x00,
+                     0x00, 0x01, 0x00, 0x00])
+        event = {
+            "WirelessDeviceId": "test-device-789",
+            "PayloadData": encode_b64(raw),
+            "WirelessMetadata": {
+                "Sidewalk": {
+                    "LinkType": "LORA",
+                    "Rssi": -80,
+                    "Seq": 5,
+                    "Timestamp": "2026-02-19T12:00:00Z",
+                    "SidewalkId": "sid-003",
+                }
+            },
+        }
+
+        with patch.object(decode.table, "put_item"), \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch("device_registry.get_or_create_device"), \
+             patch("device_registry.update_last_seen") as mock_last_seen:
+            decode.lambda_handler(event, None)
+
+        mock_last_seen.assert_called_once()
+        call_args = mock_last_seen.call_args
+        assert call_args[1]["app_version"] is None
+
 
 # --- Scheduler divergence detection (TASK-071) ---
 

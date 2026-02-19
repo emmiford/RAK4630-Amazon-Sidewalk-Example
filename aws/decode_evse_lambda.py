@@ -666,7 +666,7 @@ def lambda_handler(event, context):
         # Update device registry (best-effort, never block event processing)
         try:
             device_registry.get_or_create_device(registry_table, wireless_device_id, sidewalk_id)
-            app_ver = decoded.get('app_version') if decoded.get('payload_type') == 'ota' else None
+            app_ver = decoded.get('app_version') if decoded.get('payload_type') in ('ota', 'diagnostics') else None
             device_registry.update_last_seen(registry_table, wireless_device_id, app_version=app_ver)
         except Exception as e:
             print(f"Device registry update failed (non-fatal): {e}")
