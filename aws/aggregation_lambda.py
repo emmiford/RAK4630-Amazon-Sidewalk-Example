@@ -18,6 +18,7 @@ Environment variables:
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 import boto3
 
@@ -242,8 +243,12 @@ def write_aggregate(device_id, wireless_device_id, date_str, aggregates):
         "date": date_str,
         "wireless_device_id": wireless_device_id,
         "ttl": ttl,
-        **aggregates,
     }
+    for k, v in aggregates.items():
+        if isinstance(v, float):
+            item[k] = Decimal(str(v))
+        else:
+            item[k] = v
 
     aggregates_table.put_item(Item=item)
 

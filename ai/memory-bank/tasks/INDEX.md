@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (17)
+## Open Tasks (16)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -46,7 +46,6 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
 | TASK-076 | not started | Pam | Engage external privacy consultant | — |
 | TASK-077 | not started | Eliel | Implement deletion Lambda (PII + telemetry cleanup) | — |
-| TASK-078 | not started | Eliel | Implement daily aggregation Lambda | — |
 | TASK-079 | not started | Pam | Consumer privacy request intake form | — |
 | TASK-080 | not started | Pam | Publish privacy policy (web hosting) | TASK-076 |
 | TASK-081 | not started | Pam | Formal incident response plan | TASK-076 |
@@ -130,6 +129,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-070 | Production heartbeat interval (60s → 15min) | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-026 | Boot path + app discovery tests (10 tests) | MERGED DONE | 2026-02-19 | Eero |
 | TASK-090 | Codebase streamlining — test consolidation, LOG macros, DRY constants | MERGED DONE | 2026-02-19 | Eliel+Utz+Eero |
+| TASK-078 | Implement daily aggregation Lambda | MERGED DONE | 2026-02-19 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`

@@ -1,7 +1,7 @@
 # SideCharge Data Retention and Deletion Procedures
 
 **Internal Document — Not Customer-Facing**
-**Last Updated**: 2026-02-17
+**Last Updated**: 2026-02-19
 **Owner**: Pam (Product Manager) — pending external privacy consultant assignment
 **PRD Reference**: Section 6.4.2
 
@@ -20,17 +20,35 @@
 
 **How TTL works**: The decode Lambda sets a `ttl` attribute (Unix epoch seconds) on every DynamoDB item equal to the event timestamp plus 90 days (7,776,000 seconds). DynamoDB's built-in TTL process automatically deletes expired items. No manual cleanup required.
 
-### 1.2 Daily Aggregates (`sidecharge-daily-aggregates` — TASK-038 deliverable, not yet created)
+### 1.2 Daily Aggregates (`sidecharge-daily-aggregates` — TASK-078)
 
 | Rule | Value | Mechanism |
 |------|-------|-----------|
 | Retention | **3 years** | DynamoDB TTL on `ttl` attribute |
 | TTL attribute | `ttl` = `date_epoch + 94608000` (3 years in seconds) | Set by aggregation Lambda |
-| Contents | Per-device daily: total kWh, AC compressor hours, EV charge session count, EV charge duration, peak current | Computed from raw telemetry before expiry |
+| Schedule | Daily at **02:00 UTC** | EventBridge cron rule |
+| Zero-event days | No record written | Graceful skip |
 
-**Not yet implemented.** The aggregation Lambda (EventBridge daily trigger) is a future deliverable. Until it exists, raw telemetry expiry means data older than 90 days is permanently lost with no summary. This is acceptable for the current single-device deployment but must be addressed before multi-customer rollout.
+**Aggregate fields (per device per day):**
 
-### 1.3 Device Registry (`sidecharge-device-registry` — TASK-036, not yet created)
+| Category | Field | Type | Notes |
+|----------|-------|------|-------|
+| Energy | `total_kwh` | Decimal | Assumes 240V mains (`ASSUMED_VOLTAGE_V` env var) |
+| Energy | `peak_current_a` | Decimal | Highest instantaneous current reading |
+| EV Charging | `charge_sessions` | int | Transitions into J1772 State C |
+| EV Charging | `charge_minutes` | Decimal | Total minutes in State C |
+| AC Compressor | `ac_compressor_minutes` | Decimal | Total minutes with `ac_compressor=true` |
+| Faults | `fault_count_sensor` | int | Runtime `FAULT_SENSOR` (0x10) occurrences |
+| Faults | `fault_count_clamp` | int | Runtime `FAULT_CLAMP` (0x20) occurrences |
+| Faults | `fault_count_interlock` | int | Runtime `FAULT_INTERLOCK` (0x40) occurrences |
+| Faults | `selftest_passed` | bool | All 4 hardware checks passed on boot |
+| Availability | `event_count` | int | Total uplinks received |
+| Availability | `availability_pct` | Decimal | `event_count / 96 * 100` (96 = expected 15-min heartbeats/day) |
+| Availability | `longest_gap_minutes` | Decimal | Longest gap between consecutive uplinks (or midnight boundary) |
+
+**Implementation**: `aws/aggregation_lambda.py` (TASK-078, deployed 2026-02-19).
+
+### 1.3 Device Registry (`sidecharge-device-registry` — TASK-036)
 
 | Rule | Value | Mechanism |
 |------|-------|-----------|
@@ -47,6 +65,7 @@
 | `/aws/lambda/charge-scheduler` | **30 days** | `aws_cloudwatch_log_group.charge_scheduler_logs` |
 | `/aws/lambda/ota-sender` | **30 days** | `aws_cloudwatch_log_group.ota_sender_logs` |
 | `/aws/lambda/health-digest` | **30 days** | `aws_cloudwatch_log_group.health_digest_logs` |
+| `/aws/lambda/daily-aggregation` | **30 days** | `aws_cloudwatch_log_group.aggregation_logs` |
 
 ### 1.5 OTA Session Data
 
@@ -177,6 +196,7 @@ Must be completed before first customer deployment.
 | `charge_scheduler_lambda.py` | Logs meter number or address? | N/A | Utility lookup not yet integrated (TASK-037). **When integrated: must NOT log meter_number or install_address** |
 | `ota_sender_lambda.py` | Any PII exposure? | OK | Operates on device ID and binary data only |
 | `health_digest_lambda.py` | Logs device details? | OK | Logs only SC-XXXXXXXX device IDs, last-seen, app versions, and fault types. No PII fields read or logged. |
+| `aggregation_lambda.py` | Any PII exposure? | OK | Reads only telemetry events and device registry `device_id`/`wireless_device_id`. No Tier 1 fields accessed. Logs only device counts and aggregate stats. |
 
 **Rule**: Lambda code must never log Tier 1 fields (owner_name, owner_email, install_address, install_lat, install_lon, meter_number, installer_name). Log only the pseudonymous device_id (SC-XXXXXXXX or Sidewalk UUID). Enforce in code review.
 
@@ -193,7 +213,7 @@ Must be completed before first customer deployment.
 | Data retention procedures | DONE | TASK-038 (this document) |
 | CCPA compliance checklist | DONE | TASK-038 (this document) |
 | CloudWatch PII audit | DONE | TASK-038 (section 4 of this document) |
-| Aggregation Lambda (daily summaries) | NOT STARTED | Future (pre-multi-customer) |
+| Aggregation Lambda (daily summaries) | DEPLOYED | TASK-078 (2026-02-19) |
 | Deletion Lambda (PII + telemetry cleanup) | NOT STARTED | Future (pre-multi-customer) |
 | Device registry table | DEPLOYED | TASK-036 (merged) + TASK-049 (terraform applied) |
 | External privacy consultant engagement | NOT STARTED | TASK-042 recommendation |
