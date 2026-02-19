@@ -247,8 +247,10 @@ static void app_on_timer(void)
 			.thermostat_flags = last_thermostat_flags,
 			.charge_flags = charge_control_is_allowed()
 					? EVENT_FLAG_CHARGE_ALLOWED : 0,
+			.transition_reason = charge_control_get_last_reason(),
 		};
 		event_buffer_add(&snap);
+		charge_control_clear_last_reason();
 	}
 
 	/* --- Charge Now latch expiry/cancel check --- */
@@ -295,11 +297,11 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 			app_tx_send_evse_data();
 			return 0;
 		} else if (strcmp(args, "allow") == 0) {
-			charge_control_set(true, 0);
+			charge_control_set_with_reason(true, 0, TRANSITION_REASON_MANUAL);
 			print("Charging ALLOWED (GPIO high)");
 			return 0;
 		} else if (strcmp(args, "pause") == 0) {
-			charge_control_set(false, 0);
+			charge_control_set_with_reason(false, 0, TRANSITION_REASON_MANUAL);
 			print("Charging PAUSED (GPIO low)");
 			return 0;
 		} else if (strcmp(args, "buffer") == 0) {

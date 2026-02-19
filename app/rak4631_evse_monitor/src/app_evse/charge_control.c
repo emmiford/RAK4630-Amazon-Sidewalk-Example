@@ -22,6 +22,9 @@ static charge_control_state_t current_state = {
 	.pause_timestamp_ms = 0
 };
 
+/* Last transition reason (cleared after read by app_entry snapshot) */
+static uint8_t last_transition_reason = TRANSITION_REASON_NONE;
+
 void charge_control_set_api(const struct platform_api *platform)
 {
 	api = platform;
@@ -29,6 +32,12 @@ void charge_control_set_api(const struct platform_api *platform)
 
 int charge_control_init(void)
 {
+	/* Reset all state to defaults */
+	current_state.charging_allowed = true;
+	current_state.auto_resume_min = 0;
+	current_state.pause_timestamp_ms = 0;
+	last_transition_reason = TRANSITION_REASON_NONE;
+
 	/* Platform owns GPIO init — just set default state */
 	if (api) {
 		api->gpio_set(EVSE_PIN_CHARGE_EN, 1);
@@ -62,12 +71,18 @@ int charge_control_process_cmd(const uint8_t *data, size_t len)
 			     allowed, duration);
 	}
 
-	charge_control_set(allowed, duration);
+	charge_control_set_with_reason(allowed, duration, TRANSITION_REASON_CLOUD_CMD);
 	return 0;
 }
 
-void charge_control_set(bool allowed, uint16_t auto_resume_min)
+void charge_control_set_with_reason(bool allowed, uint16_t auto_resume_min,
+				    uint8_t reason)
 {
+	/* Record transition reason only when state actually changes */
+	if (allowed != current_state.charging_allowed) {
+		last_transition_reason = reason;
+	}
+
 	current_state.charging_allowed = allowed;
 	current_state.auto_resume_min = auto_resume_min;
 
@@ -85,6 +100,12 @@ void charge_control_set(bool allowed, uint16_t auto_resume_min)
 	}
 }
 
+void charge_control_set(bool allowed, uint16_t auto_resume_min)
+{
+	charge_control_set_with_reason(allowed, auto_resume_min,
+				       TRANSITION_REASON_NONE);
+}
+
 void charge_control_get_state(charge_control_state_t *state)
 {
 	if (state) {
@@ -95,6 +116,16 @@ void charge_control_get_state(charge_control_state_t *state)
 bool charge_control_is_allowed(void)
 {
 	return current_state.charging_allowed;
+}
+
+uint8_t charge_control_get_last_reason(void)
+{
+	return last_transition_reason;
+}
+
+void charge_control_clear_last_reason(void)
+{
+	last_transition_reason = TRANSITION_REASON_NONE;
 }
 
 void charge_control_tick(void)
@@ -114,6 +145,7 @@ void charge_control_tick(void)
 				/* Window expired — resume and clear */
 				if (!current_state.charging_allowed) {
 					api->log_inf("Delay window expired, resuming");
+					last_transition_reason = TRANSITION_REASON_DELAY_WINDOW;
 					current_state.charging_allowed = true;
 					current_state.auto_resume_min = 0;
 					current_state.pause_timestamp_ms = 0;
@@ -123,6 +155,7 @@ void charge_control_tick(void)
 			} else if (now >= start && current_state.charging_allowed) {
 				/* Window active — pause charging */
 				api->log_inf("Delay window active, pausing");
+				last_transition_reason = TRANSITION_REASON_DELAY_WINDOW;
 				current_state.charging_allowed = false;
 				api->gpio_set(EVSE_PIN_CHARGE_EN, 0);
 			}
@@ -141,6 +174,7 @@ void charge_control_tick(void)
 
 		if (elapsed_ms >= resume_threshold_ms) {
 			api->log_inf("Auto-resume timer expired, allowing charging");
+			last_transition_reason = TRANSITION_REASON_AUTO_RESUME;
 			current_state.charging_allowed = true;
 			current_state.auto_resume_min = 0;
 			current_state.pause_timestamp_ms = 0;

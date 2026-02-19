@@ -960,3 +960,155 @@ class TestChargeNowInHandler:
             decode.lambda_handler(self._make_event(raw), None)
 
         mock_override.assert_not_called()
+
+
+# --- v0x09 payload: transition reason byte (TASK-069) ---
+
+class TestDecodeV09Payload:
+    def _make_v09(self, j1772=1, voltage=0, current=0, flags=0,
+                  timestamp=0, reason=0):
+        """Helper: build a 13-byte v0x09 payload."""
+        return bytes([
+            0xE5, 0x09, j1772,
+            voltage & 0xFF, (voltage >> 8) & 0xFF,
+            current & 0xFF, (current >> 8) & 0xFF,
+            flags,
+            timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+            (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+            reason,
+        ])
+
+    def test_v09_basic_decode(self):
+        """13-byte v0x09 payload decodes all fields."""
+        raw = self._make_v09(j1772=3, voltage=1489, current=15000,
+                             flags=0x06, timestamp=86400, reason=0x01)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result is not None
+        assert result["version"] == 0x09
+        assert result["j1772_state_code"] == 3
+        assert result["pilot_voltage_mv"] == 1489
+        assert result["current_ma"] == 15000
+        assert result["device_timestamp_epoch"] == 86400
+        assert result["transition_reason_code"] == 0x01
+        assert result["transition_reason"] == "cloud_cmd"
+
+    def test_v09_reason_none(self):
+        """Reason 0 = 'none' (no transition this cycle)."""
+        raw = self._make_v09(reason=0x00)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["transition_reason_code"] == 0
+        assert result["transition_reason"] == "none"
+
+    def test_v09_reason_delay_window(self):
+        """Reason 2 = 'delay_window'."""
+        raw = self._make_v09(reason=0x02)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["transition_reason"] == "delay_window"
+
+    def test_v09_reason_charge_now(self):
+        """Reason 3 = 'charge_now'."""
+        raw = self._make_v09(reason=0x03)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["transition_reason"] == "charge_now"
+
+    def test_v09_reason_auto_resume(self):
+        """Reason 4 = 'auto_resume'."""
+        raw = self._make_v09(reason=0x04)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["transition_reason"] == "auto_resume"
+
+    def test_v09_reason_manual(self):
+        """Reason 5 = 'manual'."""
+        raw = self._make_v09(reason=0x05)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["transition_reason"] == "manual"
+
+    def test_v09_reason_unknown(self):
+        """Unknown reason code gets 'unknown_N' label."""
+        raw = self._make_v09(reason=0xFF)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["transition_reason"] == "unknown_255"
+
+    def test_v09_backward_compat_flags(self):
+        """v0x09 still decodes charge_allowed, charge_now, thermostat."""
+        raw = self._make_v09(flags=0x0E, reason=0x01)  # cool+allowed+charge_now
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_cool"] is True
+        assert result["charge_allowed"] is True
+        assert result["charge_now"] is True
+
+    def test_v09_via_b64(self):
+        """v0x09 through full base64 pipeline."""
+        raw = self._make_v09(j1772=2, voltage=2234, timestamp=1000, reason=0x03)
+        result = decode.decode_payload(encode_b64(raw))
+        assert result["payload_type"] == "evse"
+        assert result["version"] == 0x09
+        assert result["transition_reason"] == "charge_now"
+
+    def test_v08_no_transition_reason(self):
+        """v0x08 payload should NOT include transition_reason fields."""
+        raw = bytes([
+            0xE5, 0x08, 0x01,
+            0x00, 0x00, 0x00, 0x00,
+            0x00,
+            0x00, 0x00, 0x00, 0x00,
+        ])
+        result = decode.decode_raw_evse_payload(raw)
+        assert "transition_reason" not in result
+        assert "transition_reason_code" not in result
+
+
+class TestTransitionEventStorage:
+    """Test store_transition_event() writes correct DynamoDB items."""
+
+    def test_stores_transition_with_reason(self):
+        """Non-zero reason stores transition event."""
+        decoded = {
+            'charge_allowed': False,
+            'transition_reason_code': 0x01,
+            'transition_reason': 'cloud_cmd',
+            'device_timestamp_unix': 1767312000,
+            'device_timestamp_epoch': 86400,
+        }
+        with patch.object(decode, "table") as mock_table:
+            mock_table.put_item = MagicMock()
+            decode.store_transition_event("test-device", 1000000, decoded)
+
+        mock_table.put_item.assert_called_once()
+        item = mock_table.put_item.call_args[1]["Item"]
+        assert item["device_id"] == "test-device"
+        assert item["event_type"] == "interlock_transition"
+        assert item["charge_allowed"] is False
+        assert item["transition_reason"] == "cloud_cmd"
+        assert item["transition_reason_code"] == 1
+        assert item["device_timestamp_unix"] == 1767312000
+        assert item["device_timestamp_epoch"] == 86400
+
+    def test_transition_timestamp_offset(self):
+        """Transition timestamp is base +1ms to avoid PK collision."""
+        decoded = {
+            'charge_allowed': True,
+            'transition_reason_code': 0x03,
+            'transition_reason': 'charge_now',
+        }
+        with patch.object(decode, "table") as mock_table:
+            mock_table.put_item = MagicMock()
+            decode.store_transition_event("dev-1", 5000000, decoded)
+
+        item = mock_table.put_item.call_args[1]["Item"]
+        assert item["timestamp"] == 5000001
+
+    def test_transition_without_device_timestamp(self):
+        """Transition stores correctly even without device-side timestamp."""
+        decoded = {
+            'charge_allowed': True,
+            'transition_reason_code': 0x04,
+            'transition_reason': 'auto_resume',
+        }
+        with patch.object(decode, "table") as mock_table:
+            mock_table.put_item = MagicMock()
+            decode.store_transition_event("dev-1", 5000000, decoded)
+
+        item = mock_table.put_item.call_args[1]["Item"]
+        assert "device_timestamp_unix" not in item
+        assert "device_timestamp_epoch" not in item

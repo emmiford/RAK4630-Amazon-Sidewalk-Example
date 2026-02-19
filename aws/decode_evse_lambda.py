@@ -57,6 +57,7 @@ CHARGE_NOW_DEFAULT_DURATION_S = 14400  # 4 hours fallback when not in TOU peak
 EVSE_MAGIC = 0xE5
 EVSE_PAYLOAD_SIZE_V06 = 8
 EVSE_PAYLOAD_SIZE_V07 = 12
+EVSE_PAYLOAD_SIZE_V09 = 13
 
 # Diagnostics payload (TASK-029 Tier 2)
 DIAG_MAGIC = 0xE6
@@ -70,6 +71,16 @@ OTA_CMD_TYPE = 0x20
 OTA_SUB_ACK = 0x80
 OTA_SUB_COMPLETE = 0x81
 OTA_SUB_STATUS = 0x82
+
+# Transition reason mapping (matches charge_control.h)
+TRANSITION_REASONS = {
+    0x00: 'none',
+    0x01: 'cloud_cmd',
+    0x02: 'delay_window',
+    0x03: 'charge_now',
+    0x04: 'auto_resume',
+    0x05: 'manual',
+}
 
 # J1772 state mapping
 J1772_STATES = {
@@ -339,6 +350,12 @@ def decode_raw_evse_payload(raw_bytes):
         else:
             result['device_timestamp_unix'] = None  # Not yet synced
 
+    # v0x09+: transition reason byte at byte 12
+    if len(raw_bytes) >= EVSE_PAYLOAD_SIZE_V09 and version >= 0x09:
+        reason_code = raw_bytes[12]
+        result['transition_reason_code'] = reason_code
+        result['transition_reason'] = TRANSITION_REASONS.get(reason_code, f'unknown_{reason_code}')
+
     return result
 
 
@@ -540,6 +557,37 @@ def decode_payload(raw_payload_b64):
         }
 
 
+def store_transition_event(device_id, timestamp_ms, decoded):
+    """Store an interlock transition event in DynamoDB (TASK-069).
+
+    Written when the device reports a non-zero transition_reason, indicating
+    a charge_allowed state change with a known cause.
+    """
+    reason = decoded.get('transition_reason', 'unknown')
+    reason_code = decoded.get('transition_reason_code', 0)
+    charge_allowed = decoded.get('charge_allowed', False)
+
+    item = {
+        'device_id': device_id,
+        'timestamp': timestamp_ms + 1,  # +1ms to avoid PK collision with telemetry
+        'ttl': int(timestamp_ms / 1000) + 7776000,  # 90-day retention
+        'event_type': 'interlock_transition',
+        'charge_allowed': charge_allowed,
+        'transition_reason': reason,
+        'transition_reason_code': reason_code,
+    }
+
+    # Include device-side timestamp if available
+    if decoded.get('device_timestamp_unix'):
+        item['device_timestamp_unix'] = decoded['device_timestamp_unix']
+    if decoded.get('device_timestamp_epoch'):
+        item['device_timestamp_epoch'] = decoded['device_timestamp_epoch']
+
+    item = json.loads(json.dumps(item), parse_float=Decimal)
+    table.put_item(Item=item)
+    print(f"Stored transition: charge_allowed={charge_allowed}, reason={reason}")
+
+
 def lambda_handler(event, context):
     """
     Process Sidewalk EVSE messages and store decoded data in DynamoDB.
@@ -654,6 +702,15 @@ def lambda_handler(event, context):
                     handle_charge_now_override(wireless_device_id)
                 except Exception as e:
                     print(f"Charge Now override error: {e}")
+
+            # Interlock transition logging (TASK-069)
+            reason_code = decoded.get('transition_reason_code', 0)
+            if reason_code != 0:
+                try:
+                    store_transition_event(
+                        wireless_device_id, timestamp_ms, decoded)
+                except Exception as e:
+                    print(f"Transition event error: {e}")
         else:
             item['data'] = {'decode_result': decoded}
 

@@ -12,8 +12,8 @@
 
 /* EVSE payload format constants */
 #define EVSE_MAGIC   0xE5
-#define EVSE_VERSION 0x08
-#define EVSE_PAYLOAD_SIZE 12
+#define EVSE_VERSION 0x09
+#define EVSE_PAYLOAD_SIZE 13
 
 /* Control flag bits in flags byte (byte 7), bits 2-3 */
 #define FLAG_CHARGE_ALLOWED  0x04   /* bit 2 */
@@ -91,7 +91,10 @@ int app_tx_send_evse_data(void)
 	/* Get device-side timestamp (0 if not yet synced) */
 	uint32_t timestamp = time_sync_get_epoch();
 
-	/* Build 12-byte v0x08 payload */
+	/* Get transition reason (0 = no transition this cycle) */
+	uint8_t reason = charge_control_get_last_reason();
+
+	/* Build 13-byte v0x09 payload */
 	uint8_t payload[EVSE_PAYLOAD_SIZE] = {
 		EVSE_MAGIC,
 		EVSE_VERSION,
@@ -105,11 +108,12 @@ int app_tx_send_evse_data(void)
 		(timestamp >> 8) & 0xFF,
 		(timestamp >> 16) & 0xFF,
 		(timestamp >> 24) & 0xFF,
+		reason,
 	};
 
-	api->log_inf("EVSE TX v%02x: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u",
+	api->log_inf("EVSE TX v%02x: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u, reason=%d",
 		     EVSE_VERSION, data.j1772_state, data.j1772_mv, data.current_ma,
-		     flags, timestamp);
+		     flags, timestamp, reason);
 
 	last_send_ms = now;
 	return api->send_msg(payload, sizeof(payload));
