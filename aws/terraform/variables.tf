@@ -101,3 +101,9 @@ variable "latest_app_version" {
   type        = number
   default     = 0
 }
+
+variable "aggregates_table_name" {
+  description = "DynamoDB table name for daily aggregate summaries (TASK-078)"
+  type        = string
+  default     = "sidecharge-daily-aggregates"
+}
