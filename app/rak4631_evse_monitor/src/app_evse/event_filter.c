@@ -62,6 +62,13 @@ bool event_filter_submit(const struct event_snapshot *snap, uint32_t uptime_ms)
 		    > EVENT_FILTER_VOLTAGE_NOISE_MV) {
 			changed = true;
 		}
+
+		/* Transition reason — always write when a reason is attached,
+		 * even if no other field changed (defensive: don't rely on the
+		 * implicit coupling between reason and charge_flags). */
+		if (snap->transition_reason != 0) {
+			changed = true;
+		}
 	}
 
 	/* Heartbeat — write at least once per interval */
