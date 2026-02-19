@@ -24,12 +24,13 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (18)
+## Open Tasks (24)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-065 | reopened | Eliel | AC-priority software interlock + charge_block rename (incomplete) | — |
+| TASK-094 | not started | Pam+Utz | Merge PRD + TDD inline wiring doc updates | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -41,6 +42,11 @@ Special: deferred, declined
 | TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
 | TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
 | TASK-093 | not started | Eliel | Clean up stale IoT rules and old Lambdas | — |
+| TASK-095 | not started | — | PCB design update — 3 relays, 11 terminals, inline interlock | TASK-094 |
+| TASK-096 | not started | Eliel | Firmware — W-out relay GPIO + platform API update | TASK-094, TASK-095 |
+| TASK-097 | not started | Eliel | Firmware v1.1 — Heat call input + interlock + uplink HEAT flag | TASK-096 |
+| TASK-098 | not started | Eliel | Cloud v1.1 — Decode HEAT flag in Lambda + DynamoDB | TASK-097 |
+| TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | TASK-094 |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
