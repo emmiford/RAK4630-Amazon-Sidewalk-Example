@@ -74,6 +74,12 @@ if(DEFINED HEARTBEAT_INTERVAL_MS)
     add_compile_definitions(HEARTBEAT_INTERVAL_MS=${HEARTBEAT_INTERVAL_MS})
 endif()
 
+# Override event filter heartbeat: cmake ... -DEVENT_FILTER_HEARTBEAT_MS=60000
+# Default (300000 / 5 min) lives in the C header (#ifndef guard in event_filter.h).
+if(DEFINED EVENT_FILTER_HEARTBEAT_MS)
+    add_compile_definitions(EVENT_FILTER_HEARTBEAT_MS=${EVENT_FILTER_HEARTBEAT_MS})
+endif()
+
 # Include paths
 include_directories(
     ${APP_INC}
@@ -93,6 +99,7 @@ set(APP_SOURCES
     ${APP_SRC}/charge_now.c
     ${APP_SRC}/time_sync.c
     ${APP_SRC}/event_buffer.c
+    ${APP_SRC}/event_filter.c
     ${APP_SRC}/delay_window.c
     ${APP_SRC}/diag_request.c
     ${APP_SRC}/led_engine.c
