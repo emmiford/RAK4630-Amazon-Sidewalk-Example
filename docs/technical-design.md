@@ -198,7 +198,7 @@ Offset  Size  Field               Type          Description
 ```
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
-measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is included in the uplink
+measure line voltage. The J1772 pilot signal voltage (ADC AIN1) is included in the uplink
 alongside the classified state enum. The raw millivolt reading enables cloud-side detection
 of marginal pilot connections — readings near a threshold boundary (e.g., 2590 mV near the
 2600 mV A/B boundary) indicate a degraded connection that the enum alone would not reveal.
@@ -1230,8 +1230,8 @@ Components:
 
 | ADC Channel | nRF52840 Pin | Function | Range | Calibration |
 |-------------|-------------|----------|-------|-------------|
-| 0 | P0.02 (AIN0) | J1772 pilot voltage | 0–3300 mV | Direct millivolt reading |
-| 1 | P0.03 (AIN1) | Current clamp output | 0–3300 mV | Linear: 0mV=0A, 3300mV=30A |
+| 0 | P0.03 (AIN1) | J1772 pilot voltage | 0–3300 mV | Direct millivolt reading |
+| 1 | P0.02 (AIN0) | Current clamp output | 0–3300 mV | Linear: 0mV=0A, 3300mV=30A |
 
 ### 9.2 Flash Constraints
 

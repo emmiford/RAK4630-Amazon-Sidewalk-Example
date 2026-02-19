@@ -24,11 +24,12 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (17)
+## Open Tasks (18)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
+| TASK-065 | reopened | Eliel | AC-priority software interlock + charge_block rename (incomplete) | — |
 | TASK-092 | not started | Eliel | BUG: J1772 state enum mismatch between firmware and Lambda | — |
 
 ### P2 — Important but not blocking v1.0
@@ -101,7 +102,6 @@ Special: deferred, declined
 | TASK-053 | Resolve two app_tx.c naming collision | MERGED DONE | 2026-02-15 | Eliel |
 | TASK-044 | PRD update — commissioning + G = earth ground | MERGED DONE | 2026-02-16 | Pam |
 | TASK-056 | Break up app.c into focused platform modules | MERGED DONE | 2026-02-16 | Eliel |
-| TASK-065 | AC-priority software interlock + charge_block rename | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-068 | charge_block rename propagation + stale status updates | MERGED DONE | 2026-02-17 | Pam |
 | TASK-062 | Wire up Charge Now button GPIO end-to-end | MERGED DONE | 2026-02-17 | Eliel |
 | TASK-022 | BUG: Stale flash inflates OTA delta baselines | MERGED DONE | 2026-02-17 | Eero |

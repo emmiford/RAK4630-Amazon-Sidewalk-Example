@@ -126,7 +126,7 @@ J1772 (also known as SAE J1772) is the standard for AC EV charging in North Amer
 
 ### Cp Pin (Control Pilot)
 
-- **Definition**: The physical pin on the J1772 connector that carries the pilot signal. SideCharge taps the Cp pin to read pilot voltage (via ADC on AIN0) and to spoof state changes (via the charge_block output).
+- **Definition**: The physical pin on the J1772 connector that carries the pilot signal. SideCharge taps the Cp pin to read pilot voltage (via ADC on AIN1) and to spoof state changes (via the charge_block output).
 - **Context**: Hardware interface docs, wiring diagrams, ADC configuration.
 - **Do NOT use**: "Pilot pin" (not the standard name), "PP pin" (that is the proximity pilot -- a different pin).
 

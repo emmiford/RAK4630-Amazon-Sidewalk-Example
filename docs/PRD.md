@@ -204,9 +204,9 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 
 | Pin | Signal | Description | Status |
 |-----|--------|-------------|--------|
-| AIN0 | J1772 Cp voltage | Pilot voltage level — classifies car presence/state (A-F) | IMPLEMENTED (HW+SW) |
-| AIN0 | J1772 Cp PWM | Pilot duty cycle — encodes max allowed current per J1772 | NOT STARTED |
-| AIN1 | Current clamp | Analog voltage proportional to EV charger current (0-3.3V) | IMPLEMENTED (HW) |
+| AIN1 | J1772 Cp voltage | Pilot voltage level — classifies car presence/state (A-F) | IMPLEMENTED (HW+SW) |
+| AIN1 | J1772 Cp PWM | Pilot duty cycle — encodes max allowed current per J1772 | NOT STARTED |
+| AIN0 | Current clamp | Analog voltage proportional to EV charger current (0-3.3V) | IMPLEMENTED (HW) |
 | P0.05 | Cool call | Thermostat cooling request (active high, pull-down) | IMPLEMENTED (HW) |
 | P0.04 | (reserved) | Reserved for future heat pump support (wired, not read in v1.0) | DESIGNED (HW) |
 
@@ -224,7 +224,7 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 | USB-C | RAK4631 USB port (development only) | IMPLEMENTED |
 | 24VAC | AC system transformer — production power source | NOT STARTED |
 
-AIN0 serves double duty: the same pin reads both the Cp voltage level (implemented) and the Cp PWM duty cycle (not yet implemented). The voltage level tells us the car's state; the duty cycle tells us the maximum current the charger is offering. These are two different measurements of the same physical signal.
+AIN1 serves double duty: the same pin reads both the Cp voltage level (implemented) and the Cp PWM duty cycle (not yet implemented). The voltage level tells us the car's state; the duty cycle tells us the maximum current the charger is offering. These are two different measurements of the same physical signal.
 
 #### 2.0.3.1 Wiring Terminal Definitions (Installer-Facing)
 
@@ -286,7 +286,7 @@ We are targeting NEC and Colorado code compliance. However, no formal code compl
 
 | Requirement | Status |
 |-------------|--------|
-| Read J1772 pilot voltage via ADC (AIN0, 12-bit, 0-3.6V range) | IMPLEMENTED |
+| Read J1772 pilot voltage via ADC (AIN1, 12-bit, 0-3.6V range) | IMPLEMENTED |
 | Classify into states A through F using voltage thresholds | IMPLEMENTED |
 | State A: >2600 mV (not connected) | IMPLEMENTED |
 | State B: 1850-2600 mV (connected, not ready) | IMPLEMENTED |
@@ -305,7 +305,7 @@ We are targeting NEC and Colorado code compliance. However, no formal code compl
 
 | Requirement | Status |
 |-------------|--------|
-| Read current clamp voltage via ADC (AIN1, 12-bit) | IMPLEMENTED |
+| Read current clamp voltage via ADC (AIN0, 12-bit) | IMPLEMENTED |
 | Linear scaling: 0-3.3V = 0-30A (0-30,000 mA) | IMPLEMENTED (needs rescaling) |
 | Scale to 48A range (v1.0 target) | NOT STARTED |
 | Transmit on change detection | IMPLEMENTED |
@@ -505,7 +505,7 @@ On every boot, after the platform passes control to `app_init()`, the following 
 
 | Check | What It Detects | Failure Action |
 |-------|-----------------|----------------|
-| ADC channels readable | Dead or disconnected ADC (AIN0, AIN1) | Set SENSOR_FAULT flag, error LED |
+| ADC channels readable | Dead or disconnected ADC (AIN1, AIN0) | Set SENSOR_FAULT flag, error LED |
 | GPIO pins readable | Dead thermostat input GPIOs (P0.04, P0.05) | Set SENSOR_FAULT flag, error LED |
 | Charge_block toggle-and-verify | Charge_block GPIO not controlling the relay — if toggling the output does not change the readback state, the relay is stuck or disconnected | Set INTERLOCK_FAULT flag, error LED |
 | Sidewalk init check | MFG keys missing or session keys absent (already implemented, see 3.1.1) | Degraded mode (no connectivity) |
@@ -704,7 +704,7 @@ Bytes 8-11: Timestamp              SideCharge epoch: seconds since 2026-01-01 00
 **Total: 12 bytes. Fits within 19-byte Sidewalk LoRa MTU with 7 bytes to spare.**
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
-measure line voltage. The J1772 pilot signal voltage (ADC AIN0) is included in the uplink
+measure line voltage. The J1772 pilot signal voltage (ADC AIN1) is included in the uplink
 alongside the classified state enum (byte 2). The raw millivolt reading enables cloud-side
 detection of marginal pilot connections — readings near a threshold boundary (e.g., 2590 mV
 near the 2600 mV A/B boundary) indicate a flaky or degraded connection that the enum alone
@@ -1515,9 +1515,9 @@ Every requirement below is traced to a PRD section. The PCB must implement all h
 - Fail-safe default: on power loss, charge_block GPIO floats LOW (not blocking — hardware safety gate controls EV relay), AC block relay de-energizes (thermostat signal passes through). Both loads off simultaneously is safe. Both loads on simultaneously must be physically impossible.
 
 **Analog inputs** (PRD 2.0.3, 2.1, 2.2)
-- **J1772 Cp voltage** (AIN0): Reads pilot voltage level to classify car presence/state (A-F). The pilot signal is +/-12V, 1kHz square wave. The ADC input circuit must condition this to 0-3.3V range for the nRF52840's 12-bit SAR ADC. Isolation from the J1772 pilot circuit is required (PRD 2.0.4).
-- **J1772 Cp PWM duty cycle** (AIN0, same pin): The same physical signal also encodes maximum allowed current as a duty cycle percentage per J1772 spec. The ADC samples both voltage and timing -- no separate hardware needed, but the conditioning circuit must preserve the square wave shape well enough for duty cycle measurement. (TASK-022, NOT STARTED in firmware.)
-- **Current clamp** (AIN1): Analog voltage proportional to EV charger current. The v1.0 range is 0-48A (PDL-014), covering a 60A circuit at 80% continuous. The clamp selection and resistor divider must produce 0-3.3V across this range. Higher ranges (80A for Ford Charge Station Pro) are a future resistor divider change -- the PCB layout should accommodate this without a board respin.
+- **J1772 Cp voltage** (AIN1): Reads pilot voltage level to classify car presence/state (A-F). The pilot signal is +/-12V, 1kHz square wave. The ADC input circuit must condition this to 0-3.3V range for the nRF52840's 12-bit SAR ADC. Isolation from the J1772 pilot circuit is required (PRD 2.0.4).
+- **J1772 Cp PWM duty cycle** (AIN1, same pin): The same physical signal also encodes maximum allowed current as a duty cycle percentage per J1772 spec. The ADC samples both voltage and timing -- no separate hardware needed, but the conditioning circuit must preserve the square wave shape well enough for duty cycle measurement. (TASK-022, NOT STARTED in firmware.)
+- **Current clamp** (AIN0): Analog voltage proportional to EV charger current. The v1.0 range is 0-48A (PDL-014), covering a 60A circuit at 80% continuous. The clamp selection and resistor divider must produce 0-3.3V across this range. Higher ranges (80A for Ford Charge Station Pro) are a future resistor divider change -- the PCB layout should accommodate this without a board respin.
 
 **Digital inputs** (PRD 2.3)
 - **Cool call** (P0.05): Thermostat cooling request. Active high with pull-down. This is the primary interlock trigger. The input circuit must condition the 24VAC thermostat signal to a 3.3V logic level with isolation (PRD 2.0.4).
@@ -1576,7 +1576,7 @@ These decisions and deliverables feed into PCB design. Some are already resolved
 | Transition delay | PDL-005 | DECIDED (not needed) | No RC time constant on relay driver. Simplifies relay drive circuit. |
 | Boot default | PDL-006 | DECIDED (read-then-decide) | Charge enable GPIO must initialize LOW (safe default). Relay must be normally-open (de-energized = EV paused). |
 | Dual interlock layers | PDL-002 | DECIDED (HW + SW redundancy) | Hardware interlock circuit is a hard requirement on the PCB, not just a relay driven by GPIO. |
-| J1772 Cp duty cycle measurement | TASK-022 | NOT STARTED (firmware) | The analog conditioning circuit for AIN0 must preserve PWM shape. No separate hardware, but affects component selection (bandwidth). |
+| J1772 Cp duty cycle measurement | TASK-022 | NOT STARTED (firmware) | The analog conditioning circuit for AIN1 must preserve PWM shape. No separate hardware, but affects component selection (bandwidth). |
 | Car-side interlock mechanism (PWM 0%) | TASK-023 / EXP-001 | NOT VALIDATED | If PWM 0% works across car makes, the J1772 spoof circuit needs a PWM output path in addition to the resistance spoof. May affect charge_block circuit design. |
 | Self-test toggle-and-verify | TASK-039 | IMPLEMENTED (firmware, TASK-039) | Relay readback path needed on PCB (GPIO or analog feedback from relay coil/contact). |
 | BLE diagnostics (future) | PDL-016 | DECIDED (hard no for v1.0) | No BLE antenna optimization needed for post-registration use. BLE antenna only needs to work for initial registration (one-time, close range). |
