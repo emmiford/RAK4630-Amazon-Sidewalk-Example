@@ -29,7 +29,7 @@ struct event_snapshot {
 	uint8_t  j1772_state;       /* J1772 state code (0-6) */
 	uint8_t  thermostat_flags;  /* Thermostat input bits */
 	uint8_t  charge_flags;      /* bit 0: CHARGE_ALLOWED */
-	uint8_t  _reserved;         /* pad to 12 bytes */
+	uint8_t  transition_reason; /* TRANSITION_REASON_* (0 = no transition) */
 };
 
 /* charge_flags bit definitions */

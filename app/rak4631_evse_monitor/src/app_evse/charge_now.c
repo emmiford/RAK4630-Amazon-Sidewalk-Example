@@ -36,7 +36,7 @@ void charge_now_activate(void)
 	start_ms = api->uptime_ms();
 
 	/* Force charging on */
-	charge_control_set(true, 0);
+	charge_control_set_with_reason(true, 0, TRANSITION_REASON_CHARGE_NOW);
 
 	/* Clear any active delay window */
 	delay_window_clear();

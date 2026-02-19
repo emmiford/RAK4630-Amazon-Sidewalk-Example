@@ -322,17 +322,23 @@ static void test_app_tx_sends_12_byte_payload(void)
 
 	evse_sensors_set_api(mock_api());
 	thermostat_inputs_set_api(mock_api());
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	time_sync_set_api(mock_api());
+	time_sync_init();
+	charge_now_set_api(mock_api());
+	charge_now_init();
 	app_tx_set_api(mock_api());
 	app_tx_set_ready(true);
 
 	int ret = app_tx_send_evse_data();
 	assert(ret == 0);
 	assert(mock_get()->send_count == 1);
-	assert(mock_get()->sends[0].len == 12);
+	assert(mock_get()->sends[0].len == 13);
 
 	/* Check magic and version bytes */
 	assert(mock_get()->sends[0].data[0] == 0xE5);  /* EVSE_MAGIC */
-	assert(mock_get()->sends[0].data[1] == 0x08);  /* EVSE_VERSION v0x08 */
+	assert(mock_get()->sends[0].data[1] == 0x09);  /* EVSE_VERSION v0x09 */
 }
 
 static void test_app_tx_rate_limits(void)
@@ -2452,6 +2458,200 @@ static void test_event_filter_heartbeat_resets_after_change(void)
 }
 
 /* ================================================================== */
+/*  transition reason tracking                                         */
+/* ================================================================== */
+
+static void test_transition_reason_allow_to_pause_cloud_cmd(void)
+{
+	mock_reset();
+	mock_get()->gpio_values[0] = 1;
+	charge_control_set_api(mock_api());
+	charge_control_init();
+
+	/* Start allowed, then pause via cloud command */
+	assert(charge_control_is_allowed() == true);
+	uint8_t cmd[] = {0x10, 0x00, 0x00, 0x00};  /* pause, no auto-resume */
+	charge_control_process_cmd(cmd, sizeof(cmd));
+
+	assert(charge_control_is_allowed() == false);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_CLOUD_CMD);
+}
+
+static void test_transition_reason_pause_to_allow_cloud_cmd(void)
+{
+	mock_reset();
+	mock_get()->gpio_values[0] = 1;
+	charge_control_set_api(mock_api());
+	charge_control_init();
+
+	/* Pause first */
+	charge_control_set(false, 0);
+	charge_control_clear_last_reason();
+
+	/* Resume via cloud command */
+	uint8_t cmd[] = {0x10, 0x01, 0x00, 0x00};  /* allow */
+	charge_control_process_cmd(cmd, sizeof(cmd));
+
+	assert(charge_control_is_allowed() == true);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_CLOUD_CMD);
+}
+
+static void test_transition_reason_charge_now(void)
+{
+	mock_reset();
+	mock_get()->gpio_values[0] = 1;
+	mock_get()->uptime = 100000;
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	charge_now_set_api(mock_api());
+	charge_now_init();
+	led_engine_set_api(mock_api());
+	led_engine_init();
+
+	/* Pause, then activate Charge Now */
+	charge_control_set(false, 0);
+	charge_control_clear_last_reason();
+
+	charge_now_activate();
+	assert(charge_control_is_allowed() == true);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_CHARGE_NOW);
+}
+
+static void test_transition_reason_manual_shell(void)
+{
+	mock_reset();
+	mock_get()->gpio_values[0] = 1;
+	charge_control_set_api(mock_api());
+	charge_control_init();
+
+	/* Manual pause */
+	charge_control_set_with_reason(false, 0, TRANSITION_REASON_MANUAL);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_MANUAL);
+
+	/* Manual allow */
+	charge_control_set_with_reason(true, 0, TRANSITION_REASON_MANUAL);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_MANUAL);
+}
+
+static void test_transition_reason_auto_resume(void)
+{
+	mock_reset();
+	mock_get()->gpio_values[0] = 1;
+	mock_get()->uptime = 100000;
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	time_sync_set_api(mock_api());
+	time_sync_init();
+	delay_window_set_api(mock_api());
+
+	/* Pause with 1 minute auto-resume */
+	charge_control_set(false, 1);
+	charge_control_clear_last_reason();
+
+	/* Tick past 60 seconds */
+	mock_get()->uptime = 161000;
+	charge_control_tick();
+
+	assert(charge_control_is_allowed() == true);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_AUTO_RESUME);
+}
+
+static void test_transition_reason_none_when_no_change(void)
+{
+	mock_reset();
+	mock_get()->gpio_values[0] = 1;
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	charge_control_clear_last_reason();
+
+	/* Set to same state — no transition */
+	charge_control_set_with_reason(true, 0, TRANSITION_REASON_CLOUD_CMD);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_NONE);
+}
+
+static void test_transition_reason_clear(void)
+{
+	mock_reset();
+	mock_get()->gpio_values[0] = 1;
+	charge_control_set_api(mock_api());
+	charge_control_init();
+
+	charge_control_set_with_reason(false, 0, TRANSITION_REASON_MANUAL);
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_MANUAL);
+
+	charge_control_clear_last_reason();
+	assert(charge_control_get_last_reason() == TRANSITION_REASON_NONE);
+}
+
+static void test_transition_reason_in_snapshot(void)
+{
+	/* Full integration: init app, trigger transition, check snapshot */
+	timer_test_base = 700000;
+
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;
+	mock_get()->adc_values[1] = 0;
+	mock_get()->gpio_values[0] = 1;
+	mock_get()->gpio_values[2] = 0;
+	mock_get()->uptime = timer_test_base;
+	mock_get()->ready = true;
+
+	app_cb.init(mock_api());
+	mock_get()->send_count = 0;
+
+	/* First tick: baseline (charge allowed) */
+	mock_get()->uptime = timer_test_base + 1000;
+	tick_sensor_cycle();
+
+	/* Pause via shell command — this should record MANUAL reason */
+	charge_control_set_with_reason(false, 0, TRANSITION_REASON_MANUAL);
+
+	/* Tick again — snapshot should capture the transition reason */
+	mock_get()->uptime = timer_test_base + 7000;
+	tick_sensor_cycle();
+
+	/* Check the latest event buffer entry has the transition reason */
+	struct event_snapshot latest;
+	assert(event_buffer_get_latest(&latest) == true);
+	assert(latest.transition_reason == TRANSITION_REASON_MANUAL);
+	assert((latest.charge_flags & EVENT_FLAG_CHARGE_ALLOWED) == 0);
+}
+
+static void test_uplink_includes_transition_reason(void)
+{
+	mock_reset();
+	mock_get()->adc_values[0] = 2980;
+	mock_get()->adc_values[1] = 0;
+	mock_get()->gpio_values[0] = 1;
+	mock_get()->uptime = 800000;
+	mock_get()->ready = true;
+
+	evse_sensors_set_api(mock_api());
+	thermostat_inputs_set_api(mock_api());
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	charge_now_set_api(mock_api());
+	charge_now_init();
+	time_sync_set_api(mock_api());
+	time_sync_init();
+	app_tx_set_api(mock_api());
+	app_tx_set_ready(true);
+
+	/* Trigger a transition */
+	charge_control_set_with_reason(false, 0, TRANSITION_REASON_CLOUD_CMD);
+
+	/* Send uplink */
+	app_tx_send_evse_data();
+	assert(mock_get()->send_count == 1);
+
+	/* v0x09 payload should be 13 bytes with reason at byte 12 */
+	assert(mock_get()->sends[0].len == 13);
+	assert(mock_get()->sends[0].data[0] == 0xE5);  /* magic */
+	assert(mock_get()->sends[0].data[1] == 0x09);  /* version */
+	assert(mock_get()->sends[0].data[12] == TRANSITION_REASON_CLOUD_CMD);
+}
+
+/* ================================================================== */
 /*  Main                                                               */
 /* ================================================================== */
 
@@ -2643,6 +2843,17 @@ int main(void)
 	RUN_TEST(test_event_filter_voltage_large_change_writes);
 	RUN_TEST(test_event_filter_first_submit_always_writes);
 	RUN_TEST(test_event_filter_heartbeat_resets_after_change);
+
+	printf("\ntransition reason tracking:\n");
+	RUN_TEST(test_transition_reason_allow_to_pause_cloud_cmd);
+	RUN_TEST(test_transition_reason_pause_to_allow_cloud_cmd);
+	RUN_TEST(test_transition_reason_charge_now);
+	RUN_TEST(test_transition_reason_manual_shell);
+	RUN_TEST(test_transition_reason_auto_resume);
+	RUN_TEST(test_transition_reason_none_when_no_change);
+	RUN_TEST(test_transition_reason_clear);
+	RUN_TEST(test_transition_reason_in_snapshot);
+	RUN_TEST(test_uplink_includes_transition_reason);
 
 	printf("\n=== %d/%d tests passed ===\n\n", tests_passed, tests_run);
 	return (tests_passed == tests_run) ? 0 : 1;
