@@ -25,6 +25,7 @@
 #include <app_rx.h>
 #include <time_sync.h>
 #include <event_buffer.h>
+#include <event_filter.h>
 #include <delay_window.h>
 #include <led_engine.h>
 #include <stdio.h>
@@ -2294,6 +2295,163 @@ static void test_two_presses_no_charge_now(void)
 }
 
 /* ================================================================== */
+/*  event_filter: change-detection buffering                           */
+/* ================================================================== */
+
+static struct event_snapshot make_snap(uint8_t j1772, uint16_t mv,
+				       uint16_t ma, uint8_t thermo,
+				       uint8_t charge)
+{
+	struct event_snapshot s = {
+		.timestamp = 1000,
+		.j1772_state = j1772,
+		.pilot_voltage_mv = mv,
+		.current_ma = ma,
+		.thermostat_flags = thermo,
+		.charge_flags = charge,
+	};
+	return s;
+}
+
+static void test_event_filter_no_write_when_unchanged(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+
+	/* First submit always writes (baseline) */
+	assert(event_filter_submit(&s, 100000) == true);
+	assert(event_buffer_count() == 1);
+
+	/* Same state — should not write */
+	assert(event_filter_submit(&s, 101000) == false);
+	assert(event_buffer_count() == 1);
+
+	/* Same again */
+	assert(event_filter_submit(&s, 102000) == false);
+	assert(event_buffer_count() == 1);
+}
+
+static void test_event_filter_writes_on_j1772_change(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	event_filter_submit(&s, 100000);  /* baseline */
+
+	/* J1772 state A → C */
+	s.j1772_state = 2;
+	assert(event_filter_submit(&s, 101000) == true);
+	assert(event_buffer_count() == 2);
+}
+
+static void test_event_filter_writes_on_charge_flags_change(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	event_filter_submit(&s, 100000);
+
+	/* charge_flags: allowed → not allowed */
+	s.charge_flags = 0x00;
+	assert(event_filter_submit(&s, 101000) == true);
+	assert(event_buffer_count() == 2);
+}
+
+static void test_event_filter_writes_on_thermostat_change(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0x00, 0x01);
+	event_filter_submit(&s, 100000);
+
+	/* Thermostat cool call on */
+	s.thermostat_flags = 0x02;
+	assert(event_filter_submit(&s, 101000) == true);
+	assert(event_buffer_count() == 2);
+}
+
+static void test_event_filter_heartbeat_after_timeout(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	event_filter_submit(&s, 100000);  /* baseline at t=100000 */
+
+	/* Same state, well before heartbeat */
+	assert(event_filter_submit(&s, 200000) == false);
+	assert(event_buffer_count() == 1);
+
+	/* Same state, after heartbeat interval (300000ms = 5 min default) */
+	assert(event_filter_submit(&s, 500000) == true);
+	assert(event_buffer_count() == 2);
+}
+
+static void test_event_filter_voltage_noise_ignored(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	event_filter_submit(&s, 100000);
+
+	/* Small voltage change (500mV < 2000mV threshold) — noise */
+	s.pilot_voltage_mv = 3480;
+	assert(event_filter_submit(&s, 101000) == false);
+	assert(event_buffer_count() == 1);
+}
+
+static void test_event_filter_voltage_large_change_writes(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	event_filter_submit(&s, 100000);
+
+	/* Large voltage drop (>2000mV) — real transition */
+	s.pilot_voltage_mv = 500;
+	assert(event_filter_submit(&s, 101000) == true);
+	assert(event_buffer_count() == 2);
+}
+
+static void test_event_filter_first_submit_always_writes(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	assert(event_filter_submit(&s, 100000) == true);
+	assert(event_buffer_count() == 1);
+}
+
+static void test_event_filter_heartbeat_resets_after_change(void)
+{
+	event_buffer_init();
+	event_filter_init();
+
+	struct event_snapshot s = make_snap(0, 2980, 0, 0, 0x01);
+	event_filter_submit(&s, 100000);  /* baseline */
+
+	/* Change at t=200000 */
+	s.j1772_state = 2;
+	event_filter_submit(&s, 200000);
+	assert(event_buffer_count() == 2);
+
+	/* Same state at t=400000 (200s after last write, < 300s heartbeat) */
+	assert(event_filter_submit(&s, 400000) == false);
+
+	/* Same state at t=500001 (300001ms after last write, > heartbeat) */
+	assert(event_filter_submit(&s, 500001) == true);
+	assert(event_buffer_count() == 3);
+}
+
+/* ================================================================== */
 /*  Main                                                               */
 /* ================================================================== */
 
@@ -2474,6 +2632,17 @@ int main(void)
 	RUN_TEST(test_long_press_cancels_charge_now);
 	RUN_TEST(test_long_press_without_charge_now_is_noop);
 	RUN_TEST(test_two_presses_no_charge_now);
+
+	printf("\nevent_filter:\n");
+	RUN_TEST(test_event_filter_no_write_when_unchanged);
+	RUN_TEST(test_event_filter_writes_on_j1772_change);
+	RUN_TEST(test_event_filter_writes_on_charge_flags_change);
+	RUN_TEST(test_event_filter_writes_on_thermostat_change);
+	RUN_TEST(test_event_filter_heartbeat_after_timeout);
+	RUN_TEST(test_event_filter_voltage_noise_ignored);
+	RUN_TEST(test_event_filter_voltage_large_change_writes);
+	RUN_TEST(test_event_filter_first_submit_always_writes);
+	RUN_TEST(test_event_filter_heartbeat_resets_after_change);
 
 	printf("\n=== %d/%d tests passed ===\n\n", tests_passed, tests_run);
 	return (tests_passed == tests_run) ? 0 : 1;

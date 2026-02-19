@@ -24,6 +24,7 @@
 #include <selftest_trigger.h>
 #include <time_sync.h>
 #include <event_buffer.h>
+#include <event_filter.h>
 #include <led_engine.h>
 #include <string.h>
 
@@ -119,6 +120,7 @@ static int app_init(const struct platform_api *platform)
 	time_sync_init();
 	delay_window_init();
 	event_buffer_init();
+	event_filter_init();
 	charge_now_init();
 	selftest_trigger_set_send_fn(app_tx_send_evse_data);
 	selftest_trigger_init();
@@ -237,7 +239,7 @@ static void app_on_timer(void)
 		changed = true;
 	}
 
-	/* --- Record snapshot in event buffer --- */
+	/* --- Record snapshot in event buffer (only on change or heartbeat) --- */
 	{
 		struct event_snapshot snap = {
 			.timestamp = time_sync_get_epoch(),
@@ -248,7 +250,7 @@ static void app_on_timer(void)
 			.charge_flags = charge_control_is_allowed()
 					? EVENT_FLAG_CHARGE_ALLOWED : 0,
 		};
-		event_buffer_add(&snap);
+		event_filter_submit(&snap, api->uptime_ms());
 	}
 
 	/* --- Charge Now latch expiry/cancel check --- */

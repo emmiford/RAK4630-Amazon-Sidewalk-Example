@@ -30,6 +30,7 @@ SRCS = \
     $(APP_SRC)/charge_now.c \
     $(APP_SRC)/time_sync.c \
     $(APP_SRC)/event_buffer.c \
+    $(APP_SRC)/event_filter.c \
     $(APP_SRC)/delay_window.c \
     $(APP_SRC)/diag_request.c \
     $(APP_SRC)/led_engine.c
