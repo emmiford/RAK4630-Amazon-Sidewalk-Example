@@ -1,6 +1,6 @@
 # TASK-089: Update technical-design.md for v0x09 payload + event buffer drain
 
-**Status**: not started
+**Status**: in progress (items 1-2 done in TASK-091, items 3-4 remain)
 **Priority**: P3
 **Owner**: Eliel
 **Branch**: —
@@ -20,8 +20,8 @@ TASK-069 bumped the uplink payload from v0x08 (12 bytes) to v0x09 (13 bytes) wit
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] TDD section 3.1 documents v0x09 (13 bytes, transition_reason at byte 12)
-- [ ] Format history table updated
+- [x] TDD section 3.1 documents v0x09 (13 bytes, transition_reason at byte 12) — done in TASK-091
+- [x] Format history table updated — done in TASK-091
 - [ ] Event buffer drain behavior documented
 - [ ] decode_evse_lambda.py docstring mentions v0x09
 
