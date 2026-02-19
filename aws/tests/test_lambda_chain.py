@@ -91,7 +91,7 @@ class TestEvseTelemetryChain:
     """EVSE telemetry: decode → DynamoDB."""
 
     def test_evse_telemetry_decoded_and_stored(self):
-        raw = bytes([0xE5, 0x01, 0x03, 0xD1, 0x05, 0x98, 0x3A, 0x03])
+        raw = bytes([0xE5, 0x01, 0x02, 0xD1, 0x05, 0x98, 0x3A, 0x03])
         event = make_sidewalk_event(raw)
 
         with patch.object(decode, "table") as mock_table, \

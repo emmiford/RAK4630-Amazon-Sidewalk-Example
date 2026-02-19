@@ -80,15 +80,15 @@ TRANSITION_REASONS = {
     0x05: 'manual',
 }
 
-# J1772 state mapping
+# J1772 state mapping (matches firmware enum in evse_sensors.h)
 J1772_STATES = {
-    0: 'UNKNOWN',
-    1: 'A',  # No vehicle (12V)
-    2: 'B',  # Vehicle connected, not ready (9V)
-    3: 'C',  # Vehicle ready, charging (6V)
-    4: 'D',  # Vehicle ready, ventilation required (3V)
-    5: 'E',  # Error - short circuit
-    6: 'F',  # Error - no pilot
+    0: 'A',  # No vehicle (+12V)
+    1: 'B',  # Vehicle connected, not ready (+9V)
+    2: 'C',  # Vehicle ready, charging (+6V)
+    3: 'D',  # Vehicle ready, ventilation required (+3V)
+    4: 'E',  # Error - short circuit (0V)
+    5: 'F',  # Error - no pilot (-12V)
+    6: 'UNKNOWN',
 }
 
 

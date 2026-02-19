@@ -33,26 +33,26 @@ def encode_b64(raw_bytes):
 
 class TestDecodeRawEvsePayload:
     def test_valid_state_a(self):
-        """State A (0x01), 2980mV, 0mA, no thermostat."""
-        raw = bytes([0xE5, 0x01, 0x01, 0xA4, 0x0B, 0x00, 0x00, 0x00])
+        """State A (0x00), 2980mV, 0mA, no thermostat."""
+        raw = bytes([0xE5, 0x01, 0x00, 0xA4, 0x0B, 0x00, 0x00, 0x00])
         result = decode.decode_raw_evse_payload(raw)
         assert result is not None
         assert result["payload_type"] == "evse"
-        assert result["j1772_state_code"] == 1
+        assert result["j1772_state_code"] == 0
         assert result["j1772_state"] == "A"
         assert result["pilot_voltage_mv"] == 2980
         assert result["current_ma"] == 0
 
     def test_valid_state_c_with_current(self):
-        """State C (0x03), 1489mV, 15000mA, heat+cool active."""
+        """State C (0x02), 1489mV, 15000mA, heat+cool active."""
         voltage = 1489  # 0x05D1
         current = 15000  # 0x3A98
-        raw = bytes([0xE5, 0x01, 0x03,
+        raw = bytes([0xE5, 0x01, 0x02,
                      voltage & 0xFF, (voltage >> 8) & 0xFF,
                      current & 0xFF, (current >> 8) & 0xFF,
                      0x03])
         result = decode.decode_raw_evse_payload(raw)
-        assert result["j1772_state_code"] == 3
+        assert result["j1772_state_code"] == 2
         assert result["j1772_state"] == "C"
         assert result["pilot_voltage_mv"] == 1489
         assert result["current_ma"] == 15000
