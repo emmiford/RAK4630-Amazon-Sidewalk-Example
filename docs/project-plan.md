@@ -73,7 +73,7 @@ The core product function. The interlock guarantees AC and EV charger never draw
 - **Story**: As an operator, I want interlock state transitions logged to the cloud with timestamps and reasons, so that I can demonstrate code compliance and debug issues. **(M)**
   - [x] Task: Include interlock state in uplink payload — `SW` — IMPLEMENTED (SW)
   - [x] Task: Include cloud override status in uplink payload — `SW` — IMPLEMENTED (SW, EV only)
-  - [ ] Task: Log interlock transition events to cloud (AC->EV, EV->AC, override) with timestamps — `SW+CLOUD` — NOT STARTED
+  - [x] Task: Log interlock transition events to cloud (AC->EV, EV->AC, override) with timestamps — `SW+CLOUD` — IMPLEMENTED (TASK-069)
   - [ ] Task: Log "Charge Now" button press events — `SW` — TBD
 
 ---
@@ -162,30 +162,30 @@ Amazon Sidewalk integration, uplink/downlink messaging, payload encoding, AWS ba
 #### Feature 3.2.1: Telemetry Payload
 - **Story**: As a cloud system, I want to receive structured 12-byte payloads with timestamps from the device, so that I can reconstruct a timeline of interlock events. **(M)**
   - [x] Task: Implement 8-byte EVSE payload (magic, version, J1772 state, voltage, current, thermostat flags) — `SW` — IMPLEMENTED
-  - [ ] Task: Expand payload to 12 bytes — add 4-byte SideCharge epoch timestamp — `SW` — NOT STARTED — PRD ref: TASK-035
-  - [ ] Task: Add charge_control state (bit 2) and Charge Now flag (bit 3) to thermostat flags byte — `SW` — NOT STARTED — PRD ref: TASK-035
-  - [ ] Task: Bump payload version to 0x07 — `SW` — NOT STARTED
+  - [x] Task: Expand payload to 12 bytes — add 4-byte SideCharge epoch timestamp — `SW` — IMPLEMENTED (TASK-035, TASK-060)
+  - [x] Task: Add charge_control state (bit 2) and Charge Now flag (bit 3) to thermostat flags byte — `SW` — IMPLEMENTED (TASK-035, TASK-060)
+  - [x] Task: Bump payload version to 0x08 — `SW` — IMPLEMENTED (TASK-060)
   - [x] Task: Transmit on sensor state change — `SW` — IMPLEMENTED
-  - [ ] Task: Implement 15-minute heartbeat (currently 60s testing interval) — `SW` — NOT STARTED
-  - [x] Task: 100ms minimum TX rate limiter — `SW` — IMPLEMENTED
+  - [x] Task: Implement 15-minute heartbeat (currently 60s testing interval) — `SW` — IMPLEMENTED (TASK-070)
+  - [x] Task: 5-second minimum TX rate limiter — `SW` — IMPLEMENTED
   - [x] Task: Verify fits within 19-byte Sidewalk LoRa MTU (12 bytes = 7 spare) — `SW` — IMPLEMENTED
 
 #### Feature 3.2.2: Device-Side Event Buffer
 - **Story**: As a device, I want to buffer timestamped state snapshots in a ring buffer, so that transient state changes are not lost when LoRa drops a message. **(M)**
-  - [ ] Task: Implement ring buffer of 12-byte timestamped state snapshots in RAM (50 entries = 600 bytes from 8KB budget) — `SW` — NOT STARTED — PRD ref: TASK-034
-  - [ ] Task: On each uplink, send most recent state snapshot — `SW` — NOT STARTED
-  - [ ] Task: Trim buffer entries at or before cloud ACK watermark timestamp — `SW` — NOT STARTED — Depends: TIME_SYNC downlink (Feature 3.3.1)
-  - [ ] Task: Ring buffer wraps and overwrites oldest entries when full — `SW` — NOT STARTED
+  - [x] Task: Implement ring buffer of 12-byte timestamped state snapshots in RAM (50 entries = 600 bytes from 8KB budget) — `SW` — IMPLEMENTED (TASK-034)
+  - [x] Task: On each uplink, send most recent state snapshot — `SW` — IMPLEMENTED (TASK-061)
+  - [x] Task: Trim buffer entries at or before cloud ACK watermark timestamp — `SW` — IMPLEMENTED (TASK-033, TIME_SYNC)
+  - [x] Task: Ring buffer wraps and overwrites oldest entries when full — `SW` — IMPLEMENTED (TASK-034)
 
 ### Milestone 3.3: Downlink (Cloud to Device)
 
 #### Feature 3.3.1: TIME_SYNC Command (0x30)
 - **Story**: As a device, I want to receive wall-clock time from the cloud, so that I can timestamp my uplink payloads with real time. **(M)**
-  - [ ] Task: Implement TIME_SYNC downlink command (0x30) parsing — `SW` — NOT STARTED — PRD ref: TASK-033
-  - [ ] Task: Implement device-side time tracking (sync_time + uptime offset) — `SW` — NOT STARTED
-  - [ ] Task: Implement cloud-side auto-sync on first uplink after boot (decode Lambda detects timestamp=0) — `CLOUD` — NOT STARTED
-  - [ ] Task: Implement periodic drift correction (daily TIME_SYNC) — `CLOUD` — NOT STARTED
-  - [ ] Task: Include ACK watermark in TIME_SYNC for event buffer trimming — `CLOUD` — NOT STARTED
+  - [x] Task: Implement TIME_SYNC downlink command (0x30) parsing — `SW` — IMPLEMENTED (TASK-033)
+  - [x] Task: Implement device-side time tracking (sync_time + uptime offset) — `SW` — IMPLEMENTED (TASK-033)
+  - [x] Task: Implement cloud-side auto-sync on first uplink after boot (decode Lambda detects timestamp=0) — `CLOUD` — IMPLEMENTED (TASK-033)
+  - [x] Task: Implement periodic drift correction (daily TIME_SYNC) — `CLOUD` — IMPLEMENTED (TASK-033)
+  - [x] Task: Include ACK watermark in TIME_SYNC for event buffer trimming — `CLOUD` — IMPLEMENTED (TASK-033)
 
 #### Feature 3.3.2: Charge Control Downlink (0x10)
 - **Story**: As a cloud system, I want to send charge control commands to the device, so that the demand response scheduler can pause or allow charging remotely. **(S)**
@@ -200,8 +200,8 @@ Amazon Sidewalk integration, uplink/downlink messaging, payload encoding, AWS ba
   - [x] Task: Decoded events stored in DynamoDB (device_id + timestamp) — `CLOUD` — IMPLEMENTED
   - [x] Task: TTL expiration on DynamoDB records — `CLOUD` — IMPLEMENTED
   - [x] Task: Backward compatibility via payload version field (byte 1) — `CLOUD` — DESIGNED
-  - [ ] Task: Update decode Lambda to handle v0x07 12-byte payload with timestamp — `CLOUD` — NOT STARTED — Depends: Feature 3.2.1 (payload expansion)
-  - [ ] Task: Update decode Lambda to update device registry `last_seen` and `app_version` — `CLOUD` — NOT STARTED — Depends: Epic 9, Feature 9.2.1
+  - [x] Task: Update decode Lambda to handle v0x08 12-byte payload with timestamp — `CLOUD` — IMPLEMENTED (TASK-035, TASK-060)
+  - [x] Task: Update decode Lambda to update device registry `last_seen` and `app_version` — `CLOUD` — IMPLEMENTED (TASK-084)
 
 #### Feature 3.4.2: Demand Response and Charge Scheduling
 - **Story**: As a cloud system, I want to automatically pause EV charging during peak electricity hours and high grid carbon periods, so that charging shifts to off-peak, low-carbon windows. **(S)**
@@ -283,18 +283,18 @@ Split-image architecture, delta OTA, recovery, staging partition, deploy tooling
 
 #### Feature 4.4.1: Stale Flash Data Fix (KI-003)
 - **Story**: As an operator, I want OTA delta baselines to accurately reflect the running firmware, so that delta updates send the minimum number of chunks. **(M)**
-  - [ ] Task: `flash.sh app` erases 0x90000-0xCEFFF before writing app hex — `SW` — NOT STARTED — TASK-022 (plan drafted, not approved)
-  - [ ] Task: OTA apply (full, delta, recovery) erases pages beyond new image up to metadata boundary — `SW` — NOT STARTED
-  - [ ] Task: `ota_deploy.py baseline` warns if dump is significantly larger than app.bin — `CLOUD` — NOT STARTED
-  - [ ] Task: Host-side tests cover stale page erase after apply — `SW` — NOT STARTED
-  - [ ] Task: Manual verification: flash large app -> flash small app -> dump partition -> stale bytes are 0xFF — `SW` — NOT STARTED
+  - [x] Task: `flash.sh app` erases 0x90000-0xCEFFF before writing app hex — `SW` — IMPLEMENTED (TASK-022)
+  - [x] Task: OTA apply (full, delta, recovery) erases pages beyond new image up to metadata boundary — `SW` — IMPLEMENTED (TASK-022)
+  - [x] Task: `ota_deploy.py baseline` warns if dump is significantly larger than app.bin — `CLOUD` — IMPLEMENTED (TASK-022)
+  - [x] Task: Host-side tests cover stale page erase after apply — `SW` — IMPLEMENTED (TASK-022)
+  - [x] Task: Manual verification: flash large app -> flash small app -> dump partition -> stale bytes are 0xFF — `SW` — IMPLEMENTED (TASK-022)
 
 #### Feature 4.4.2: OTA Image Signing (Security)
 - **Story**: As an operator, I want OTA images cryptographically signed with ED25519, so that a compromised S3 bucket cannot push malicious firmware. **(L)**
-  - [ ] Task: Implement ED25519 signature generation in `ota_deploy.py` — `CLOUD` — NOT STARTED — PRD ref: TASK-031. Keys already in MFG store.
-  - [ ] Task: Implement ED25519 signature verification on device before apply — `SW` — NOT STARTED
-  - [ ] Task: Reject unsigned or badly-signed images with clear error — `SW` — NOT STARTED
-  - [ ] Task: Document signing key management and rotation — `DOC` — NOT STARTED
+  - [x] Task: Implement ED25519 signature generation in `ota_deploy.py` — `CLOUD` — IMPLEMENTED (TASK-031)
+  - [x] Task: Implement ED25519 signature verification on device before apply — `SW` — IMPLEMENTED (TASK-045)
+  - [x] Task: Reject unsigned or badly-signed images with clear error — `SW` — IMPLEMENTED (TASK-031)
+  - [x] Task: Document signing key management and rotation — `DOC` — IMPLEMENTED (TASK-031)
 
 ---
 
@@ -368,11 +368,11 @@ PCB design, 2-LED system, enclosure, BOM, manufacturing, 24VAC power supply, and
 #### Feature 6.2.1: Priority-Based Blink State Machine
 - **Story**: As a homeowner, I want a single-glance LED indication of device health, so that I know everything is working without any interaction. **(M)**
   - [x] Task: LED control via app_leds module — `SW` — IMPLEMENTED
-  - [ ] Task: Implement priority-based blink state machine (highest active state wins) — `SW` — NOT STARTED
-  - [ ] Task: Implement prototype single-LED patterns per PRD 2.5.1 matrix (8 states) — `SW` — NOT STARTED
+  - [x] Task: Implement priority-based blink state machine (highest active state wins) — `SW` — IMPLEMENTED (TASK-067)
+  - [x] Task: Implement prototype single-LED patterns per PRD 2.5.1 matrix (8 states) — `SW` — IMPLEMENTED (TASK-067)
   - [ ] Task: Implement "Charge Now" button press acknowledgment (3 rapid blinks) — `SW` — NOT STARTED
-  - [ ] Task: Implement commissioning mode auto-exit on first successful uplink — `SW` — NOT STARTED
-  - [ ] Task: Implement error state entry criteria enforcement — `SW` — NOT STARTED
+  - [x] Task: Implement commissioning mode auto-exit on first successful uplink — `SW` — IMPLEMENTED (TASK-067)
+  - [x] Task: Implement error state entry criteria enforcement — `SW` — IMPLEMENTED (TASK-067)
   - [ ] Task: Report LED state in uplink payload (cloud-side diagnostics) — `SW` — NOT STARTED
 
 #### Feature 6.2.2: Production Dual-LED System
@@ -520,22 +520,22 @@ Operator dashboard, device fleet management, OTA deployment pipeline, alerting, 
 
 #### Feature 9.1.4: Daily Health Digest
 - **Story**: As an operator, I want a daily email summary of fleet health (devices online, firmware versions, error counts), so that I have a single daily checkpoint. **(M)**
-  - [ ] Task: Implement scheduled Lambda that queries DynamoDB for all devices — `CLOUD` — NOT STARTED
-  - [ ] Task: Check last-seen timestamp, firmware version, error counts per device — `CLOUD` — NOT STARTED
-  - [ ] Task: Send summary email via SNS/SES — `CLOUD` — NOT STARTED
+  - [x] Task: Implement scheduled Lambda that queries DynamoDB for all devices — `CLOUD` — IMPLEMENTED (TASK-029)
+  - [x] Task: Check last-seen timestamp, firmware version, error counts per device — `CLOUD` — IMPLEMENTED (TASK-029)
+  - [x] Task: Send summary email via SNS/SES — `CLOUD` — IMPLEMENTED (TASK-029)
 
 ### Milestone 9.2: Device Registry and Fleet Management
 
 #### Feature 9.2.1: Device Registry
 - **Story**: As an operator, I want a persistent registry of all devices with owner, location, firmware version, and liveness, so that I can manage the fleet and support customers. **(L)**
-  - [ ] Task: Create DynamoDB `sidecharge-device-registry` table (Terraform-managed) — `CLOUD` — NOT STARTED — PRD ref: TASK-036
-  - [ ] Task: Implement device ID generation: `SC-` + first 8 hex chars of SHA-256(sidewalk_uuid) — `CLOUD` — DESIGNED
+  - [x] Task: Create DynamoDB `sidecharge-device-registry` table (Terraform-managed) — `CLOUD` — IMPLEMENTED (TASK-036, TASK-049)
+  - [x] Task: Implement device ID generation: `SC-` + first 8 hex chars of SHA-256(sidewalk_uuid) — `CLOUD` — IMPLEMENTED (TASK-036)
   - [ ] Task: Create GSI on `owner_email` for "my devices" lookup — `CLOUD` — NOT STARTED
-  - [ ] Task: Create GSI on `status` for fleet health queries — `CLOUD` — NOT STARTED
-  - [ ] Task: Implement status lifecycle: provisioned -> installed -> active -> inactive / returned — `CLOUD` — DESIGNED
+  - [ ] Task: Create GSI on `status` for fleet health queries — `CLOUD` — NOT STARTED (TASK-074)
+  - [x] Task: Implement status lifecycle: provisioned -> installed -> active -> inactive / returned — `CLOUD` — IMPLEMENTED (TASK-036)
   - [ ] Task: Populate registry at factory provisioning (device_id, sidewalk_id, provisioned_date) — `CLOUD` — NOT STARTED
   - [ ] Task: Populate registry at installation (owner, address, installer, meter number, install_date) — `CLOUD` — NOT STARTED
-  - [ ] Task: Decode Lambda updates `last_seen` and `app_version` on every uplink — `CLOUD` — NOT STARTED
+  - [x] Task: Decode Lambda updates `last_seen` and `app_version` on every uplink — `CLOUD` — IMPLEMENTED (TASK-084)
 
 ### Milestone 9.3: Remote Diagnostics (Tier 2)
 
@@ -579,13 +579,13 @@ Unit tests, integration tests, field testing with real J1772 hardware, load test
 
 #### Feature 10.1.3: Boot Path Tests
 - **Story**: As a developer, I want tests for `discover_app_image()` and the boot path, so that version mismatch, bad magic, and NULL app_cb are verified. **(M)**
-  - [ ] Task: Test: valid magic + version -> app callbacks invoked — `SW` — NOT STARTED — TASK-026
-  - [ ] Task: Test: wrong magic -> app not loaded, platform boots standalone — `SW` — NOT STARTED
-  - [ ] Task: Test: wrong version -> app not loaded (hard stop per ADR-001) — `SW` — NOT STARTED
-  - [ ] Task: Test: OTA message (cmd 0x20) routed to OTA engine, not app — `SW` — NOT STARTED
-  - [ ] Task: Test: non-OTA message routed to app_cb->on_msg_received — `SW` — NOT STARTED
-  - [ ] Task: Test: app_cb NULL -> messages handled safely (no crash) — `SW` — NOT STARTED
-  - [ ] Task: Test: timer interval bounds (< 100ms rejected, > 300000ms rejected) — `SW` — NOT STARTED
+  - [x] Task: Test: valid magic + version -> app callbacks invoked — `SW` — IMPLEMENTED (TASK-026)
+  - [x] Task: Test: wrong magic -> app not loaded, platform boots standalone — `SW` — IMPLEMENTED (TASK-026)
+  - [x] Task: Test: wrong version -> app not loaded (hard stop per ADR-001) — `SW` — IMPLEMENTED (TASK-026)
+  - [x] Task: Test: OTA message (cmd 0x20) routed to OTA engine, not app — `SW` — IMPLEMENTED (TASK-026)
+  - [x] Task: Test: non-OTA message routed to app_cb->on_msg_received — `SW` — IMPLEMENTED (TASK-026)
+  - [x] Task: Test: app_cb NULL -> messages handled safely (no crash) — `SW` — IMPLEMENTED (TASK-026)
+  - [x] Task: Test: timer interval bounds (< 100ms rejected, > 300000ms rejected) — `SW` — IMPLEMENTED (TASK-026)
 
 #### Feature 10.1.4: Grenning Legacy Tests
 - **Story**: As a developer, I want the original 32 Grenning dual-target tests maintained in CI, so that no regressions slip through during framework migration. **(S)**
@@ -678,11 +678,11 @@ Data privacy, retention policies, CCPA compliance, and operator documentation. C
 
 #### Feature 11.1.1: Privacy Policy and Retention
 - **Story**: As a company, I want a data privacy policy and retention rules, so that customer data is handled responsibly and we comply with state privacy laws. **(M)**
-  - [ ] Task: Define data retention policy (how long raw telemetry is kept vs. aggregated stats) — `DOC` — NOT STARTED — PRD ref: TASK-038
-  - [ ] Task: Write customer-facing privacy policy document — `DOC` — NOT STARTED
+  - [x] Task: Define data retention policy (how long raw telemetry is kept vs. aggregated stats) — `DOC` — IMPLEMENTED (TASK-038) — `docs/data-retention.md`
+  - [x] Task: Write customer-facing privacy policy document — `DOC` — IMPLEMENTED (TASK-038) — `docs/privacy-policy.md`
   - [ ] Task: Implement DynamoDB TTL for raw telemetry records (per retention policy) — `CLOUD` — NOT STARTED
-  - [ ] Task: Implement customer data deletion on device return/decommission — `CLOUD` — NOT STARTED
-  - [ ] Task: CCPA/state privacy law compliance review — `DOC` — NOT STARTED
+  - [ ] Task: Implement customer data deletion on device return/decommission — `CLOUD` — NOT STARTED (TASK-077)
+  - [x] Task: CCPA/state privacy law compliance review — `DOC` — IMPLEMENTED (TASK-038) — `docs/privacy-governance.md`
   - [ ] Task: Verify no PII in CloudWatch logs — `CLOUD` — NOT STARTED — PRD 6.4.2: NOT VERIFIED
 
 ### Milestone 11.2: Operator Documentation
@@ -713,10 +713,10 @@ Data privacy, retention policies, CCPA compliance, and operator documentation. C
 
 #### Feature 11.2.4: Cloud Command Authentication (Security Doc)
 - **Story**: As a security engineer, I want downlink commands to be signed (not just encrypted in transit), so that a compromised network cannot inject commands. **(L)**
-  - [ ] Task: Design command authentication scheme (signed downlinks) — `DOC+SW+CLOUD` — NOT STARTED — PRD ref: TASK-032
-  - [ ] Task: Implement cloud-side command signing — `CLOUD` — NOT STARTED
-  - [ ] Task: Implement device-side signature verification on downlinks — `SW` — NOT STARTED
-  - [ ] Task: Document key management for command signing — `DOC` — NOT STARTED
+  - [x] Task: Design command authentication scheme (HMAC-SHA256 signed downlinks) — `DOC+SW+CLOUD` — IMPLEMENTED (TASK-032)
+  - [x] Task: Implement cloud-side command signing — `CLOUD` — IMPLEMENTED (TASK-032)
+  - [x] Task: Implement device-side signature verification on downlinks — `SW` — IMPLEMENTED (TASK-032)
+  - [x] Task: Document key management for command signing — `DOC` — IMPLEMENTED (TASK-032)
 
 ---
 
@@ -819,11 +819,11 @@ The following dependencies span multiple epics and must be tracked carefully:
 | Milestones | 34 |
 | Features | 62 |
 | Total tasks | ~220 |
-| Tasks IMPLEMENTED (checked) | ~95 |
-| Tasks remaining (unchecked) | ~125 |
-| Known issues open | 1 (KI-003: stale flash) |
-| Known issues resolved | 2 (KI-001: documented workaround, KI-002: mitigated) |
+| Tasks IMPLEMENTED (checked) | ~130 |
+| Tasks remaining (unchecked) | ~90 |
+| Known issues open | 0 |
+| Known issues resolved | 3 (KI-001: documented workaround, KI-002: mitigated, KI-003: fixed in TASK-022) |
 
-The foundation is solid: the interlock hardware works, Sidewalk connectivity works, OTA pipeline works, demand response works, and CI runs 200+ tests. The path to production requires completing the firmware gaps (boot behavior, LED system, timestamps), building the production hardware (PCB, 24VAC, enclosure), validating with real equipment (J1772 chargers, thermostats, field RF conditions), navigating code compliance (NEC, UL), and building the installer experience (documentation, training, commissioning).
+The foundation is solid: the interlock hardware works, Sidewalk connectivity works, OTA pipeline works end-to-end with ED25519 signing, demand response works with HMAC command auth, the LED state machine is implemented, TIME_SYNC and event buffer are operational, boot path tests pass, and CI runs 200+ tests. The path to production requires building the production hardware (PCB, 24VAC, enclosure), validating with real equipment (J1772 chargers, thermostats, field RF conditions), navigating code compliance (NEC, UL), and building the installer experience (documentation, training, commissioning).
 
 The single biggest non-technical risk remains UL listing: no timeline, no budget, no NRTL engagement. This should be the next PM decision after Phase 0 stabilization.

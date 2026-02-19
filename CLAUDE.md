@@ -89,14 +89,33 @@ cd rak-sid/aws/terraform && terraform apply
 
 ## Shell Commands (on device)
 
+### Platform commands (`sid` -- defined in `platform_shell.c`)
 ```
-sid status          # Sidewalk connection state
+sid status          # Sidewalk connection state, init diagnostics, app image status
+sid mfg             # Show MFG store version and device ID
+sid reinit          # Re-run Sidewalk init sequence
+sid send            # Manual uplink trigger (dispatches to app)
+sid selftest        # Run commissioning self-test (dispatches to app)
+sid lora            # Switch to LoRa-only mode
+sid ble             # Switch to BLE mode
+sid reset           # Factory reset (wipes session keys and registration)
 sid ota status      # OTA state machine phase
-app evse status     # J1772 state, voltage, current, charge control
-app evse a/b/c      # Simulate J1772 states (10s)
-app evse allow      # Enable charging relay
-app evse pause      # Disable charging relay
-app hvac status     # Thermostat input flags
+sid ota abort       # Abort active OTA session
+sid ota report      # Send OTA status uplink
+sid ota delta_test  # Test delta OTA from flash (dev/debug)
+```
+
+### App commands (`app` -- defined in `app_entry.c`)
+```
+app evse status     # J1772 state, pilot voltage, current, charge control
+app evse a          # Simulate J1772 State A (no vehicle, 10s)
+app evse b          # Simulate J1772 State B (connected, 10s)
+app evse c          # Simulate J1772 State C (charging, 10s)
+app evse allow      # Enable charging (charge_block GPIO)
+app evse pause      # Disable charging (charge_block GPIO)
+app evse buffer     # Show event buffer entry count and timestamps
+app hvac status     # Thermostat input flags (cool call on/off)
+app sid time        # Show time sync status (epoch, watermark, drift)
 app sid send        # Manual uplink trigger
 ```
 

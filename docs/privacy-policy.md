@@ -23,7 +23,7 @@ When your electrician installs a SideCharge device, they record:
 
 ### 2.2 Information the Device Collects Automatically
 
-The SideCharge device monitors your electrical panel and sends the following data to our cloud service approximately every 5 minutes:
+The SideCharge device monitors your electrical panel and sends the following data to our cloud service on a 15-minute heartbeat and immediately when a state change occurs (for example, when your EV charger starts or stops, or your AC turns on):
 
 - **EV charger status** — whether your car is plugged in, charging, or disconnected (J1772 pilot state)
 - **Current draw** — how many amps your EV charger is using

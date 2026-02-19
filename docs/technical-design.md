@@ -1,7 +1,7 @@
 # SideCharge Technical Design Document
 
 **Status**: Living document — updated as the implementation evolves
-**Last updated**: 2026-02-17
+**Last updated**: 2026-02-19
 
 This is the single authoritative reference for how the SideCharge firmware and cloud
 systems work at the wire format, state machine, and protocol level. For *why* decisions
@@ -178,21 +178,23 @@ Per ADR-001, version mismatch is a **hard stop**:
 
 ## 3. Uplink Protocol
 
-### 3.1 EVSE Payload v0x08 (Current)
+### 3.1 EVSE Payload v0x09 (Current)
 
-12 bytes. Fits within the 19-byte LoRa uplink MTU with 7 bytes spare.
+13 bytes. Fits within the 19-byte LoRa uplink MTU with 6 bytes spare.
 
 ```
 Offset  Size  Field               Type          Description
 ------  ----  -----               ----          -----------
 0       1     Magic               uint8         0xE5 (constant)
-1       1     Version             uint8         0x08
+1       1     Version             uint8         0x09
 2       1     J1772 state         uint8         Enum 0-6 (see §6.1)
 3-4     2     Pilot voltage       uint16_le     J1772 Cp millivolts (0-3300)
 5-6     2     Current draw        uint16_le     Milliamps (0-30000)
 7       1     Flags               uint8         Bitfield (see §3.2)
 8-11    4     Timestamp           uint32_le     SideCharge epoch (see §7.1)
                                                 0 = not yet synced
+12      1     Transition reason   uint8         Why charge_allowed changed (see §3.2.1)
+                                                0 = no transition this cycle
 ```
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
@@ -204,11 +206,11 @@ See ADR-004 for the rationale.
 
 Encoding example:
 ```
-E5 08 03 BA 08 D0 07 06 39 A2 04 00
-│  │  │  └─────┘ └─────┘ │  └──────────┘
-│  │  │  2234 mV 2000 mA │  SideCharge epoch 304697 (~3.5 days)
+E5 09 03 BA 08 D0 07 06 39 A2 04 00 02
+│  │  │  └─────┘ └─────┘ │  └──────────┘ │
+│  │  │  2234 mV 2000 mA │  epoch 304697 │ TRANSITION_REASON_DELAY_WINDOW
 │  │  State C (charging)  Flags: COOL | CHARGE_ALLOWED
-│  Version 0x08
+│  Version 0x09
 Magic 0xE5
 ```
 
@@ -220,7 +222,7 @@ Bit  Mask  Name              Source
 0    0x01  (reserved)        reserved for future heat pump support (always 0)
 1    0x02  COOL              thermostat cool demand GPIO
 2    0x04  CHARGE_ALLOWED    charge control relay state
-3    0x08  CHARGE_NOW        reserved (TASK-040, always 0)
+3    0x08  CHARGE_NOW        Charge Now button latch active (see §6.3)
 4    0x10  FAULT_SENSOR      ADC/GPIO read failure or pilot out-of-range
 5    0x20  FAULT_CLAMP       current vs. J1772 state disagreement
 6    0x40  FAULT_INTERLOCK   current flowing while charge_allowed=false (relay not cutting power)
@@ -229,22 +231,40 @@ Bit  Mask  Name              Source
 
 Bit 0 is reserved for future heat pump support (always 0 in v1.0). Bit 1 comes from
 `thermostat_flags_get()`. Bit 2 is OR'd in by `app_tx.c` from
-`charge_control_is_allowed()`. Bits 4-7 come from `selftest_get_fault_flags()`.
+`charge_control_is_allowed()`. Bit 3 from `charge_now_is_active()`. Bits 4-7 come
+from `selftest_get_fault_flags()`.
+
+#### 3.2.1 Transition Reason Codes (Byte 12)
+
+Indicates why `charge_allowed` changed. Set on the uplink immediately following a
+charge control state transition; 0 otherwise. Defined in `charge_control.h`:
+
+```
+Code  Name                        Meaning
+----  ----                        -------
+0x00  TRANSITION_REASON_NONE      No transition (default / steady state)
+0x01  TRANSITION_REASON_CLOUD_CMD Cloud charge control command (0x10)
+0x02  TRANSITION_REASON_DELAY_WINDOW  TOU delay window start or expire
+0x03  TRANSITION_REASON_CHARGE_NOW    Charge Now button override
+0x04  TRANSITION_REASON_AUTO_RESUME   Auto-resume timer expired
+0x05  TRANSITION_REASON_MANUAL        Shell command (app evse allow/pause)
+```
 
 ### 3.3 Legacy Formats
 
-The decode Lambda handles three payload formats, identified by byte 0 and byte 1:
+The decode Lambda handles all payload formats, identified by byte 0 and byte 1:
 
-| Format | Magic | Version | Size | Differences from v0x08 |
+| Format | Magic | Version | Size | Differences from v0x09 |
 |--------|-------|---------|------|------------------------|
-| **v0x08** (current) | 0xE5 | 0x08 | 12B | Full format. Pilot voltage retained; HEAT flag reserved (always 0). |
+| **v0x09** (current) | 0xE5 | 0x09 | 13B | Full format. Adds `transition_reason` at byte 12. CHARGE_NOW flag (bit 3) active. |
+| **v0x08** | 0xE5 | 0x08 | 12B | No transition reason byte. CHARGE_NOW flag reserved (always 0). |
 | **v0x07** | 0xE5 | 0x07 | 12B | Same byte layout as v0x08; HEAT flag (bit 0) active. |
 | **v0x06** | 0xE5 | 0x06 | 8B | No timestamp (bytes 8-11). Flags byte has thermostat bits only. |
 | **sid_demo legacy** | varies | — | 7B+ | Wrapped in demo protocol headers. Inner payload: type(1)+j1772(1)+voltage(2)+current(2)+therm(1). Offset-scanned. |
 | **0xE6 diag** | 0xE6 | 0x01 | 14B | Extended diagnostics (on-demand only, see §3.5) |
 
 Backward-compatible: version byte (byte 1) dispatches to the correct decoder. Old
-devices sending v0x07 or v0x06 continue to be decoded correctly.
+devices sending v0x08, v0x07, or v0x06 continue to be decoded correctly.
 
 ### 3.4 Rate Limiting and Heartbeat
 
@@ -488,8 +508,55 @@ python3 -c "from sidewalk_utils import send_sidewalk_msg; send_sidewalk_msg(byte
 The decode Lambda detects magic 0xE6 and stores the diagnostics as
 `event_type: 'device_diagnostics'` in DynamoDB with decoded fields.
 
-Automated triggering (health digest sends 0x40 to unhealthy devices) is
-deferred to TASK-073.
+Automated triggering is implemented in the health digest Lambda (§8.5):
+when `AUTO_DIAG_ENABLED` is true, the digest sends a 0x40 diagnostics
+request to any device flagged as unhealthy (offline, faulted, or running
+stale firmware).
+
+### 4.5 Command Authentication (HMAC-SHA256)
+
+Charge control downlinks (0x10) are authenticated with a truncated
+HMAC-SHA256 tag. This prevents a compromised cloud layer from sending
+arbitrary charge control commands to the device.
+
+**Wire format**: The HMAC tag is appended to the command payload:
+
+```
+[payload bytes] [8-byte HMAC-SHA256 tag]
+```
+
+| Command | Payload | Tag | Total | Fits MTU? |
+|---------|---------|-----|-------|-----------|
+| Legacy pause/allow (§4.1.1) | 4B | 8B | 12B | Yes (19B) |
+| Delay window (§4.1.2) | 10B | 8B | 18B | Yes (19B) |
+
+**Key parameters**:
+- Algorithm: HMAC-SHA256, truncated to first 8 bytes (`CMD_AUTH_TAG_SIZE`)
+- Key size: 32 bytes (`CMD_AUTH_KEY_SIZE`)
+- Cloud key source: `CMD_AUTH_KEY` environment variable (hex-encoded)
+- Device key source: Set via `cmd_auth_set_key()` at boot
+
+**Cloud side** (`cmd_auth.py`):
+```python
+tag = hmac.new(key, payload, hashlib.sha256).digest()[:8]
+signed_msg = payload + tag
+```
+
+**Device side** (`cmd_auth.c`):
+- Standalone SHA-256 + HMAC implementation (no external crypto dependency)
+- Constant-time tag comparison to prevent timing attacks
+- If no key is set (`cmd_auth_is_configured() == false`), authentication
+  is skipped (backward compatible with unsigned commands)
+
+**Key provisioning**:
+```bash
+# Generate a new 32-byte key:
+python3 -c "import secrets; print(secrets.token_hex(32))"
+
+# Set in cloud Lambda environment (via Terraform):
+#   CMD_AUTH_KEY = "<hex-encoded 32 bytes>"
+# Set on device: compiled into app or provisioned via cmd_auth_set_key()
+```
 
 ---
 
@@ -691,11 +758,11 @@ current_ma = (adc_mv × 30000) / 3300
 
 ### 6.3 Charge Control
 
-Controls a relay via GPIO pin 0 (`EVSE_PIN_CHARGE_BLOCK`):
-- GPIO HIGH = charging blocked (MCU actively prevents charging)
-- GPIO LOW = not blocking (hardware safety gate controls relay based on thermostat state)
+Controls a relay via GPIO pin 0 (`EVSE_PIN_CHARGE_EN`):
+- GPIO HIGH = charging allowed
+- GPIO LOW = charging blocked
 
-On MCU power loss the GPIO floats LOW (not blocking), so the hardware safety
+On MCU power loss the GPIO floats LOW (blocked), so the hardware safety
 gate remains in control — it allows charging when AC is off and blocks it when
 AC is on. This is the safe default.
 
@@ -753,12 +820,11 @@ feedback, and continuous runtime monitoring.
 `selftest_boot()` runs once during `app_init()` (<100ms). It verifies that all
 hardware paths are functional before the device begins normal operation.
 
-**Checks** (5 total):
+**Checks** (4 total):
 1. ADC pilot channel readable (channel 0 returns >= 0)
 2. ADC current channel readable (channel 1 returns >= 0)
-3. GPIO heat input readable
-4. GPIO cool input readable
-5. GPIO charge_block writable (toggle HIGH → readback → toggle LOW → readback → restore)
+3. GPIO cool input readable
+4. GPIO charge_enable writable (toggle HIGH → readback → toggle LOW → readback → restore)
 
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
 (0x80) is set in the fault flags.
@@ -771,7 +837,7 @@ and knows to investigate. The error pattern persists until the fault clears
 (via button re-test or reboot). FAULT_SELFTEST is also included in every
 uplink so the cloud sees the failure immediately.
 
-**Why boot-only for check 5**: The charge_block toggle test physically
+**Why boot-only for check 4**: The charge_enable toggle test physically
 actuates the relay. This is safe at boot (relay state is undefined, no active
 charge session) but unsafe during operation — it would momentarily interrupt an
 active charge. The continuous monitors (§6.5.3) detect relay failures at runtime
@@ -787,18 +853,18 @@ the self-test via the **Charge Now button** and **LED blink codes**.
 Normal single-press behavior (Charge Now) is not affected.
 
 **Execution** (`selftest_trigger.c`): On trigger, `selftest_boot()` re-runs all
-5 hardware checks. Results are reported as LED blink codes:
+4 hardware checks. Results are reported as LED blink codes:
 
 | Phase | LED | Meaning |
 |-------|-----|---------|
-| Green blinks | LED 0 (green) | Count of **passed** checks (0–5). Each blink = 500ms on + 500ms off. |
+| Green blinks | LED 0 (green) | Count of **passed** checks (0–4). Each blink = 500ms on + 500ms off. |
 | Pause | All off | 1-second pause (2 ticks). Skipped if all passed or all failed. |
-| Red blinks | LED 2 (red) | Count of **failed** checks (0–5). Same blink timing. |
+| Red blinks | LED 2 (red) | Count of **failed** checks (0–4). Same blink timing. |
 
 **Examples**:
-- All pass: 5 green blinks (5 seconds), no red → installer sees solid green sequence
-- 4 pass / 1 fail: 4 green blinks, 1s pause, 1 red blink
-- All fail: 5 red blinks (5 seconds), no green
+- All pass: 4 green blinks (4 seconds), no red → installer sees solid green sequence
+- 3 pass / 1 fail: 3 green blinks, 1s pause, 1 red blink
+- All fail: 4 red blinks (4 seconds), no green
 
 **Uplink**: If any check fails, a fault uplink is automatically sent with
 `FAULT_SELFTEST` (0x80) set, so the cloud sees the failure even without serial.
@@ -832,7 +898,7 @@ evaluated at boot or on button trigger, not every 500ms.
 **Production recovery paths** (no remote reboot or remote fault-clear command exists):
 1. **Power cycle** — installer power-cycles the device; self-test re-evaluates on boot
 2. **OTA update** — applying an OTA triggers a reboot; self-test re-evaluates on next boot
-3. **Button re-test** — installer presses button 5 times; if all 5 checks pass,
+3. **Button re-test** — installer presses button 5 times; if all 4 checks pass,
    FAULT_SELFTEST clears and a clean uplink is sent (TASK-066, not yet implemented)
 
 **Rationale**: The continuous monitors already cover the same failure modes at
@@ -852,7 +918,7 @@ struct event_snapshot {           /* 12 bytes */
     uint8_t  j1772_state;         /* 0-6 */
     uint8_t  thermostat_flags;
     uint8_t  charge_flags;        /* bit 0: CHARGE_ALLOWED */
-    uint8_t  _reserved;
+    uint8_t  transition_reason;   /* TRANSITION_REASON_* (0 = no transition) */
 };
 ```
 
@@ -965,7 +1031,7 @@ is decoded and stored, and a time-sync downlink is sent if the device clock is s
 **Flow**:
 1. Base64-decode the Sidewalk payload
 2. Check for OTA uplink (cmd type 0x20) → forward async to ota_sender Lambda
-3. Try raw EVSE decode (magic 0xE5) → v0x06 or v0x07
+3. Try raw EVSE decode (magic 0xE5) → v0x06, v0x07, v0x08, or v0x09
 4. Fall back to legacy sid_demo format
 5. Store decoded telemetry in DynamoDB (`sidewalk-v1-device_events_v2`)
 6. Call `maybe_send_time_sync()` — sends TIME_SYNC if sentinel is >24h old or missing
@@ -1091,25 +1157,62 @@ can read both event history and current state from a single partition.
 | 0 | Charge scheduler state (last command, reason, TOU/MOER) | `charge_scheduler_lambda` | Fire-and-forget — no device ACK (see caveat below) |
 | -1 | OTA session state (phase, chunks, firmware key, delta info) | `ota_sender_lambda` | ACK-driven — advances only on device `OTA_ACK` uplink |
 | -2 | TIME_SYNC state (last sync time, epoch) | `decode_evse_lambda` | Fire-and-forget — self-corrects on next 24h cycle |
+| -3 | Divergence tracking (scheduler vs device state) | `decode_evse_lambda` | Written on sentinel/device mismatch detection |
 
 **Caveat — charge scheduler sentinel (timestamp=0):** The scheduler records
 the sent command immediately and suppresses re-sends when the sentinel matches
 the current decision. If the LoRa downlink is lost, the sentinel and device
-state diverge silently. A future improvement is to compare the sentinel's
-`last_command` against the device's `charge_allowed` bit reported in v0x07
-uplinks; on mismatch, the decode Lambda would re-trigger the scheduler.
+state diverge silently. The decode Lambda compares the sentinel's
+`last_command` against the device's `charge_allowed` flag in uplinks; on
+mismatch, it writes a divergence record (timestamp=-3) for monitoring.
 
-### 8.5 Infrastructure
+### 8.5 health_digest_lambda
+
+Daily fleet health summary. Scans the device registry, checks device health,
+and publishes a digest email via SNS.
+
+**Trigger**: EventBridge daily schedule
+
+**Flow**:
+1. Scan device registry for all active devices
+2. For each device, check health:
+   - **Offline**: No uplink for 2x heartbeat interval (default: 2 x 900s = 30 min)
+   - **Faults**: Any `fault_*` flags in uplinks from the last 24 hours
+   - **Stale firmware**: App version below `LATEST_APP_VERSION` (env var)
+3. If `AUTO_DIAG_ENABLED=true`, send 0x40 diagnostics request (§4.4) to
+   each unhealthy device
+4. Collect diagnostics responses (0xE6 payloads) from the last 24 hours
+5. Build and publish SNS digest email with fleet summary
+
+**Environment variables**:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEVICE_REGISTRY_TABLE` | `sidecharge-device-registry` | DynamoDB table for device registry |
+| `DYNAMODB_TABLE` | `sidewalk-v1-device_events_v2` | DynamoDB table for EVSE events |
+| `SNS_TOPIC_ARN` | (empty) | SNS topic ARN for alert delivery |
+| `HEARTBEAT_INTERVAL_S` | `900` | Device heartbeat interval in seconds |
+| `AUTO_DIAG_ENABLED` | `false` | Enable auto-diagnostics queries to unhealthy devices |
+| `LATEST_APP_VERSION` | `0` | Latest deployed app version (0 = skip version check) |
+
+**Digest output** (SNS email):
+- Fleet totals: online/offline/faulted counts
+- Firmware version distribution
+- Per-device offline and fault details
+- Diagnostics responses (uptime, boot count, error codes, buffer depth)
+
+### 8.6 Infrastructure
 
 All AWS infrastructure is managed via Terraform (`aws/terraform/`). Never use
 `aws lambda update-function-code` directly — always `terraform apply`.
 
 Components:
 - IoT Wireless (Sidewalk destination + rule)
-- 3 Lambda functions (decode, scheduler, OTA sender)
-- DynamoDB table (`sidewalk-v1-device_events_v2`)
+- 4 Lambda functions (decode, scheduler, OTA sender, health digest)
+- DynamoDB tables (`sidewalk-v1-device_events_v2`, `sidecharge-device-registry`)
 - S3 bucket (`evse-ota-firmware-dev`) for firmware binaries and baselines
-- EventBridge rules (scheduler schedule + OTA retry timer)
+- EventBridge rules (scheduler schedule, OTA retry timer, daily health digest)
+- SNS topic for health digest email alerts
 - CloudWatch alarms
 
 ---
@@ -1120,7 +1223,7 @@ Components:
 
 | Abstract Pin | nRF52840 Pin | Physical Function | Direction | Usage |
 |-------------|-------------|-------------------|-----------|-------|
-| GPIO 0 | P0.06 | `charge_block` | Output | Charge block (HIGH=block, LOW=not blocking — hardware safety gate controls) |
+| GPIO 0 | P0.06 | `charge_enable` | Output | Charge enable (HIGH=allowed, LOW=blocked) |
 | GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand (pull-down, active-high) |
 | GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand (pull-down, active-high) |
 | GPIO 3 | P0.07 | `charge_now_button` | Input | Charge Now button / 5-press self-test trigger (pull-down, active-high) |
@@ -1256,7 +1359,9 @@ Architecture Decision Records are immutable once accepted. See `docs/adr/README.
 | ADR | Decision | Status |
 |-----|----------|--------|
 | [ADR-001](adr/001-version-mismatch-hard-stop.md) | API version mismatch is a hard stop (not a warning). Platform refuses to load app if version != APP_CALLBACK_VERSION. | Accepted 2026-02-11 |
+| [ADR-002](adr/002-time-sync-second-resolution.md) | Time sync uses second resolution in a 4-byte field. The 4-byte `uint32_le` timestamp is the smallest practical container for a multi-year epoch counter. | Accepted 2026-02-16 |
 | [ADR-003](adr/003-charge-now-cancels-demand-response.md) | Charge Now cancels the active demand response window for the remainder of the peak period. Scheduler checks `charge_now_override_until` before sending pause. | Accepted 2026-02-16 |
+| [ADR-004](adr/004-event-buffer-state-changes.md) | Event buffer records state changes only (not every poll cycle). 50 entries covers multiple days under normal operation. | Accepted 2026-02-16 |
 
 ## Appendix B: Known Issues
 
@@ -1273,10 +1378,10 @@ Active tracking document at `docs/known-issues.md`.
 Built on Nordic nRF Connect SDK v2.9.1 with the Sidewalk add-on.
 
 **Custom vs. SDK code:**
-- `sidewalk.c` (79 lines): 100% SDK standard — thread-based event dispatch
+- `sidewalk.c` (78 lines): 100% SDK standard — thread-based event dispatch
 - `sidewalk_events.c` (441 lines): ~90% SDK — added MFG key health check and init tracking
-- `app.c` (652 lines): ~30% SDK — split-image discovery, OTA intercept, shell dispatch
-- App layer: entirely custom (1,719 lines across 11 modules)
+- `app.c` (243 lines): ~30% SDK — split-image discovery, OTA intercept, shell dispatch
+- App layer: entirely custom (2,989 lines across 18 modules)
 
 **Patch**: `0001-sidewalk-rak4631-tcxo-settings.patch` (40 lines, applied via `west patch`)
 - **Why**: The SDK hardcodes `SX126X_TCXO_CTRL_NONE` in `app_subGHz_config.c`, assuming a
