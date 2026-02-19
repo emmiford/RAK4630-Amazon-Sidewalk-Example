@@ -9,7 +9,7 @@
 ## Description
 Joint review by Eliel, Utz, and Eero identified bloat, overlap, and unnecessary complexity across the firmware and cloud code. Three-phase cleanup:
 
-1. **Phase 1**: Consolidated dual test infrastructure — merged two parallel mock_platform implementations into one, migrated all tests to single CMake build, deleted Grenning Makefile-based system. Net -4200 lines.
+1. **Phase 1**: Consolidated dual test infrastructure — merged two parallel mock_platform implementations into one, migrated all tests to single CMake build, deleted Grenning Makefile-based system. Net -269 lines (deleted old Makefile, mock_platform.c/h, mock_include/; converted test_app.c and upgraded mock_platform_api).
 2. **Phase 2a**: Extracted shared Python protocol constants (`OTA_CMD_TYPE`, `SIDECHARGE_EPOCH_OFFSET`, `crc32()`) into `aws/protocol_constants.py`. Eliminated duplication across 4 Lambda files.
 3. **Phase 3**: Added `LOG_INF`/`LOG_WRN`/`LOG_ERR` macros to `app_platform.h`. Replaced 19 verbose `if (platform) platform->log_*()` patterns. Removed redundant nested platform guards. Extracted `CURRENT_ON_THRESHOLD_MA` into `evse_sensors.h`. Replaced magic `0x02` with `THERMOSTAT_FLAG_COOL`.
 
@@ -37,4 +37,4 @@ Note: Branch uses number 086 due to numbering collision with TASK-086 (CMD_AUTH_
 - `tests/mocks/mock_platform_api.h/c` — unified mock
 - `aws/protocol_constants.py` — shared constants
 - `app_platform.h` — LOG macros
-- 45 files changed, +949 / -1227 (net -278 lines)
+- 45 files changed, +949 / -1227 (net -308 lines; value is in consolidation, not raw line count)
