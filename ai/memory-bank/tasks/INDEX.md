@@ -40,7 +40,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-070 | not started | — | Production heartbeat interval (60s → 15min) | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
-| TASK-084 | not started | Eliel | Populate registry app_version from diagnostics responses | — |
+| TASK-084 | committed | Eliel | Populate registry app_version from diagnostics responses | — |
 | TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
 
 ### P3 — Nice-to-have

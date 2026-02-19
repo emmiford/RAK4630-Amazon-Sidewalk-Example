@@ -1,9 +1,9 @@
 # TASK-084: Populate registry app_version from diagnostics responses
 
-**Status**: not started
+**Status**: committed (2026-02-19, Eliel)
 **Priority**: P2
 **Owner**: Eliel
-**Branch**: —
+**Branch**: `task/084-registry-app-version-diagnostics`
 **Size**: S (1 point)
 
 ## Description
@@ -16,13 +16,13 @@ This makes the health digest version distribution accurate for USB-flashed devic
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] `decode_evse_lambda.py` updates device registry `app_version` from diagnostics responses
-- [ ] Existing OTA version update path unchanged
-- [ ] Registry correctly reflects device version after a single 0x40 query
+- [x] `decode_evse_lambda.py` updates device registry `app_version` from diagnostics responses
+- [x] Existing OTA version update path unchanged
+- [x] Registry correctly reflects device version after a single 0x40 query
 
 ## Testing Requirements
-- [ ] Python test: diagnostics response updates registry app_version
-- [ ] Python test: EVSE telemetry still passes None (no regression)
+- [x] Python test: diagnostics response updates registry app_version
+- [x] Python test: EVSE telemetry still passes None (no regression)
 
 ## Deliverables
 - `aws/decode_evse_lambda.py`: Extract app_version from diagnostics payloads
