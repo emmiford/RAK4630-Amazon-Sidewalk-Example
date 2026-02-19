@@ -1,6 +1,6 @@
 # TASK-090: Codebase streamlining — test consolidation, DRY constants, LOG macros
 
-**Status**: committed
+**Status**: merged done
 **Priority**: P3
 **Owner**: Eliel, Utz, Eero (joint review)
 **Branch**: `task/086-codebase-streamlining`

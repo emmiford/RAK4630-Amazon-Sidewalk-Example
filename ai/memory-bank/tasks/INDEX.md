@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (18)
+## Open Tasks (17)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -53,7 +53,6 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | not started | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
-| TASK-090 | committed | Eliel+Utz+Eero | Codebase streamlining — test consolidation, LOG macros, DRY constants | — |
 
 ## Completed Tasks (71)
 | ID | Title | Status | Date | Agent |
@@ -130,6 +129,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-084 | Populate registry app_version from diagnostics responses | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-070 | Production heartbeat interval (60s → 15min) | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-026 | Boot path + app discovery tests (10 tests) | MERGED DONE | 2026-02-19 | Eero |
+| TASK-090 | Codebase streamlining — test consolidation, LOG macros, DRY constants | MERGED DONE | 2026-02-19 | Eliel+Utz+Eero |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
