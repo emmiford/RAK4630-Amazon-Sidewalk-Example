@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (18)
+## Open Tasks (17)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -33,7 +33,6 @@ _No open P1 tasks — all v1.0 requirements met._
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
-| TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
 | TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
 | TASK-086 | not started | Eliel | Terraform: add CMD_AUTH_KEY to scheduler Lambda | — |
@@ -55,7 +54,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | not started | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (70)
+## Completed Tasks (71)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-032 | Cloud command authentication (HMAC-SHA256) | MERGED DONE | 2026-02-19 | Eliel |
@@ -126,6 +125,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-055 | Split ota_update.c → ota_flash.c + ota_update.c | MERGED DONE | 2026-02-18 | Eliel |
 | TASK-057 | Route selftest through evse_sensors, not direct ADC | MERGED DONE | 2026-02-18 | Eero |
 | TASK-064 | Cloud Charge Now protocol (ADR-003) | MERGED DONE | 2026-02-18 | Eliel |
+| TASK-054 | Shared platform API pointer (replace 13 setters) | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-084 | Populate registry app_version from diagnostics responses | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-070 | Production heartbeat interval (60s → 15min) | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-026 | Boot path + app discovery tests (10 tests) | MERGED DONE | 2026-02-19 | Eero |
