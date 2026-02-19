@@ -103,6 +103,7 @@ Remaining gap: no runtime detection of HUK mismatch at boot. Would require a tes
 **Since**: 2026-02-11
 **Severity**: Medium — delta OTA works but sends more chunks than necessary
 **Tracking**: TASK-022
+**Status**: Resolved
 
 ### Symptom
 
@@ -130,7 +131,9 @@ Before capturing a baseline, reflash the app to ensure clean flash:
 
 ### Resolution
 
-Plan drafted at `~/.claude/plans/witty-painting-matsumoto.md` (not yet approved). Three-layer fix:
-1. `flash.sh`: Erase app partition before writing
-2. `ota_update.c`: Erase stale pages after OTA apply
-3. `ota_deploy.py`: Warn if baseline >> app binary size
+**Status**: Resolved (TASK-022, 2026-02-17)
+
+Three-layer fix implemented:
+1. `flash.sh`: Erases app partition (0x90000-0xCEFFF) before writing app hex
+2. `ota_update.c`: Erases stale pages beyond new image after OTA apply (full, delta, and recovery paths)
+3. `ota_deploy.py`: Warns if baseline dump is significantly larger than app binary size

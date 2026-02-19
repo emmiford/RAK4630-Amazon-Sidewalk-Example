@@ -195,7 +195,7 @@ PASS: Clamp on EV charger conductor, correct orientation (arrow toward load). Se
 
 Inspect: Y, C, and G wires on correct SideCharge terminals. No shorts between thermostat conductors.
 
-PASS: Y (cool call), C (common/24VAC), G (fan) on correct terminals per wiring diagram on reverse.
+PASS: Y (cool call), C (common/24VAC), G (earth ground) on correct terminals per wiring diagram on reverse.
 
 ---
 
@@ -433,7 +433,7 @@ The diagram shows the SideCharge device at center, with four connection groups r
    - Three wires from thermostat to SideCharge terminals:
      - Y (cool call signal) -- Sidewalk Teal
      - C (common) -- Sidewalk Teal
-     - G (fan) -- Sidewalk Teal, dashed line (optional connection)
+     - G (earth ground) -- Sidewalk Teal, dashed line (from compressor junction box)
    - Thermostat shown as simple box labeled "THERMOSTAT"
    - Arrow indicating signal direction: thermostat to SideCharge
 
@@ -479,7 +479,7 @@ A horizontal strip showing the SideCharge terminal block in a 1:1 or 2:1 scale i
 | C | 24VAC Common | Transformer | Power supply -- always connected |
 | R | 24VAC Hot | Transformer | Power supply -- always connected |
 | Y | Cool Call | Thermostat | Signal input -- goes HIGH when thermostat calls for cooling |
-| G | Fan | Thermostat | Optional -- fan control |
+| G | Earth Ground | Compressor junction box | Ground reference -- from AC compressor junction box ground screw |
 | PILOT | J1772 Pilot | EVSE | Signal input -- 1kHz square wave from charger |
 | CT+ / CT- | Current Clamp | Clamp leads | Polarity matters -- match clamp lead colors to terminal markings |
 
