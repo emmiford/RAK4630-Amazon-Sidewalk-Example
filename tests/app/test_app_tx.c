@@ -4,6 +4,7 @@
 
 #include "unity.h"
 #include "mock_platform_api.h"
+#include "app_platform.h"
 #include "app_tx.h"
 #include "evse_sensors.h"
 #include "thermostat_inputs.h"
@@ -11,30 +12,16 @@
 #include "time_sync.h"
 #include "evse_payload.h"
 
-static const struct platform_api *api;
-
 void setUp(void)
 {
-	api = mock_platform_api_init();
+	platform = mock_platform_api_init();
 
-	/* Wire up all modules that app_tx depends on */
-	evse_sensors_set_api(api);
 	evse_sensors_init();
 	evse_sensors_simulate_state(0, 0);
-
-	thermostat_inputs_set_api(api);
 	thermostat_inputs_init();
-
-	charge_control_set_api(api);
 	charge_control_init();
-
-	time_sync_set_api(api);
 	time_sync_init();
-
-	evse_payload_set_api(api);
-
-	app_tx_set_api(api);
-	app_tx_set_ready(false);
+	app_tx_init();
 
 	mock_sidewalk_ready = true;
 }
@@ -49,16 +36,16 @@ void test_send_encodes_magic_0xE5(void)
 	TEST_ASSERT_EQUAL_UINT8(0xE5, mock_last_send_buf[0]);
 }
 
-void test_send_encodes_version_0x08(void)
+void test_send_encodes_version_0x09(void)
 {
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL_UINT8(0x08, mock_last_send_buf[1]);
+	TEST_ASSERT_EQUAL_UINT8(0x09, mock_last_send_buf[1]);
 }
 
-void test_send_12_bytes(void)
+void test_send_13_bytes(void)
 {
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL(12, mock_last_send_len);
+	TEST_ASSERT_EQUAL(13, mock_last_send_len);
 }
 
 void test_not_ready_skips(void)
@@ -227,9 +214,9 @@ void test_timestamp_little_endian_encoding(void)
 
 void test_no_api_returns_error(void)
 {
-	app_tx_set_api(NULL);
+	platform = NULL;
 	TEST_ASSERT_EQUAL_INT(-1, app_tx_send_evse_data());
-	app_tx_set_api(api);
+	platform = mock_platform_api_get();
 }
 
 void test_set_ready_flag(void)
@@ -248,8 +235,8 @@ int main(void)
 
 	/* Payload format */
 	RUN_TEST(test_send_encodes_magic_0xE5);
-	RUN_TEST(test_send_encodes_version_0x08);
-	RUN_TEST(test_send_12_bytes);
+	RUN_TEST(test_send_encodes_version_0x09);
+	RUN_TEST(test_send_13_bytes);
 	RUN_TEST(test_not_ready_skips);
 
 	/* Rate limiting */

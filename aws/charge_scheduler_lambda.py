@@ -54,7 +54,7 @@ CHARGE_CONTROL_CMD = 0x10
 DELAY_WINDOW_SUBTYPE = 0x02
 MOER_WINDOW_DURATION_S = 1800   # 30-minute MOER pause windows
 HEARTBEAT_RESEND_S = 1800       # Re-send window if last send >30 min ago
-SIDECHARGE_EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z as Unix timestamp
+from protocol_constants import SIDECHARGE_EPOCH_OFFSET
 
 table = dynamodb.Table(TABLE_NAME)
 

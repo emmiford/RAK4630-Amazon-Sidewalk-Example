@@ -12,7 +12,6 @@ Usage:
 """
 
 import argparse
-import binascii
 import os
 import re
 import subprocess
@@ -42,8 +41,8 @@ NRFUTIL_PREFIX = (
 )
 
 
-def crc32(data):
-    return binascii.crc32(data) & 0xFFFFFFFF
+sys.path.insert(0, os.path.dirname(__file__))
+from protocol_constants import crc32
 
 
 def compute_delta_chunks(baseline, firmware, chunk_size):

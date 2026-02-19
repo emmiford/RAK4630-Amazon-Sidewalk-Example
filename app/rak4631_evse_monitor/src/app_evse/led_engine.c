@@ -167,8 +167,8 @@ static bool has_commissioning(void)
 		return false;
 	}
 
-	/* Exit on timeout */
-	if (platform && platform->uptime_ms() >= LED_COMMISSION_TIMEOUT_MS) {
+	/* Exit on timeout (platform guaranteed non-NULL by led_engine_tick) */
+	if (platform->uptime_ms() >= LED_COMMISSION_TIMEOUT_MS) {
 		commissioning_active = false;
 		return false;
 	}
@@ -182,7 +182,7 @@ static bool has_disconnected(void)
 	if (commissioning_active) {
 		return false;
 	}
-	return platform && !platform->is_ready();
+	return !platform->is_ready();
 }
 
 static bool has_charge_now(void)

@@ -37,9 +37,7 @@ void app_tx_init(void)
 void app_tx_set_ready(bool ready)
 {
 	sidewalk_ready = ready;
-	if (platform) {
-		platform->log_inf("Sidewalk %s", ready ? "READY" : "NOT READY");
-	}
+	LOG_INF("Sidewalk %s", ready ? "READY" : "NOT READY");
 }
 
 void app_tx_set_link_mask(uint32_t link_mask)

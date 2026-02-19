@@ -25,16 +25,12 @@ void time_sync_init(void)
 int time_sync_process_cmd(const uint8_t *data, size_t len)
 {
 	if (!data || len < TIME_SYNC_PAYLOAD_SIZE) {
-		if (platform) {
-			platform->log_wrn("TIME_SYNC: payload too short (%zu)", len);
-		}
+		LOG_WRN("TIME_SYNC: payload too short (%zu)", len);
 		return -1;
 	}
 
 	if (data[0] != TIME_SYNC_CMD_TYPE) {
-		if (platform) {
-			platform->log_wrn("TIME_SYNC: wrong cmd type 0x%02x", data[0]);
-		}
+		LOG_WRN("TIME_SYNC: wrong cmd type 0x%02x", data[0]);
 		return -1;
 	}
 
@@ -56,16 +52,13 @@ int time_sync_process_cmd(const uint8_t *data, size_t len)
 	ack_watermark = wm;
 	synced = true;
 
-	if (platform) {
-		if (prev_epoch) {
-			uint32_t drift = (epoch > prev_epoch)
-				? (epoch - prev_epoch) : (prev_epoch - epoch);
-			platform->log_inf("TIME_SYNC: epoch=%u wm=%u (drift ~%us from prev)",
-				     epoch, wm, drift);
-		} else {
-			platform->log_inf("TIME_SYNC: epoch=%u wm=%u (first sync)",
-				     epoch, wm);
-		}
+	if (prev_epoch) {
+		uint32_t drift = (epoch > prev_epoch)
+			? (epoch - prev_epoch) : (prev_epoch - epoch);
+		LOG_INF("TIME_SYNC: epoch=%u wm=%u (drift ~%us from prev)",
+			epoch, wm, drift);
+	} else {
+		LOG_INF("TIME_SYNC: epoch=%u wm=%u (first sync)", epoch, wm);
 	}
 
 	return 0;

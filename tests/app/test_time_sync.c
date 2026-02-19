@@ -4,15 +4,13 @@
 
 #include "unity.h"
 #include "mock_platform_api.h"
+#include "app_platform.h"
 #include "time_sync.h"
-
-static const struct platform_api *api;
 
 void setUp(void)
 {
-	api = mock_platform_api_init();
+	platform = mock_platform_api_init();
 	time_sync_init();
-	time_sync_set_api(api);
 }
 
 void tearDown(void) {}

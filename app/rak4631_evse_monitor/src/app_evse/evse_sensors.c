@@ -30,9 +30,7 @@ static uint32_t simulation_end_ms;
 int evse_sensors_init(void)
 {
 	/* No init needed — platform owns the ADC hardware */
-	if (platform) {
-		platform->log_inf("EVSE sensors ready (platform ADC)");
-	}
+	LOG_INF("EVSE sensors ready (platform ADC)");
 	return 0;
 }
 

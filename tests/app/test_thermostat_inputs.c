@@ -4,14 +4,12 @@
 
 #include "unity.h"
 #include "mock_platform_api.h"
+#include "app_platform.h"
 #include "thermostat_inputs.h"
-
-static const struct platform_api *api;
 
 void setUp(void)
 {
-	api = mock_platform_api_init();
-	thermostat_inputs_set_api(api);
+	platform = mock_platform_api_init();
 	thermostat_inputs_init();
 }
 
