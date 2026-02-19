@@ -33,6 +33,11 @@ extern const struct platform_api platform_api_table;
 /*  App callback table discovery                                       */
 /* ------------------------------------------------------------------ */
 
+#ifdef HOST_TEST
+/* Test mode: discover_app_image reads from this pointer instead of flash */
+const struct app_callbacks *test_app_cb_addr;
+#endif
+
 static const struct app_callbacks *app_cb;
 static const char *app_reject_reason;  /* NULL = loaded OK or not checked yet */
 
@@ -51,10 +56,24 @@ const char *app_get_reject_reason(void)
 	return app_reject_reason;
 }
 
-static void discover_app_image(void)
+#ifdef HOST_TEST
+void
+#else
+static void
+#endif
+discover_app_image(void)
 {
+#ifdef HOST_TEST
+	const struct app_callbacks *cb = test_app_cb_addr;
+	if (!cb) {
+		app_cb = NULL;
+		app_reject_reason = "no test address set";
+		return;
+	}
+#else
 	const struct app_callbacks *cb =
 		(const struct app_callbacks *)APP_CALLBACKS_ADDR;
+#endif
 
 	if (cb->magic != APP_CALLBACK_MAGIC) {
 		LOG_ERR("No valid app image at 0x%08x (magic=0x%08x, expected=0x%08x)",
@@ -85,6 +104,22 @@ static void discover_app_image(void)
 	app_cb = cb;
 	app_reject_reason = NULL;
 	LOG_INF("App image found at 0x%08x (version %u)", APP_CALLBACKS_ADDR, cb->version);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Message routing — OTA vs app dispatch                              */
+/* ------------------------------------------------------------------ */
+
+void app_route_message(const uint8_t *data, size_t len)
+{
+	if (len >= 1 && data[0] == OTA_CMD_TYPE) {
+		ota_process_msg(data, len);
+	} else if (app_image_valid()) {
+		const struct app_callbacks *cb = app_get_callbacks();
+		if (cb->on_msg_received) {
+			cb->on_msg_received(data, len);
+		}
+	}
 }
 
 /* ------------------------------------------------------------------ */
