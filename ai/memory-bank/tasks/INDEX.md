@@ -53,7 +53,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | not started | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (71)
+## Completed Tasks (72)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-032 | Cloud command authentication (HMAC-SHA256) | MERGED DONE | 2026-02-19 | Eliel |
