@@ -67,6 +67,8 @@ RAM: platform uses most of the nRF52840's 256KB SRAM; the app gets the last 8KB
    ├─ Validate magic (must equal 0x53415050 = "SAPP")
    └─ Validate version (must equal APP_CALLBACK_VERSION exactly)
 5. app_cb->init(&platform_api_table) — app bootstraps all modules
+   ├─ Read cool call (P0.05) AND heat call (P0.04) GPIOs
+   └─ If either is active → set charge_block = allowed (do not start EV charging)
 6. Start Sidewalk: sid_platform_init() → sid_init() → sid_start()
 7. Start periodic timer (app requests 500ms via set_timer_interval())
 8. Event loop:
@@ -209,7 +211,7 @@ Encoding example:
 E5 09 03 BA 08 D0 07 06 39 A2 04 00 02
 │  │  │  └─────┘ └─────┘ │  └──────────┘ │
 │  │  │  2234 mV 2000 mA │  epoch 304697 │ TRANSITION_REASON_DELAY_WINDOW
-│  │  State C (charging)  Flags: COOL | CHARGE_ALLOWED
+│  │  State C (charging)  Flags: COOL | CHARGE_ALLOWED (bit 0 HEAT=0 in v1.0)
 │  Version 0x09
 Magic 0xE5
 ```
@@ -219,7 +221,7 @@ Magic 0xE5
 ```
 Bit  Mask  Name              Source
 ---  ----  ----              ------
-0    0x01  (reserved)        reserved for future heat pump support (always 0)
+0    0x01  HEAT              thermostat heat demand GPIO (v1.1 firmware; HW wired from v1.0)
 1    0x02  COOL              thermostat cool demand GPIO
 2    0x04  CHARGE_ALLOWED    charge control relay state
 3    0x08  CHARGE_NOW        Charge Now button latch active (see §6.3)
@@ -229,8 +231,10 @@ Bit  Mask  Name              Source
 7    0x80  FAULT_SELFTEST    boot self-test failure (latched until reboot, see §6.5.4)
 ```
 
-Bit 0 is reserved for future heat pump support (always 0 in v1.0). Bit 1 comes from
-`thermostat_flags_get()`. Bit 2 is OR'd in by `app_tx.c` from
+Bit 0 is the HEAT flag. The heat call GPIO (P0.04) is physically wired and the
+hardware interlock blocks the W-out signal from v1.0, but firmware does not read or
+report the heat call GPIO until v1.1. In v1.0 firmware, bit 0 is always 0. Bit 1
+comes from `thermostat_flags_get()`. Bit 2 is OR'd in by `app_tx.c` from
 `charge_control_is_allowed()`. Bit 3 from `charge_now_is_active()`. Bits 4-7 come
 from `selftest_get_fault_flags()`.
 
@@ -258,7 +262,7 @@ The decode Lambda handles all payload formats, identified by byte 0 and byte 1:
 |--------|-------|---------|------|------------------------|
 | **v0x09** (current) | 0xE5 | 0x09 | 13B | Full format. Adds `transition_reason` at byte 12. CHARGE_NOW flag (bit 3) active. |
 | **v0x08** | 0xE5 | 0x08 | 12B | No transition reason byte. CHARGE_NOW flag reserved (always 0). |
-| **v0x07** | 0xE5 | 0x07 | 12B | Same byte layout as v0x08; HEAT flag (bit 0) active. |
+| **v0x07** | 0xE5 | 0x07 | 12B | Same byte layout as v0x08; HEAT flag (bit 0) was briefly active. Deprecated — heat call reporting returns in v1.1 firmware. |
 | **v0x06** | 0xE5 | 0x06 | 8B | No timestamp (bytes 8-11). Flags byte has thermostat bits only. |
 | **sid_demo legacy** | varies | — | 7B+ | Wrapped in demo protocol headers. Inner payload: type(1)+j1772(1)+voltage(2)+current(2)+therm(1). Offset-scanned. |
 | **0xE6 diag** | 0xE6 | 0x01 | 14B | Extended diagnostics (on-demand only, see §3.5) |
@@ -273,7 +277,7 @@ devices sending v0x08, v0x07, or v0x06 continue to be decoded correctly.
 | Minimum uplink interval | 5 seconds | `MIN_SEND_INTERVAL_MS` in `app_tx.c` |
 | Heartbeat interval | 15 minutes (900 000 ms) | `HEARTBEAT_INTERVAL_MS` in `app_entry.c`; override via `-D` for dev |
 | Poll interval | 500 ms | `POLL_INTERVAL_MS` in `app_entry.c` |
-| Change detection threshold | J1772 state, current on/off (>500mA), thermostat flags | `app_on_timer()` in `app_entry.c` |
+| Change detection threshold | J1772 state, current on/off (>500mA), thermostat flags (cool call; heat call in v1.1) | `app_on_timer()` in `app_entry.c` |
 
 The app sends an uplink on **any state change** or on **heartbeat expiry**, whichever
 comes first. Rate limiting prevents flooding during rapid state transitions (e.g.,
@@ -317,7 +321,7 @@ Bit  Mask  Name              Source
 0    0x01  SIDEWALK_READY    app_tx_is_ready()
 1    0x02  CHARGE_ALLOWED    charge_control_is_allowed()
 2    0x04  CHARGE_NOW        (reserved, always 0 in v1.0)
-3    0x08  INTERLOCK_ACTIVE  thermostat_cool_call_get()
+3    0x08  INTERLOCK_ACTIVE  thermostat_cool_call_get() || thermostat_heat_call_get() (v1.1)
 4    0x10  SELFTEST_PASS     !(selftest_get_fault_flags() & FAULT_SELFTEST)
 5    0x20  OTA_IN_PROGRESS   (reserved, always 0 — no OTA state getter yet)
 6    0x40  TIME_SYNCED       time_sync_is_synced()
@@ -706,7 +710,10 @@ In the normal flow, each chunk is self-clocking: the device receives a chunk, se
 ### 6.1 J1772 State Machine
 
 The J1772 pilot signal is a +/- 12V square wave whose DC level indicates vehicle state.
-The ADC reads the peak voltage after a resistor divider scales it to 0-3.3V.
+SideCharge is inline on the pilot wire (see §9.3): PILOT-in from the EVSE passes through
+(or is spoofed by) the pilot relay before reaching PILOT-out at the vehicle connector.
+The ADC reads the PILOT-in voltage (upstream of the spoof circuit) after a resistor
+divider scales it to 0-3.3V.
 
 | State | Enum | Pilot Voltage | Meaning |
 |-------|------|---------------|---------|
@@ -758,9 +765,15 @@ current_ma = (adc_mv × 30000) / 3300
 
 ### 6.3 Charge Control
 
-Controls a relay via GPIO pin 0 (`EVSE_PIN_CHARGE_EN`):
-- GPIO HIGH = charging allowed
-- GPIO LOW = charging blocked
+Controls the EVSE pilot spoof relay via GPIO pin 0 (`EVSE_PIN_CHARGE_EN`):
+- GPIO HIGH = charging allowed (pilot pass-through: PILOT-in connected to PILOT-out)
+- GPIO LOW = charging blocked (~900 ohm load inserted inline on PILOT, spoofing "no vehicle")
+
+The EVSE pilot signal is **inline** (pass-through), not tapped. The SideCharge
+device sits between the EVSE's pilot output (PILOT-in) and the vehicle connector
+(PILOT-out). When the relay is de-energized (GPIO LOW or MCU power loss), the
+spoof circuit inserts a resistive load that pulls the pilot to a State A voltage,
+causing the EVSE to see "no vehicle connected" and stop delivering power.
 
 On MCU power loss the GPIO floats LOW (blocked), so the hardware safety
 gate remains in control — it allows charging when AC is off and blocks it when
@@ -788,10 +801,11 @@ auto-resume timer. A legacy command (§4.1.1) clears any active delay window.
 **Command sources** (in priority order):
 1. **Charge Now button** (TASK-048) — 30-min latch, overrides cloud and AC priority.
    Sets `charge_now_active = true` and a 30-min countdown. During the latch:
-   charging is forced on, AC compressor call is suppressed, cloud pause commands
-   are ignored, and `FLAG_CHARGE_NOW` is set in uplinks. On expiry (or unplug/full),
-   the latch clears and normal interlock rules resume. The active delay window
-   is deleted (not paused) — see PRD 4.4.5.
+   charging is forced on, **both** Y-out and W-out are blocked by the hardware
+   interlock (AC compressor cannot run in either cooling or heating mode),
+   cloud pause commands are ignored, and `FLAG_CHARGE_NOW` is set in uplinks.
+   On expiry (or unplug/full), the latch clears and normal interlock rules
+   resume. The active delay window is deleted (not paused) — see PRD 4.4.5.
 2. **Cloud delay window** (0x10/0x02) — time-bounded pause `[start, end]`. Device
    manages transitions autonomously. Replaces previous window. See §4.1.2.
 3. Cloud legacy downlink (0x10/0x00-0x01) — processed in `app_rx.c`. Ignored while
@@ -801,14 +815,54 @@ auto-resume timer. A legacy command (§4.1.1) clears any active delay window.
 
 ### 6.4 Thermostat Inputs
 
+#### 6.4.1 Inline (Pass-Through) Architecture
+
+The thermostat signals are **inline** — SideCharge physically breaks the control wire
+and passes signals through (or blocks them). This is not a tap (sense-only). Each
+thermostat signal has an INPUT side (from thermostat) and an OUTPUT side (to compressor
+contactor), with a relay in between:
+
+```
+Thermostat                SideCharge                  Compressor contactor
+──────────                ──────────                  ────────────────────
+Y (cool call) ──► Y-in ──► [AC block relay] ──► Y-out ──► Contactor coil
+W (heat call) ──► W-in ──► [AC block relay] ──► W-out ──► Contactor coil
+```
+
+When the AC block relay is energized (blocking mode during EV charging), **both**
+Y-out and W-out are disconnected from their respective inputs. The compressor cannot
+run in either cooling or heating mode while the EV charger is active. This is the
+core interlock guarantee.
+
+The GPIO inputs (P0.05 for cool call, P0.04 for heat call) read the **input side**
+of the pass-through — they sense what the thermostat is requesting, regardless of
+whether SideCharge is currently passing or blocking the signal.
+
+#### 6.4.2 Signal Flags
+
 Two GPIO inputs (`heat_call`, `cool_call`) detect HVAC demand from a thermostat.
 For physical pin assignments see §9.1 Pin Mapping.
 
 The flags byte packs these inputs as:
-- Bit 0x01 — (reserved) heat call. Physically wired but not read in v1.0; heat pump support is a future extension.
+- Bit 0x01 — `THERMOSTAT_FLAG_HEAT`. Heat demand active. GPIO wired and hardware
+  interlock active from v1.0; firmware reads and reports in v1.1.
 - Bit 0x02 — `THERMOSTAT_FLAG_COOL`. Cool demand active.
 
-`thermostat_flags_get()` returns the cool call bit. Changes trigger an uplink.
+**v1.0 firmware**: `thermostat_flags_get()` returns only the cool call bit.
+Heat call GPIO is physically wired, the hardware interlock blocks W-out during
+EV charging, but the firmware does not read P0.04 or set bit 0.
+
+**v1.1 firmware**: `thermostat_flags_get()` returns both heat and cool call bits.
+A rising edge on **either** signal pauses EV charging (same logic as cool call
+alone in v1.0). Changes to either flag trigger an uplink.
+
+#### 6.4.3 Heat Pump Rationale
+
+Heat pumps use the same compressor for both heating and cooling. The compressor
+must not run during EV charging regardless of whether the thermostat is calling
+for heat or cool. The hardware supports this from v1.0 by routing both Y and W
+through the AC block relay. Firmware support (reading P0.04, reporting bit 0,
+using heat call as an interlock trigger) is deferred to v1.1.
 
 ### 6.5 Self-Test
 
@@ -820,11 +874,12 @@ feedback, and continuous runtime monitoring.
 `selftest_boot()` runs once during `app_init()` (<100ms). It verifies that all
 hardware paths are functional before the device begins normal operation.
 
-**Checks** (4 total):
+**Checks** (5 total; check 4 added in v1.1):
 1. ADC pilot channel readable (channel 0 returns >= 0)
 2. ADC current channel readable (channel 1 returns >= 0)
-3. GPIO cool input readable
-4. GPIO charge_enable writable (toggle HIGH → readback → toggle LOW → readback → restore)
+3. GPIO cool input readable (P0.05)
+4. GPIO heat input readable (P0.04) — added in v1.1 firmware
+5. GPIO charge_enable writable (toggle HIGH → readback → toggle LOW → readback → restore)
 
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
 (0x80) is set in the fault flags.
@@ -880,7 +935,7 @@ fault condition clears, the flag clears on the next tick.
 | Sensor fault | 0x10 | ADC read failure or J1772 state == UNKNOWN for >5s | ADC readable and J1772 state != UNKNOWN |
 | Clamp mismatch | 0x20 | Current >500mA but J1772 state != C, **or** current <500mA but state == C, sustained >10s | Condition no longer present |
 | Interlock fault | 0x40 | `charge_allowed` is false but current >500mA persists for >30s (relay not cutting power) | Current drops or charging re-allowed |
-| Thermostat chatter | 0x10 | Cool call toggled >10 times within 60s window | Toggle rate drops below threshold |
+| Thermostat chatter | 0x10 | Cool call (or heat call, v1.1) toggled >10 times within 60s window | Toggle rate drops below threshold |
 
 Fault flags are OR'd into byte 5 (bits 4-7) of every uplink.
 
@@ -1223,14 +1278,14 @@ Components:
 
 | Abstract Pin | nRF52840 Pin | Physical Function | Direction | Usage |
 |-------------|-------------|-------------------|-----------|-------|
-| GPIO 0 | P0.06 | `charge_enable` | Output | Charge enable (HIGH=allowed, LOW=blocked) |
-| GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand (pull-down, active-high) |
-| GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand (pull-down, active-high) |
+| GPIO 0 | P0.06 | `charge_enable` | Output | EVSE pilot spoof relay (HIGH=pass-through, LOW=spoof State A). Controls inline pilot circuit (§6.3). Also gates the AC block relay via hardware interlock (§9.3). |
+| GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand — **input side** of W pass-through (pull-down, active-high). HW wired from v1.0; firmware reads in v1.1 (§6.4). |
+| GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand — **input side** of Y pass-through (pull-down, active-high). Primary interlock trigger in v1.0. |
 | GPIO 3 | P0.07 | `charge_now_button` | Input | Charge Now button / 5-press self-test trigger (pull-down, active-high) |
 
 | ADC Channel | nRF52840 Pin | Function | Range | Calibration |
 |-------------|-------------|----------|-------|-------------|
-| 0 | P0.03 (AIN1) | J1772 pilot voltage | 0–3300 mV | Direct millivolt reading |
+| 0 | P0.03 (AIN1) | J1772 pilot voltage (reads PILOT-in, upstream of spoof relay) | 0–3300 mV | Direct millivolt reading |
 | 1 | P0.02 (AIN0) | Current clamp output | 0–3300 mV | Linear: 0mV=0A, 3300mV=30A |
 
 ### 9.2 Flash Constraints
@@ -1241,7 +1296,71 @@ Components:
 - **Erase**: Page-granularity only (4KB minimum)
 - **Endurance**: 10,000 erase cycles per page (NVMC spec)
 
-### 9.3 Radio
+### 9.3 Inline Signal Paths and Hardware Interlock
+
+SideCharge is **inline** on three control signals. Each signal has an input terminal
+(from the upstream source) and an output terminal (to the downstream load), with
+SideCharge's relay or spoof circuit in the middle. The device is not tapping
+(sense-only) — it physically breaks the control wire and controls whether the
+signal passes through.
+
+#### 9.3.1 Signal Path Diagram
+
+```
+THERMOSTAT                  SideCharge PCB                    EQUIPMENT
+──────────                  ──────────────                    ─────────
+
+Y (cool call) ──► Y-in ─┬─► [sense: P0.05] ─── (GPIO read)
+                         └─► [AC block relay] ──► Y-out ──► Compressor contactor
+
+W (heat call) ──► W-in ─┬─► [sense: P0.04] ─── (GPIO read)
+                         └─► [AC block relay] ──► W-out ──► Compressor contactor
+
+EVSE pilot    ──► PILOT-in ─┬─► [sense: ADC AIN1] ─── (ADC read)
+                             └─► [spoof relay: P0.06] ──► PILOT-out ──► Vehicle connector
+```
+
+All three paths share the same interlock logic: when EV charging is active,
+thermostat signals are blocked (Y-out and W-out disconnected) and the pilot
+passes through. When the compressor is running, the pilot spoof circuit inserts
+a load that makes the EVSE see "no vehicle."
+
+#### 9.3.2 Relay Positions
+
+| Relay | Controlled By | Energized State | De-energized State |
+|-------|--------------|-----------------|-------------------|
+| **AC block relay** | Hardware interlock circuit (linked to charge_enable GPIO via P0.06) | Y-in/W-in disconnected from Y-out/W-out (compressor blocked) | Y-in/W-in pass through to Y-out/W-out (compressor can run) |
+| **Pilot spoof relay** | `charge_enable` GPIO (P0.06) | PILOT-in passes through to PILOT-out (EV can charge) | ~900 ohm load on PILOT spoofs State A (EVSE sees no vehicle) |
+
+Both relays are ganged to the same interlock circuit. They are mechanically or
+electrically linked so that when one is energized, the other is de-energized.
+This hardware mutual exclusion operates independently of the MCU: if firmware
+crashes, the relays remain in their last position and the interlock still
+prevents simultaneous operation.
+
+#### 9.3.3 MCU Power Loss Behavior
+
+On MCU power loss, P0.06 floats LOW (de-energized). The spoof relay inserts the
+resistive load (EVSE sees no vehicle), and the AC block relay passes thermostat
+signals through (compressor can run). This is the safe default: the home retains
+full HVAC function and the EV charger is disabled.
+
+#### 9.3.4 Hardware vs. Firmware Scope
+
+| Feature | v1.0 Hardware (PCB) | v1.0 Firmware | v1.1 Firmware |
+|---------|--------------------|--------------|--------------|
+| Y (cool call) pass-through | Wired, relay in path | Reads P0.05, interlock trigger | No change |
+| W (heat call) pass-through | Wired, relay in path | P0.04 wired but not read | Reads P0.04, interlock trigger |
+| PILOT pass-through | Wired, spoof relay in path | P0.06 controls spoof relay | No change |
+| AC block relay blocks both Y + W | Yes (ganged relay) | Implicit via HW interlock | No change |
+| Heat call flag in uplink (bit 0) | N/A | Always 0 | Reports actual state |
+| Heat call triggers EV pause | Yes (HW interlock) | No (SW only pauses on cool call) | Yes (SW pauses on either) |
+
+The hardware interlock blocks both Y and W from v1.0 — the PCB must have terminals
+and relays for both signals even though the firmware initially only uses the cool
+call. This ensures heat pump compatibility at the hardware level from day one.
+
+### 9.4 Radio
 
 - **LoRa only**: BLE disabled for EVSE monitor (`CONFIG_SIDEWALK_LINK_MASK_LORA=y`)
 - **Downlink MTU**: 19 bytes (larger payloads silently dropped)
@@ -1327,7 +1446,7 @@ All shell commands are accessed via USB serial console at 115200 baud.
 
 | Command | Description |
 |---------|-------------|
-| `app evse status` | J1772 state, voltage, current, charge allowed, simulation active |
+| `app evse status` | J1772 state (from PILOT-in), voltage, current, charge allowed (spoof relay state), simulation active |
 | `app evse a/b/c/d/e/f` | Simulate J1772 state for 10 seconds |
 | `app evse allow` | Enable charging relay |
 | `app evse pause` | Disable charging relay |
@@ -1337,7 +1456,7 @@ All shell commands are accessed via USB serial console at 115200 baud.
 
 | Command | Description |
 |---------|-------------|
-| `app hvac status` | Thermostat cool call flag |
+| `app hvac status` | Thermostat cool call and heat call flags (heat call reported from v1.1) |
 
 ### 11.3 Sidewalk and System Commands (platform layer)
 
