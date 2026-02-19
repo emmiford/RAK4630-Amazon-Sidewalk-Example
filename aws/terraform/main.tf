@@ -34,6 +34,10 @@ data "archive_file" "lambda_zip" {
     content  = file("${path.module}/../device_registry.py")
     filename = "device_registry.py"
   }
+  source {
+    content  = file("${path.module}/../protocol_constants.py")
+    filename = "protocol_constants.py"
+  }
 }
 
 # IAM role for Lambda
@@ -184,6 +188,10 @@ data "archive_file" "scheduler_zip" {
   source {
     content  = file("${path.module}/../sidewalk_utils.py")
     filename = "sidewalk_utils.py"
+  }
+  source {
+    content  = file("${path.module}/../protocol_constants.py")
+    filename = "protocol_constants.py"
   }
 }
 
@@ -363,6 +371,10 @@ data "archive_file" "ota_sender_zip" {
   source {
     content  = file("${path.module}/../sidewalk_utils.py")
     filename = "sidewalk_utils.py"
+  }
+  source {
+    content  = file("${path.module}/../protocol_constants.py")
+    filename = "protocol_constants.py"
   }
 }
 

@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (17)
+## Open Tasks (18)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -40,6 +40,7 @@ Special: deferred, declined
 | TASK-086 | not started | Eliel | Terraform: add CMD_AUTH_KEY to scheduler Lambda | — |
 | TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
 | TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
+| TASK-093 | not started | Eliel | Clean up stale IoT rules and old Lambdas | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
