@@ -33,7 +33,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-026 | not started | Eero | Boot path + app discovery tests | — |
-| TASK-030 | not started | Eliel | Fleet command throttling | — |
+| TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
 | TASK-032 | not started | Eliel | Cloud command authentication | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
 | TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |

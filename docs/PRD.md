@@ -1305,11 +1305,14 @@ SideCharge controls two high-power loads (30-50A each). A compromised device or 
 
 **Fleet-wide coordinated load switching**: This is the utility-scale risk. If an attacker compromises the cloud layer (Lambda, IoT Wireless, or the Sidewalk network itself), they could send simultaneous delay windows or overrides to every SideCharge device in a service area. Thousands of AC compressors or EV chargers turning on or off at the same instant creates a massive demand spike or drop on the distribution grid. This is not hypothetical -- grid operators specifically model "cold load pickup" scenarios where thousands of AC units restart simultaneously after a power outage. A compromised fleet could trigger this artificially.
 
-Mitigations needed:
-- **Rate limiting**: The cloud should not be able to send commands to a device faster than once per N minutes. The device should enforce this locally, ignoring rapid command changes.
-- **Fleet throttling**: Any cloud command that would affect more than N devices should be staggered over a time window (e.g., randomized 0-10 minute delay per device).
-- **Command authentication**: Cloud commands should be signed, not just encrypted in transit. The device should reject commands that don't carry a valid signature.
-- **Anomaly detection**: CloudWatch alarms for unusual command patterns (e.g., >100 commands in 1 minute, or the same command sent to all devices simultaneously).
+This is an **open design question** (PDL-OPEN-005). The core challenge: any mitigation that lives in the cloud layer (staggered delays, rate limiting in Lambda, CloudWatch anomaly detection) can be bypassed by an attacker who has compromised that same cloud layer. A complete solution must include protections that survive cloud compromise — meaning enforcement on the device itself, or cryptographic controls whose keys are not accessible from the cloud. Possible directions to explore:
+
+- **Device-side rate limiting**: The device enforces a minimum interval between charge control state changes, regardless of command source. This survives cloud compromise since it runs in firmware.
+- **Downlink command authentication**: Cloud commands carry a cryptographic signature the device verifies before acting. The signing key must be held separately from the cloud infrastructure (e.g., HSM, separate AWS account, or offline key). Without the signing key, a compromised cloud cannot forge valid commands.
+- **Behavioral limits**: The device refuses to change charge state more than N times per hour, providing a hard ceiling on damage even if individual commands are authenticated.
+- **Out-of-band monitoring**: Anomaly detection that lives in a separate trust domain from the main cloud infrastructure (different AWS account, third-party service) so it cannot be silenced by the same compromise.
+
+The right design likely combines several of these. The key constraint is that **any layer that can be compromised by the attacker must not be the sole line of defense**. See TASK-030 for the design investigation.
 
 **Malicious firmware via OTA**: A compromised S3 bucket or Lambda could push firmware that disables the interlock, reports false sensor data, or bricks the device. CRC32 validation only confirms the image isn't corrupted -- it does not confirm the image is authentic. ED25519 signing is the fix, and the keys are already provisioned in the MFG store.
 
@@ -1322,7 +1325,7 @@ Mitigations needed:
 | Risk | Severity | Mitigation | Status |
 |------|----------|------------|--------|
 | Malicious OTA firmware | High | ED25519 image signing | NOT STARTED |
-| Fleet-wide coordinated command | High | Rate limiting + fleet throttling + staggered delays | NOT STARTED |
+| Fleet-wide coordinated command | High | Open design question (PDL-OPEN-005) — must survive cloud compromise | NOT STARTED |
 | Cloud compromise → load switching | High | Command authentication (signed downlinks) | NOT STARTED |
 | Double-load (interlock bypass) | Critical | Hardware interlock (circuit-level mutual exclusion) | IMPLEMENTED (HW) |
 | Credential theft from flash | Medium | HUK encryption + PSA key derivation | IMPLEMENTED |

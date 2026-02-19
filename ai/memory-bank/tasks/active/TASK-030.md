@@ -1,31 +1,35 @@
-# TASK-030: Fleet command throttling — staggered random delays on charge control downlinks
+# TASK-030: Fleet command safety — design investigation for coordinated load-switching mitigation
 
 **Status**: not started
 **Priority**: P2
 **Owner**: Eliel
-**Branch**: `feature/fleet-throttling`
 **Size**: M (3 points)
 
 ## Description
-Per PRD 6.3.2, a compromised cloud could coordinate simultaneous load switching across all devices, creating a massive demand spike on the grid. This task adds fleet-wide command throttling: any cloud command targeting multiple devices is staggered with randomized 0-10 minute delays. Device-side rate limiting: no more than one charge control command per 5 minutes.
+PRD 6.3.2 identifies fleet-wide coordinated load switching as a high-severity threat: a compromised cloud could send simultaneous commands to all devices, creating dangerous demand spikes on the grid.
+
+The original design (staggered Lambda delays + device-side rate limiting + CloudWatch anomaly detection) was rejected because **cloud-side mitigations don't survive a cloud compromise** — the attacker can simply bypass or disable them. Any effective design must include protections that hold even when the cloud is fully compromised.
+
+This task is a **design investigation**, not an implementation task. The deliverable is a recommended approach (likely an ADR) that addresses the threat model honestly.
+
+## Open Questions (PDL-OPEN-005)
+1. What protections must live on the device to survive cloud compromise?
+2. Should downlink commands carry cryptographic signatures (separate from OTA signing)? If so, where does the signing key live?
+3. What device-side behavioral limits are appropriate (max state changes per hour, cooldown periods)?
+4. Can out-of-band monitoring (separate AWS account, third-party) detect a compromised cloud sending malicious commands?
+5. How does this interact with TASK-032 (cloud command authentication)?
 
 ## Dependencies
 **Blocked by**: none
-**Blocks**: none
+**Blocks**: implementation tasks TBD after design is accepted
+**Related**: TASK-032 (cloud command authentication) — may be absorbed into or informed by this design
 
 ## Acceptance Criteria
-- [ ] Charge scheduler Lambda staggers downlinks with per-device random delay (0-10 min window)
-- [ ] Device-side rate limiting: ignore charge control commands arriving faster than 1 per 5 minutes
-- [ ] CloudWatch anomaly detection alarm for unusual command patterns
-- [ ] Rate limit configurable via Lambda environment variable
-
-## Testing Requirements
-- [ ] Python tests: staggered delay distribution within expected window
-- [ ] Python tests: anomaly detection threshold logic
-- [ ] C unit tests: device-side rate limiting rejects rapid commands, accepts after cooldown
+- [ ] Threat model analysis: document which mitigations survive which compromise scenarios
+- [ ] Recommended architecture (ADR draft) with rationale
+- [ ] Identify implementation tasks that follow from the chosen design
+- [ ] Review with stakeholders before committing to implementation
 
 ## Deliverables
-- `aws/charge_scheduler_lambda.py`: Staggered delay logic
-- `aws/terraform/`: CloudWatch anomaly detection alarm
-- `app/rak4631_evse_monitor/src/app_evse/app_rx.c`: Local rate limiting
-- `tests/app/test_rate_limit.c`
+- `docs/adr/ADR-NNN-fleet-command-safety.md` (draft for review)
+- Updated PRD 6.3.2 referencing the accepted design (after ADR is accepted)
