@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (20)
+## Open Tasks (17)
 
 ### P1 — Required for v1.0
 _No open P1 tasks — all v1.0 requirements met._
@@ -33,10 +33,7 @@ _No open P1 tasks — all v1.0 requirements met._
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
-| TASK-032 | in progress | Eliel | Cloud command authentication | — |
 | TASK-054 | not started | Eliel | Shared platform API pointer (replace 10 setters) | — |
-| TASK-061 | not started | Eliel | Event buffer — write on state change, not every poll cycle | — |
-| TASK-069 | not started | Eliel | Interlock transition event logging | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
 | TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
 | TASK-086 | not started | Eliel | Terraform: add CMD_AUTH_KEY to scheduler Lambda | TASK-032 |
@@ -57,9 +54,12 @@ _No open P1 tasks — all v1.0 requirements met._
 | TASK-082 | not started | Eliel | Geolocation opt-out mechanism | TASK-076 |
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 
-## Completed Tasks (67)
+## Completed Tasks (70)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-032 | Cloud command authentication (HMAC-SHA256) | MERGED DONE | 2026-02-19 | Eliel |
+| TASK-069 | Interlock transition event logging | MERGED DONE | 2026-02-19 | Eliel |
+| TASK-061 | Event buffer — write on state change | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-001 | Merge feature/generic-platform to main | MERGED DONE | 2026-02-11 | Oliver |
 | TASK-002 | Create CLAUDE.md | MERGED DONE | 2026-02-11 | — |
 | TASK-003 | Update README.md | MERGED DONE | 2026-02-11 | Eero |
