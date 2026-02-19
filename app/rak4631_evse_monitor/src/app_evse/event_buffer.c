@@ -121,6 +121,18 @@ void event_buffer_trim(uint32_t ack_watermark)
 	head = new_count;
 }
 
+bool event_buffer_peek_at(uint8_t index, struct event_snapshot *out)
+{
+	if (!out || index >= count) {
+		return false;
+	}
+
+	uint8_t tail = tail_index();
+	uint8_t idx = (tail + index) % EVENT_BUFFER_CAPACITY;
+	*out = buf[idx];
+	return true;
+}
+
 uint8_t event_buffer_count(void)
 {
 	return count;

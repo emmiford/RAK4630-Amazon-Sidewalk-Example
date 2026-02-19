@@ -64,6 +64,12 @@ void event_buffer_trim(uint32_t ack_watermark);
 uint8_t event_buffer_count(void);
 
 /**
+ * Peek at a buffered entry by index (0 = oldest, count-1 = newest).
+ * Returns false if index >= count or out is NULL.
+ */
+bool event_buffer_peek_at(uint8_t index, struct event_snapshot *out);
+
+/**
  * Get the oldest entry's timestamp. Returns 0 if empty.
  */
 uint32_t event_buffer_oldest_timestamp(void);

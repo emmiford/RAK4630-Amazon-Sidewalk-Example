@@ -4,6 +4,7 @@
 
 #include <app_tx.h>
 #include <evse_payload.h>
+#include <event_buffer.h>
 #include <charge_control.h>
 #include <charge_now.h>
 #include <time_sync.h>
@@ -117,4 +118,56 @@ int app_tx_send_evse_data(void)
 
 	last_send_ms = now;
 	return api->send_msg(payload, sizeof(payload));
+}
+
+/**
+ * Send a buffered event snapshot as a v0x09 uplink.
+ *
+ * Returns:  1 = sent successfully
+ *           0 = rate-limited (try again later)
+ *          -1 = error (not ready, null args)
+ */
+int app_tx_send_snapshot(const struct event_snapshot *snap)
+{
+	if (!api || !snap) {
+		return -1;
+	}
+
+	if (!api->is_ready()) {
+		return -1;
+	}
+
+	/* Shared rate limit with send_evse_data */
+	uint32_t now = api->uptime_ms();
+	if (last_send_ms && (now - last_send_ms) < MIN_SEND_INTERVAL_MS) {
+		return 0;
+	}
+
+	/* Map snapshot fields to v0x09 wire format */
+	uint8_t flags = snap->thermostat_flags;
+	if (snap->charge_flags & EVENT_FLAG_CHARGE_ALLOWED) {
+		flags |= FLAG_CHARGE_ALLOWED;
+	}
+
+	uint8_t payload[EVSE_PAYLOAD_SIZE] = {
+		EVSE_MAGIC,
+		EVSE_VERSION,
+		snap->j1772_state,
+		snap->pilot_voltage_mv & 0xFF,
+		(snap->pilot_voltage_mv >> 8) & 0xFF,
+		snap->current_ma & 0xFF,
+		(snap->current_ma >> 8) & 0xFF,
+		flags,
+		snap->timestamp & 0xFF,
+		(snap->timestamp >> 8) & 0xFF,
+		(snap->timestamp >> 16) & 0xFF,
+		(snap->timestamp >> 24) & 0xFF,
+		snap->transition_reason,
+	};
+
+	api->log_inf("EVSE TX buffered: state=%d, ts=%u, reason=%d",
+		     snap->j1772_state, snap->timestamp, snap->transition_reason);
+
+	last_send_ms = now;
+	return (api->send_msg(payload, sizeof(payload)) == 0) ? 1 : -1;
 }

@@ -48,6 +48,12 @@ static bool last_current_on;
 static uint8_t last_thermostat_flags;
 static uint32_t last_heartbeat_ms;
 
+/* Event buffer drain state — walks buffer sending one entry per rate-limit window.
+ * Drain only starts after the first live uplink so initial state is established. */
+static uint8_t drain_cursor;
+static uint32_t drain_oldest_ts;
+static bool drain_active;
+
 /* ------------------------------------------------------------------ */
 /*  Shell command dispatch table                                       */
 /* ------------------------------------------------------------------ */
@@ -162,6 +168,10 @@ static int app_init(const struct platform_api *platform)
 
 	last_thermostat_flags = thermostat_flags_get();
 	last_heartbeat_ms = api->uptime_ms();
+	decimation_counter = 0;
+	drain_active = false;
+	drain_cursor = 0;
+	drain_oldest_ts = 0;
 
 	api->log_inf("App initialized (EVSE monitor v2, poll=%dms)", POLL_INTERVAL_MS);
 	return 0;
@@ -284,6 +294,29 @@ static void app_on_timer(void)
 		app_tx_send_evse_data();
 		if (heartbeat_due) {
 			last_heartbeat_ms = now;
+		}
+		/* Enable drain after first live send */
+		drain_active = true;
+	} else if (drain_active && event_buffer_count() > 0) {
+		/* --- Drain buffered events during idle ticks --- */
+
+		/* Reset cursor when buffer is trimmed (entries shift) */
+		uint32_t oldest_ts = event_buffer_oldest_timestamp();
+		if (oldest_ts != drain_oldest_ts) {
+			drain_cursor = 0;
+			drain_oldest_ts = oldest_ts;
+		}
+
+		if (drain_cursor < event_buffer_count()) {
+			struct event_snapshot snap;
+			if (event_buffer_peek_at(drain_cursor, &snap)) {
+				int ret = app_tx_send_snapshot(&snap);
+				if (ret > 0) {
+					drain_cursor++;
+				}
+				/* ret == 0: rate-limited, retry next tick */
+				/* ret < 0: send error, retry next tick */
+			}
 		}
 	}
 }
