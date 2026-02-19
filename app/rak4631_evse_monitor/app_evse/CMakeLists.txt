@@ -63,8 +63,11 @@ set(COMMON_FLAGS
 )
 
 add_compile_options(${COMMON_FLAGS})
+set(HEARTBEAT_INTERVAL_MS "900000" CACHE STRING "Heartbeat interval in ms (900000=15min prod, 60000=dev)")
+
 add_compile_definitions(
     __ZEPHYR__=0
+    HEARTBEAT_INTERVAL_MS=${HEARTBEAT_INTERVAL_MS}
 )
 
 # Include paths

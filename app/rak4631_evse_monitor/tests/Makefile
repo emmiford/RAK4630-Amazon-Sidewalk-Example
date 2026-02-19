@@ -6,7 +6,7 @@
 # This is the Grenning dual-target pattern — same source, different HAL.
 
 CC = cc
-CFLAGS = -Wall -Wextra -Wno-unused-parameter -std=c11 -g -O0 -DHOST_TEST
+CFLAGS = -Wall -Wextra -Wno-unused-parameter -std=c11 -g -O0 -DHOST_TEST -DHEARTBEAT_INTERVAL_MS=60000
 
 # Include paths
 INC = -I../include -I.
