@@ -18,6 +18,7 @@
 #include <evse_payload.h>
 #include <app_tx.h>
 #include <app_rx.h>
+#include <cmd_auth.h>
 #include <delay_window.h>
 #include <diag_request.h>
 #include <selftest.h>
@@ -111,6 +112,18 @@ static int app_init(const struct platform_api *platform)
 	selftest_trigger_set_api(api);
 	time_sync_set_api(api);
 	charge_now_set_api(api);
+
+	/* Command authentication: call cmd_auth_set_key() with a 32-byte
+	 * HMAC key to enable signed downlink verification. When no key is
+	 * set, charge control commands are accepted without auth.
+	 *
+	 * For production, replace the zeros below and uncomment:
+	 *   static const uint8_t cmd_auth_key[CMD_AUTH_KEY_SIZE] = { ... };
+	 *   cmd_auth_set_key(cmd_auth_key, CMD_AUTH_KEY_SIZE);
+	 *
+	 * Key must match CMD_AUTH_KEY in the charge scheduler Lambda env.
+	 * Generate: python3 -c "import secrets; print(secrets.token_hex(32))"
+	 */
 
 	/* Initialize app subsystems */
 	evse_sensors_init();

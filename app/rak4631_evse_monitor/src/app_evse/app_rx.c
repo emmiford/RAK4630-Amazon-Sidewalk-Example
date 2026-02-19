@@ -7,6 +7,7 @@
  */
 
 #include <app_rx.h>
+#include <cmd_auth.h>
 #include <charge_control.h>
 #include <charge_now.h>
 #include <delay_window.h>
@@ -37,11 +38,36 @@ void app_rx_process_msg(const uint8_t *data, size_t len)
 			return;
 		}
 
+		/* Determine payload size by subtype for auth verification */
+		size_t payload_len;
+		if (len >= 2 && data[1] == DELAY_WINDOW_SUBTYPE) {
+			payload_len = DELAY_WINDOW_PAYLOAD_SIZE;
+		} else {
+			payload_len = sizeof(charge_control_cmd_t);
+		}
+
+		/* Verify HMAC authentication tag (appended after payload) */
+		if (cmd_auth_is_configured()) {
+			if (len < payload_len + CMD_AUTH_TAG_SIZE) {
+				api->log_err("Charge ctrl: missing auth tag "
+					     "(got %zu, need %zu)", len,
+					     payload_len + CMD_AUTH_TAG_SIZE);
+				return;
+			}
+			if (!cmd_auth_verify(data, payload_len,
+					     data + payload_len)) {
+				api->log_err("Charge ctrl: auth verification "
+					     "failed");
+				return;
+			}
+			api->log_inf("Charge ctrl: auth OK");
+		}
+
 		/* Delay window subtype (0x02): 10-byte payload */
-		if (len >= DELAY_WINDOW_PAYLOAD_SIZE &&
-		    data[1] == DELAY_WINDOW_SUBTYPE) {
+		if (payload_len == DELAY_WINDOW_PAYLOAD_SIZE &&
+		    len >= DELAY_WINDOW_PAYLOAD_SIZE) {
 			api->log_inf("Delay window command received");
-			int ret = delay_window_process_cmd(data, len);
+			int ret = delay_window_process_cmd(data, payload_len);
 			if (ret < 0) {
 				api->log_err("Delay window processing failed: %d", ret);
 			}
@@ -51,7 +77,7 @@ void app_rx_process_msg(const uint8_t *data, size_t len)
 		/* Legacy charge control (subtype 0x00/0x01): 4-byte payload */
 		if (len >= sizeof(charge_control_cmd_t)) {
 			api->log_inf("Charge control command received");
-			int ret = charge_control_process_cmd(data, len);
+			int ret = charge_control_process_cmd(data, payload_len);
 			if (ret < 0) {
 				api->log_err("Charge control processing failed: %d", ret);
 			} else {

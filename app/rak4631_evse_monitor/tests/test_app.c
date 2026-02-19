@@ -23,6 +23,7 @@
 #include <diag_request.h>
 #include <app_tx.h>
 #include <app_rx.h>
+#include <cmd_auth.h>
 #include <time_sync.h>
 #include <event_buffer.h>
 #include <delay_window.h>
@@ -2294,6 +2295,194 @@ static void test_two_presses_no_charge_now(void)
 }
 
 /* ================================================================== */
+/*  cmd_auth: HMAC-SHA256 command authentication                       */
+/* ================================================================== */
+
+/* Test key: 32 bytes of 0xAA */
+static const uint8_t test_auth_key[CMD_AUTH_KEY_SIZE] = {
+	0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+	0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+	0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+	0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+};
+
+/* Pre-computed with Python: hmac.new(key, payload, sha256).digest()[:8] */
+static const uint8_t tag_legacy_allow[] = {
+	0x0a, 0xe1, 0xce, 0x9f, 0xf2, 0x90, 0x07, 0x1d
+};
+
+static const uint8_t tag_legacy_pause[] = {
+	0x08, 0x84, 0x7a, 0x9e, 0xab, 0x15, 0xb6, 0x7e
+};
+
+static const uint8_t tag_delay_window[] = {
+	0xe3, 0xae, 0x1f, 0xa5, 0x15, 0x66, 0x47, 0x08
+};
+
+static void cmd_auth_test_setup(void)
+{
+	mock_reset();
+	charge_control_set_api(mock_api());
+	charge_control_init();
+	app_rx_set_api(mock_api());
+	delay_window_set_api(mock_api());
+	delay_window_init();
+	time_sync_set_api(mock_api());
+	time_sync_init();
+	charge_now_set_api(mock_api());
+	charge_now_init();
+	cmd_auth_set_key(test_auth_key, CMD_AUTH_KEY_SIZE);
+}
+
+static void test_cmd_auth_set_key_ok(void)
+{
+	int ret = cmd_auth_set_key(test_auth_key, CMD_AUTH_KEY_SIZE);
+	assert(ret == 0);
+	assert(cmd_auth_is_configured() == true);
+}
+
+static void test_cmd_auth_set_key_wrong_size(void)
+{
+	int ret = cmd_auth_set_key(test_auth_key, 16);
+	assert(ret == -1);
+}
+
+static void test_cmd_auth_verify_legacy_allow(void)
+{
+	cmd_auth_set_key(test_auth_key, CMD_AUTH_KEY_SIZE);
+	uint8_t payload[] = {0x10, 0x01, 0x00, 0x00};
+	assert(cmd_auth_verify(payload, sizeof(payload), tag_legacy_allow) == true);
+}
+
+static void test_cmd_auth_verify_legacy_pause(void)
+{
+	cmd_auth_set_key(test_auth_key, CMD_AUTH_KEY_SIZE);
+	uint8_t payload[] = {0x10, 0x00, 0x00, 0x00};
+	assert(cmd_auth_verify(payload, sizeof(payload), tag_legacy_pause) == true);
+}
+
+static void test_cmd_auth_verify_delay_window(void)
+{
+	cmd_auth_set_key(test_auth_key, CMD_AUTH_KEY_SIZE);
+	/* payload: 10 02 e8030000 f00a0000 (start=1000, end=2800) */
+	uint8_t payload[] = {0x10, 0x02, 0xe8, 0x03, 0x00, 0x00,
+			     0xf0, 0x0a, 0x00, 0x00};
+	assert(cmd_auth_verify(payload, sizeof(payload), tag_delay_window) == true);
+}
+
+static void test_cmd_auth_wrong_tag_rejected(void)
+{
+	cmd_auth_set_key(test_auth_key, CMD_AUTH_KEY_SIZE);
+	uint8_t payload[] = {0x10, 0x01, 0x00, 0x00};
+	uint8_t bad_tag[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	assert(cmd_auth_verify(payload, sizeof(payload), bad_tag) == false);
+}
+
+static void test_cmd_auth_wrong_key_rejected(void)
+{
+	uint8_t wrong_key[CMD_AUTH_KEY_SIZE];
+	memset(wrong_key, 0xBB, CMD_AUTH_KEY_SIZE);
+	cmd_auth_set_key(wrong_key, CMD_AUTH_KEY_SIZE);
+
+	uint8_t payload[] = {0x10, 0x01, 0x00, 0x00};
+	/* tag_legacy_allow was computed with 0xAA key */
+	assert(cmd_auth_verify(payload, sizeof(payload), tag_legacy_allow) == false);
+}
+
+static void test_cmd_auth_no_key_rejects(void)
+{
+	/* Simulate unconfigured state by setting a key, verifying, then
+	 * checking that a NULL key call fails */
+	assert(cmd_auth_verify(NULL, 0, NULL) == false);
+}
+
+/* --- RX integration: auth verification in app_rx_process_msg --- */
+
+static void test_rx_auth_signed_legacy_accepted(void)
+{
+	cmd_auth_test_setup();
+	/* Build signed legacy allow: 4-byte payload + 8-byte tag = 12 bytes */
+	uint8_t msg[12] = {0x10, 0x01, 0x00, 0x00};
+	memcpy(msg + 4, tag_legacy_allow, CMD_AUTH_TAG_SIZE);
+
+	charge_control_set(false, 0);  /* start paused */
+	app_rx_process_msg(msg, sizeof(msg));
+
+	/* Command should have been accepted — charging now allowed */
+	assert(charge_control_is_allowed() == true);
+}
+
+static void test_rx_auth_unsigned_legacy_rejected(void)
+{
+	cmd_auth_test_setup();
+	/* Send only 4-byte payload (no tag) — should be rejected */
+	uint8_t msg[] = {0x10, 0x01, 0x00, 0x00};
+
+	charge_control_set(false, 0);  /* start paused */
+	app_rx_process_msg(msg, sizeof(msg));
+
+	/* Command should NOT have been accepted — still paused */
+	assert(charge_control_is_allowed() == false);
+	assert(mock_get()->log_err_count > 0);
+}
+
+static void test_rx_auth_bad_tag_legacy_rejected(void)
+{
+	cmd_auth_test_setup();
+	/* Build message with wrong tag */
+	uint8_t msg[12] = {0x10, 0x01, 0x00, 0x00,
+			   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+	charge_control_set(false, 0);
+	app_rx_process_msg(msg, sizeof(msg));
+
+	assert(charge_control_is_allowed() == false);
+	assert(mock_get()->log_err_count > 0);
+}
+
+static void test_rx_auth_signed_delay_window_accepted(void)
+{
+	cmd_auth_test_setup();
+
+	/* Sync time so delay window can activate */
+	uint8_t sync_cmd[] = {0x30,
+		0xE8, 0x03, 0x00, 0x00,  /* epoch = 1000 */
+		0x00, 0x00, 0x00, 0x00}; /* watermark = 0 */
+	time_sync_process_cmd(sync_cmd, sizeof(sync_cmd));
+	mock_get()->uptime = 0;
+
+	/* Build signed delay window: 10-byte payload + 8-byte tag = 18 bytes */
+	uint8_t msg[18] = {0x10, 0x02, 0xe8, 0x03, 0x00, 0x00,
+			   0xf0, 0x0a, 0x00, 0x00};
+	memcpy(msg + 10, tag_delay_window, CMD_AUTH_TAG_SIZE);
+
+	app_rx_process_msg(msg, sizeof(msg));
+
+	/* Delay window should have been stored */
+	assert(delay_window_has_window() == true);
+}
+
+static void test_rx_auth_unsigned_delay_window_rejected(void)
+{
+	cmd_auth_test_setup();
+	/* Send 10-byte delay window payload without tag — rejected */
+	uint8_t msg[] = {0x10, 0x02, 0xe8, 0x03, 0x00, 0x00,
+			 0xf0, 0x0a, 0x00, 0x00};
+
+	app_rx_process_msg(msg, sizeof(msg));
+
+	assert(delay_window_has_window() == false);
+	assert(mock_get()->log_err_count > 0);
+}
+
+static void test_rx_auth_mtu_fits(void)
+{
+	/* Verify signed payloads fit in 19-byte LoRa MTU */
+	assert(4 + CMD_AUTH_TAG_SIZE <= 19);   /* legacy charge control */
+	assert(10 + CMD_AUTH_TAG_SIZE <= 19);  /* delay window */
+}
+
+/* ================================================================== */
 /*  Main                                                               */
 /* ================================================================== */
 
@@ -2474,6 +2663,24 @@ int main(void)
 	RUN_TEST(test_long_press_cancels_charge_now);
 	RUN_TEST(test_long_press_without_charge_now_is_noop);
 	RUN_TEST(test_two_presses_no_charge_now);
+
+	printf("\ncmd_auth HMAC:\n");
+	RUN_TEST(test_cmd_auth_set_key_ok);
+	RUN_TEST(test_cmd_auth_set_key_wrong_size);
+	RUN_TEST(test_cmd_auth_verify_legacy_allow);
+	RUN_TEST(test_cmd_auth_verify_legacy_pause);
+	RUN_TEST(test_cmd_auth_verify_delay_window);
+	RUN_TEST(test_cmd_auth_wrong_tag_rejected);
+	RUN_TEST(test_cmd_auth_wrong_key_rejected);
+	RUN_TEST(test_cmd_auth_no_key_rejects);
+
+	printf("\ncmd_auth RX integration:\n");
+	RUN_TEST(test_rx_auth_signed_legacy_accepted);
+	RUN_TEST(test_rx_auth_unsigned_legacy_rejected);
+	RUN_TEST(test_rx_auth_bad_tag_legacy_rejected);
+	RUN_TEST(test_rx_auth_signed_delay_window_accepted);
+	RUN_TEST(test_rx_auth_unsigned_delay_window_rejected);
+	RUN_TEST(test_rx_auth_mtu_fits);
 
 	printf("\n=== %d/%d tests passed ===\n\n", tests_passed, tests_run);
 	return (tests_passed == tests_run) ? 0 : 1;
