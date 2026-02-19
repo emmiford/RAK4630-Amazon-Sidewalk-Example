@@ -21,8 +21,6 @@
 extern "C" {
 #endif
 
-struct platform_api;
-
 /* GPIO pin for the Charge Now button (active-high: 1 = pressed) */
 #define EVSE_PIN_BUTTON     3
 
@@ -50,7 +48,6 @@ struct platform_api;
 /* Callback for sending uplink when self-test has failures */
 typedef int (*selftest_send_fn)(void);
 
-void selftest_trigger_set_api(const struct platform_api *api);
 void selftest_trigger_set_send_fn(selftest_send_fn fn);
 void selftest_trigger_init(void);
 void selftest_trigger_tick(void);       /* call from app_on_timer every 500ms */

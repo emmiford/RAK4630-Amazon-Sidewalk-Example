@@ -6,9 +6,7 @@
  */
 
 #include <time_sync.h>
-#include <platform_api.h>
-
-static const struct platform_api *api;
+#include <app_platform.h>
 
 /* Sync state */
 static uint32_t sync_epoch;       /* SideCharge epoch at sync point */
@@ -24,23 +22,18 @@ void time_sync_init(void)
 	synced = false;
 }
 
-void time_sync_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
-
 int time_sync_process_cmd(const uint8_t *data, size_t len)
 {
 	if (!data || len < TIME_SYNC_PAYLOAD_SIZE) {
-		if (api) {
-			api->log_wrn("TIME_SYNC: payload too short (%zu)", len);
+		if (platform) {
+			platform->log_wrn("TIME_SYNC: payload too short (%zu)", len);
 		}
 		return -1;
 	}
 
 	if (data[0] != TIME_SYNC_CMD_TYPE) {
-		if (api) {
-			api->log_wrn("TIME_SYNC: wrong cmd type 0x%02x", data[0]);
+		if (platform) {
+			platform->log_wrn("TIME_SYNC: wrong cmd type 0x%02x", data[0]);
 		}
 		return -1;
 	}
@@ -59,18 +52,18 @@ int time_sync_process_cmd(const uint8_t *data, size_t len)
 
 	uint32_t prev_epoch = sync_epoch;
 	sync_epoch = epoch;
-	sync_uptime_ms = api ? api->uptime_ms() : 0;
+	sync_uptime_ms = platform ? platform->uptime_ms() : 0;
 	ack_watermark = wm;
 	synced = true;
 
-	if (api) {
+	if (platform) {
 		if (prev_epoch) {
 			uint32_t drift = (epoch > prev_epoch)
 				? (epoch - prev_epoch) : (prev_epoch - epoch);
-			api->log_inf("TIME_SYNC: epoch=%u wm=%u (drift ~%us from prev)",
+			platform->log_inf("TIME_SYNC: epoch=%u wm=%u (drift ~%us from prev)",
 				     epoch, wm, drift);
 		} else {
-			api->log_inf("TIME_SYNC: epoch=%u wm=%u (first sync)",
+			platform->log_inf("TIME_SYNC: epoch=%u wm=%u (first sync)",
 				     epoch, wm);
 		}
 	}
@@ -84,7 +77,7 @@ uint32_t time_sync_get_epoch(void)
 		return 0;
 	}
 
-	uint32_t now_ms = api ? api->uptime_ms() : 0;
+	uint32_t now_ms = platform ? platform->uptime_ms() : 0;
 	uint32_t elapsed_s = (now_ms - sync_uptime_ms) / 1000;
 	return sync_epoch + elapsed_s;
 }
@@ -101,8 +94,8 @@ bool time_sync_is_synced(void)
 
 uint32_t time_sync_ms_since_sync(void)
 {
-	if (!synced || !api) {
+	if (!synced || !platform) {
 		return 0;
 	}
-	return api->uptime_ms() - sync_uptime_ms;
+	return platform->uptime_ms() - sync_uptime_ms;
 }

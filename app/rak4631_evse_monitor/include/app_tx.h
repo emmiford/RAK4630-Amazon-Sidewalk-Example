@@ -12,10 +12,9 @@
 extern "C" {
 #endif
 
-struct platform_api;     /* forward declaration */
 struct event_snapshot;   /* forward declaration */
 
-void app_tx_set_api(const struct platform_api *platform);
+void app_tx_init(void);
 void app_tx_set_ready(bool ready);
 int app_tx_send_evse_data(void);
 int app_tx_send_snapshot(const struct event_snapshot *snap);

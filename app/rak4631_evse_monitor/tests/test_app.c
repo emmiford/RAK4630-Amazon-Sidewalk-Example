@@ -14,6 +14,7 @@
  */
 
 #include "mock_platform.h"
+#include <app_platform.h>
 #include <evse_sensors.h>
 #include <charge_control.h>
 #include <charge_now.h>
@@ -55,7 +56,7 @@ static void test_j1772_state_a_high_voltage(void)
 {
 	mock_reset();
 	mock_get()->adc_values[0] = 2980;  /* ~12V after divider */
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -68,7 +69,7 @@ static void test_j1772_state_b_connected(void)
 {
 	mock_reset();
 	mock_get()->adc_values[0] = 2234;  /* ~9V */
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -80,7 +81,7 @@ static void test_j1772_state_c_charging(void)
 {
 	mock_reset();
 	mock_get()->adc_values[0] = 1489;  /* ~6V */
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -92,7 +93,7 @@ static void test_j1772_state_d_ventilation(void)
 {
 	mock_reset();
 	mock_get()->adc_values[0] = 745;  /* ~3V */
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -104,7 +105,7 @@ static void test_j1772_state_e_error(void)
 {
 	mock_reset();
 	mock_get()->adc_values[0] = 100;  /* ~0V */
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -115,7 +116,7 @@ static void test_j1772_state_e_error(void)
 static void test_j1772_boundary_a_b(void)
 {
 	mock_reset();
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -134,7 +135,7 @@ static void test_j1772_boundary_a_b(void)
 static void test_j1772_boundary_b_c(void)
 {
 	mock_reset();
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -150,7 +151,7 @@ static void test_j1772_boundary_b_c(void)
 
 static void test_j1772_null_api_returns_error(void)
 {
-	evse_sensors_set_api(NULL);
+	platform = NULL;
 
 	j1772_state_t state;
 	uint16_t mv;
@@ -161,7 +162,7 @@ static void test_current_read_conversion(void)
 {
 	mock_reset();
 	mock_get()->adc_values[1] = 1650;  /* half scale -> 15A */
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	uint16_t current_ma;
 	assert(evse_current_read(&current_ma) == 0);
@@ -172,7 +173,7 @@ static void test_current_read_zero(void)
 {
 	mock_reset();
 	mock_get()->adc_values[1] = 0;
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	uint16_t current_ma;
 	assert(evse_current_read(&current_ma) == 0);
@@ -184,7 +185,7 @@ static void test_simulation_overrides_adc(void)
 	mock_reset();
 	mock_get()->adc_values[0] = 2980;  /* real = State A */
 	mock_get()->uptime = 1000;
-	evse_sensors_set_api(mock_api());
+	platform = mock_api();
 
 	/* Simulate State C for 10s */
 	evse_sensors_simulate_state(J1772_STATE_C, 10000);
@@ -208,7 +209,7 @@ static void test_thermostat_no_calls(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[2] = 0;  /* cool off */
-	thermostat_inputs_set_api(mock_api());
+	platform = mock_api();
 
 	assert(thermostat_flags_get() == 0x00);
 }
@@ -217,7 +218,7 @@ static void test_thermostat_cool_only(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[2] = 1;  /* cool on */
-	thermostat_inputs_set_api(mock_api());
+	platform = mock_api();
 
 	assert(thermostat_flags_get() == 0x02);
 }
@@ -226,7 +227,7 @@ static void test_thermostat_both_calls(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[2] = 1;
-	thermostat_inputs_set_api(mock_api());
+	platform = mock_api();
 
 	assert(thermostat_flags_get() == 0x02);
 }
@@ -238,7 +239,7 @@ static void test_thermostat_both_calls(void)
 static void test_charge_control_defaults_to_allowed(void)
 {
 	mock_reset();
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	assert(charge_control_is_allowed() == true);
@@ -250,7 +251,7 @@ static void test_charge_control_defaults_to_allowed(void)
 static void test_charge_control_pause_sets_gpio_low(void)
 {
 	mock_reset();
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	charge_control_set(false, 0);
@@ -261,7 +262,7 @@ static void test_charge_control_pause_sets_gpio_low(void)
 static void test_charge_control_allow_sets_gpio_high(void)
 {
 	mock_reset();
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	charge_control_set(false, 0);
@@ -274,7 +275,7 @@ static void test_charge_control_auto_resume(void)
 {
 	mock_reset();
 	mock_get()->uptime = 10000;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	/* Pause with 1-minute auto-resume */
@@ -297,7 +298,7 @@ static void test_charge_control_no_auto_resume_when_zero(void)
 {
 	mock_reset();
 	mock_get()->uptime = 10000;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	/* Pause without auto-resume */
@@ -321,15 +322,15 @@ static void test_app_tx_sends_12_byte_payload(void)
 	mock_get()->uptime = 10000;
 	mock_get()->ready = true;
 
-	evse_sensors_set_api(mock_api());
-	thermostat_inputs_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
-	charge_now_set_api(mock_api());
+	platform = mock_api();
 	charge_now_init();
-	app_tx_set_api(mock_api());
+	platform = mock_api();
 	app_tx_set_ready(true);
 
 	int ret = app_tx_send_evse_data();
@@ -349,9 +350,9 @@ static void test_app_tx_rate_limits(void)
 	mock_get()->uptime = 100000;  /* well past any previous test's send */
 	mock_get()->ready = true;
 
-	evse_sensors_set_api(mock_api());
-	thermostat_inputs_set_api(mock_api());
-	app_tx_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
+	platform = mock_api();
 	app_tx_set_ready(true);
 
 	/* First send succeeds */
@@ -374,7 +375,7 @@ static void test_app_tx_not_ready_skips(void)
 	mock_reset();
 	mock_get()->ready = false;
 
-	app_tx_set_api(mock_api());
+	platform = mock_api();
 	app_tx_set_ready(false);
 
 	assert(app_tx_send_evse_data() == -1);
@@ -526,7 +527,7 @@ static void init_selftest(void)
 	mock_get()->gpio_values[0] = 1;    /* charge enable */
 	mock_get()->gpio_values[2] = 0;    /* cool */
 	mock_get()->uptime = 1000000;      /* high base */
-	selftest_set_api(mock_api());
+	platform = mock_api();
 	selftest_reset();
 }
 
@@ -847,10 +848,10 @@ static void test_shell_error(const char *fmt, ...) { (void)fmt; }
 static void test_selftest_shell_all_pass(void)
 {
 	init_selftest();
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
+	platform = mock_api();
 	shell_print_count = 0;
 
 	int ret = selftest_run_shell(test_shell_print, test_shell_error);
@@ -877,7 +878,7 @@ static void test_selftest_fault_flags_coexist_with_thermostat(void)
 	init_selftest();
 	/* Set thermostat bits */
 	mock_get()->gpio_values[2] = 1;  /* cool */
-	thermostat_inputs_set_api(mock_api());
+	platform = mock_api();
 	uint8_t therm = thermostat_flags_get();  /* 0x02 */
 
 	/* Cause selftest fault */
@@ -906,17 +907,17 @@ static void init_diag(void)
 	mock_get()->uptime = 120000;       /* 120 seconds */
 	mock_get()->ready = true;
 
-	selftest_set_api(mock_api());
+	platform = mock_api();
 	selftest_reset();
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 	charge_control_set(true, 0);  /* Ensure clean state after prior tests */
-	app_tx_set_api(mock_api());
+	platform = mock_api();
 	app_tx_set_ready(true);
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
 	event_buffer_init();
-	diag_request_set_api(mock_api());
+	platform = mock_api();
 }
 
 static void test_diag_build_response_format(void)
@@ -1160,13 +1161,13 @@ static void init_led_engine(void)
 	mock_get()->gpio_values[2] = 0;
 	mock_get()->uptime = 400000;  /* past commissioning timeout (300s) */
 	mock_get()->ready = true;
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	/* Force commissioning to exit (uptime > 300s) */
 	led_engine_tick();
@@ -1195,13 +1196,13 @@ static void test_led_ota_higher_than_commission(void)
 	mock_get()->adc_values[0] = 2980;
 	mock_get()->uptime = 1000;  /* within commissioning window */
 	mock_get()->ready = true;
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	led_engine_set_ota_active(true);
 	led_engine_tick();
@@ -1214,13 +1215,13 @@ static void test_led_commission_at_boot(void)
 	mock_get()->adc_values[0] = 2980;
 	mock_get()->uptime = 1000;  /* within 5 min window */
 	mock_get()->ready = true;
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	led_engine_tick();
 	assert(led_engine_get_active_priority() == LED_PRI_COMMISSION);
@@ -1233,13 +1234,13 @@ static void test_led_commission_exits_on_uplink(void)
 	mock_get()->adc_values[0] = 2980;
 	mock_get()->uptime = 1000;
 	mock_get()->ready = true;
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	led_engine_tick();
 	assert(led_engine_is_commissioning() == true);
@@ -1255,13 +1256,13 @@ static void test_led_commission_exits_on_timeout(void)
 	mock_get()->adc_values[0] = 2980;
 	mock_get()->uptime = 1000;
 	mock_get()->ready = true;
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	led_engine_tick();
 	assert(led_engine_is_commissioning() == true);
@@ -1334,13 +1335,13 @@ static void test_led_commission_5on_5off(void)
 	mock_get()->adc_values[0] = 2980;
 	mock_get()->uptime = 1000;
 	mock_get()->ready = true;
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 
 	mock_get()->led_call_count = 0;
@@ -1451,13 +1452,13 @@ static void test_led_sidewalk_10min_timeout(void)
 	mock_get()->adc_values[0] = 2980;
 	mock_get()->uptime = 400000;
 	mock_get()->ready = false;  /* not connected */
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	/* Force commissioning exit */
 	led_engine_notify_uplink_sent();
@@ -1478,13 +1479,13 @@ static void test_led_sidewalk_timeout_clears_on_ready(void)
 	mock_get()->adc_values[0] = 2980;
 	mock_get()->uptime = 400000;
 	mock_get()->ready = false;
-	evse_sensors_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	led_engine_notify_uplink_sent();
 
@@ -1645,11 +1646,11 @@ static void init_delay_window_test(void)
 	mock_get()->uptime = 50000;
 	mock_get()->ready = true;
 
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
-	delay_window_set_api(mock_api());
+	platform = mock_api();
 	delay_window_init();
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 	charge_control_set(true, 0);  /* Reset to clean state after prior tests */
 }
@@ -1957,25 +1958,25 @@ static void init_charge_now_test(void)
 	mock_get()->uptime = 2000000;
 	mock_get()->ready = true;
 
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
-	charge_now_set_api(mock_api());
+	platform = mock_api();
 	charge_now_init();
-	delay_window_set_api(mock_api());
+	platform = mock_api();
 	delay_window_init();
-	evse_sensors_set_api(mock_api());
-	thermostat_inputs_set_api(mock_api());
-	app_tx_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
+	platform = mock_api();
 	app_tx_set_ready(true);
-	app_rx_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	/* Force commissioning exit */
 	led_engine_notify_uplink_sent();
 	led_engine_tick();
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
 }
 
@@ -2182,19 +2183,19 @@ static void init_button_test(void)
 	mock_get()->uptime = 3000000;
 	mock_get()->ready = true;
 
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
-	charge_now_set_api(mock_api());
+	platform = mock_api();
 	charge_now_init();
-	delay_window_set_api(mock_api());
+	platform = mock_api();
 	delay_window_init();
-	evse_sensors_set_api(mock_api());
-	thermostat_inputs_set_api(mock_api());
-	selftest_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
+	platform = mock_api();
 	selftest_reset();
-	selftest_trigger_set_api(mock_api());
+	platform = mock_api();
 	selftest_trigger_init();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 	led_engine_notify_uplink_sent();
 }
@@ -2484,7 +2485,7 @@ static void test_transition_reason_allow_to_pause_cloud_cmd(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[0] = 1;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	/* Start allowed, then pause via cloud command */
@@ -2500,7 +2501,7 @@ static void test_transition_reason_pause_to_allow_cloud_cmd(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[0] = 1;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	/* Pause first */
@@ -2520,11 +2521,11 @@ static void test_transition_reason_charge_now(void)
 	mock_reset();
 	mock_get()->gpio_values[0] = 1;
 	mock_get()->uptime = 100000;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
-	charge_now_set_api(mock_api());
+	platform = mock_api();
 	charge_now_init();
-	led_engine_set_api(mock_api());
+	platform = mock_api();
 	led_engine_init();
 
 	/* Pause, then activate Charge Now */
@@ -2540,7 +2541,7 @@ static void test_transition_reason_manual_shell(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[0] = 1;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	/* Manual pause */
@@ -2557,11 +2558,11 @@ static void test_transition_reason_auto_resume(void)
 	mock_reset();
 	mock_get()->gpio_values[0] = 1;
 	mock_get()->uptime = 100000;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
-	delay_window_set_api(mock_api());
+	platform = mock_api();
 
 	/* Pause with 1 minute auto-resume */
 	charge_control_set(false, 1);
@@ -2579,7 +2580,7 @@ static void test_transition_reason_none_when_no_change(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[0] = 1;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 	charge_control_clear_last_reason();
 
@@ -2592,7 +2593,7 @@ static void test_transition_reason_clear(void)
 {
 	mock_reset();
 	mock_get()->gpio_values[0] = 1;
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
 
 	charge_control_set_with_reason(false, 0, TRANSITION_REASON_MANUAL);
@@ -2645,15 +2646,15 @@ static void test_uplink_includes_transition_reason(void)
 	mock_get()->uptime = 800000;
 	mock_get()->ready = true;
 
-	evse_sensors_set_api(mock_api());
-	thermostat_inputs_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	charge_now_set_api(mock_api());
+	platform = mock_api();
 	charge_now_init();
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
-	app_tx_set_api(mock_api());
+	platform = mock_api();
 	app_tx_set_ready(true);
 
 	/* Trigger a transition */
@@ -2756,7 +2757,7 @@ static void test_send_snapshot_format(void)
 	mock_get()->uptime = 500000;
 	mock_get()->ready = true;
 
-	app_tx_set_api(mock_api());
+	platform = mock_api();
 	app_tx_set_ready(true);
 
 	struct event_snapshot snap = {
@@ -2806,7 +2807,7 @@ static void test_send_snapshot_rate_limited(void)
 	mock_get()->uptime = 600000;
 	mock_get()->ready = true;
 
-	app_tx_set_api(mock_api());
+	platform = mock_api();
 	app_tx_set_ready(true);
 
 	struct event_snapshot snap = make_snap(0, 2980, 0, 0, 0x01);
@@ -2834,15 +2835,15 @@ static void test_send_snapshot_shares_rate_limit_with_live(void)
 	mock_get()->uptime = 700000;
 	mock_get()->ready = true;
 
-	evse_sensors_set_api(mock_api());
-	thermostat_inputs_set_api(mock_api());
-	charge_control_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
+	platform = mock_api();
 	charge_control_init();
-	charge_now_set_api(mock_api());
+	platform = mock_api();
 	charge_now_init();
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
-	app_tx_set_api(mock_api());
+	platform = mock_api();
 	app_tx_set_ready(true);
 
 	/* Live send */
@@ -2982,14 +2983,14 @@ static const uint8_t tag_delay_window[] = {
 static void cmd_auth_test_setup(void)
 {
 	mock_reset();
-	charge_control_set_api(mock_api());
+	platform = mock_api();
 	charge_control_init();
-	app_rx_set_api(mock_api());
-	delay_window_set_api(mock_api());
+	platform = mock_api();
+	platform = mock_api();
 	delay_window_init();
-	time_sync_set_api(mock_api());
+	platform = mock_api();
 	time_sync_init();
-	charge_now_set_api(mock_api());
+	platform = mock_api();
 	charge_now_init();
 	cmd_auth_set_key(test_auth_key, CMD_AUTH_KEY_SIZE);
 }

@@ -13,8 +13,6 @@
 extern "C" {
 #endif
 
-struct platform_api;  /* forward declaration */
-
 #define CHARGE_CONTROL_CMD_TYPE 0x10
 
 typedef struct __attribute__((packed)) {
@@ -29,7 +27,6 @@ typedef struct {
 	int64_t pause_timestamp_ms;
 } charge_control_state_t;
 
-void charge_control_set_api(const struct platform_api *platform);
 int charge_control_init(void);
 int charge_control_process_cmd(const uint8_t *data, size_t len);
 /* Transition reason codes — why did charge_allowed change? */

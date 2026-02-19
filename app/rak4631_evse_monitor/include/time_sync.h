@@ -19,8 +19,6 @@
 extern "C" {
 #endif
 
-struct platform_api;  /* forward declaration */
-
 /* Command type for TIME_SYNC downlink */
 #define TIME_SYNC_CMD_TYPE  0x30
 
@@ -35,11 +33,6 @@ struct platform_api;  /* forward declaration */
  * Call once during app_init().
  */
 void time_sync_init(void);
-
-/**
- * Set the platform API pointer. Call once during app_init().
- */
-void time_sync_set_api(const struct platform_api *platform);
 
 /**
  * Process a TIME_SYNC downlink (cmd type 0x30).

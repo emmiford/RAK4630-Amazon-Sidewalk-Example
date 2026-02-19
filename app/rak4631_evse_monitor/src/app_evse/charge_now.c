@@ -9,16 +9,10 @@
 #include <delay_window.h>
 #include <led_engine.h>
 #include <evse_sensors.h>
-#include <platform_api.h>
+#include <app_platform.h>
 
-static const struct platform_api *api;
 static bool active;
 static uint32_t start_ms;
-
-void charge_now_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
 
 void charge_now_init(void)
 {
@@ -28,12 +22,12 @@ void charge_now_init(void)
 
 void charge_now_activate(void)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 
 	active = true;
-	start_ms = api->uptime_ms();
+	start_ms = platform->uptime_ms();
 
 	/* Force charging on */
 	charge_control_set_with_reason(true, 0, TRANSITION_REASON_CHARGE_NOW);
@@ -45,7 +39,7 @@ void charge_now_activate(void)
 	led_engine_button_ack();
 	led_engine_set_charge_now_override(true);
 
-	api->log_inf("Charge Now: activated (30 min)");
+	platform->log_inf("Charge Now: activated (30 min)");
 }
 
 void charge_now_cancel(void)
@@ -57,28 +51,28 @@ void charge_now_cancel(void)
 	active = false;
 	led_engine_set_charge_now_override(false);
 
-	if (api) {
-		api->log_inf("Charge Now: cancelled");
+	if (platform) {
+		platform->log_inf("Charge Now: cancelled");
 	}
 }
 
 void charge_now_tick(uint8_t j1772_state)
 {
-	if (!active || !api) {
+	if (!active || !platform) {
 		return;
 	}
 
 	/* Check 30-minute expiry */
-	uint32_t elapsed = api->uptime_ms() - start_ms;
+	uint32_t elapsed = platform->uptime_ms() - start_ms;
 	if (elapsed >= CHARGE_NOW_DURATION_MS) {
-		api->log_inf("Charge Now: expired after 30 min");
+		platform->log_inf("Charge Now: expired after 30 min");
 		charge_now_cancel();
 		return;
 	}
 
 	/* Unplug cancels latch (J1772 state A = 0) */
 	if (j1772_state == (uint8_t)J1772_STATE_A) {
-		api->log_inf("Charge Now: cancelled (vehicle unplugged)");
+		platform->log_inf("Charge Now: cancelled (vehicle unplugged)");
 		charge_now_cancel();
 	}
 }

@@ -18,8 +18,6 @@
 extern "C" {
 #endif
 
-struct platform_api;  /* forward declaration */
-
 /* Fault flag bits for uplink byte 7, bits 4-7 */
 #define FAULT_SENSOR     0x10   /* ADC/GPIO read failure or pilot out-of-range */
 #define FAULT_CLAMP      0x20   /* Current vs. J1772 state disagreement */
@@ -34,7 +32,6 @@ typedef struct {
     bool all_pass;
 } selftest_boot_result_t;
 
-void    selftest_set_api(const struct platform_api *api);
 void    selftest_reset(void);                           /* clear all state (for testing) */
 int     selftest_boot(selftest_boot_result_t *result);  /* <100ms, returns 0=pass -1=fail */
 void    selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,

@@ -20,8 +20,6 @@
 extern "C" {
 #endif
 
-struct platform_api;
-
 /* Priority levels (0 = highest) */
 typedef enum {
 	LED_PRI_ERROR        = 0,  /* 5Hz fast blink */
@@ -41,7 +39,6 @@ typedef enum {
 #define LED_ERROR_THRESHOLD         3        /* consecutive failures before error */
 
 /* Module lifecycle */
-void led_engine_set_api(const struct platform_api *api);
 void led_engine_init(void);
 void led_engine_tick(void);   /* call every 100ms from app_on_timer */
 

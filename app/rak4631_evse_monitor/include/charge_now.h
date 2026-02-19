@@ -21,11 +21,8 @@
 extern "C" {
 #endif
 
-struct platform_api;
-
 #define CHARGE_NOW_DURATION_MS  (30UL * 60 * 1000)  /* 30 minutes */
 
-void charge_now_set_api(const struct platform_api *api);
 void charge_now_init(void);
 void charge_now_activate(void);
 void charge_now_cancel(void);

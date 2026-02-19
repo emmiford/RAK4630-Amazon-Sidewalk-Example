@@ -29,9 +29,6 @@ typedef struct {
 
 typedef evse_payload_t sidewalk_payload_t;
 
-struct platform_api;  /* forward declaration */
-
-void evse_payload_set_api(const struct platform_api *platform);
 evse_payload_t evse_payload_get(void);
 int evse_payload_init(void);
 

@@ -10,7 +10,7 @@
 #include <evse_sensors.h>
 #include <charge_control.h>
 #include <thermostat_inputs.h>
-#include <platform_api.h>
+#include <app_platform.h>
 
 /* GPIO pin indices — must match platform board-level mapping */
 #define EVSE_PIN_CHARGE_EN  0
@@ -28,8 +28,6 @@
 #define J1772_C  2   /* J1772_STATE_C */
 #define J1772_UNKNOWN 6  /* J1772_STATE_UNKNOWN */
 
-static const struct platform_api *api;
-
 /* Module state (~85 bytes RAM) */
 static uint8_t fault_flags;
 static uint32_t clamp_mismatch_start;
@@ -43,11 +41,6 @@ static uint8_t cool_toggle_head;
 static uint8_t cool_toggle_count;
 static bool last_cool_call;
 static bool last_charge_allowed;
-
-void selftest_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
 
 void selftest_reset(void)
 {
@@ -67,7 +60,7 @@ void selftest_reset(void)
 
 int selftest_boot(selftest_boot_result_t *result)
 {
-	if (!result || !api) {
+	if (!result || !platform) {
 		return -1;
 	}
 
@@ -78,32 +71,32 @@ int selftest_boot(selftest_boot_result_t *result)
 	result->all_pass = false;
 
 	/* 1. ADC pilot channel readable */
-	result->adc_pilot_ok = (api->adc_read_mv(0) >= 0);
+	result->adc_pilot_ok = (platform->adc_read_mv(0) >= 0);
 
 	/* 2. ADC current channel readable */
-	result->adc_current_ok = (api->adc_read_mv(1) >= 0);
+	result->adc_current_ok = (platform->adc_read_mv(1) >= 0);
 
 	/* 3. GPIO cool input readable */
-	result->gpio_cool_ok = (api->gpio_get(EVSE_PIN_COOL) >= 0);
+	result->gpio_cool_ok = (platform->gpio_get(EVSE_PIN_COOL) >= 0);
 
 	/* 4. Toggle-and-verify on charge enable pin:
 	 *    Save current → set 1 → readback → set 0 → readback → restore */
-	int saved = api->gpio_get(EVSE_PIN_CHARGE_EN);
+	int saved = platform->gpio_get(EVSE_PIN_CHARGE_EN);
 	bool toggle_ok = true;
 
-	api->gpio_set(EVSE_PIN_CHARGE_EN, 1);
-	if (api->gpio_get(EVSE_PIN_CHARGE_EN) != 1) {
+	platform->gpio_set(EVSE_PIN_CHARGE_EN, 1);
+	if (platform->gpio_get(EVSE_PIN_CHARGE_EN) != 1) {
 		toggle_ok = false;
 	}
 
-	api->gpio_set(EVSE_PIN_CHARGE_EN, 0);
-	if (api->gpio_get(EVSE_PIN_CHARGE_EN) != 0) {
+	platform->gpio_set(EVSE_PIN_CHARGE_EN, 0);
+	if (platform->gpio_get(EVSE_PIN_CHARGE_EN) != 0) {
 		toggle_ok = false;
 	}
 
 	/* Restore original state */
 	if (saved >= 0) {
-		api->gpio_set(EVSE_PIN_CHARGE_EN, saved);
+		platform->gpio_set(EVSE_PIN_CHARGE_EN, saved);
 	}
 	result->charge_en_ok = toggle_ok;
 
@@ -116,8 +109,8 @@ int selftest_boot(selftest_boot_result_t *result)
 	if (!result->all_pass) {
 		fault_flags |= FAULT_SELFTEST;
 		/* Brief LED flash to signal boot failure */
-		api->led_set(2, true);
-		api->led_set(2, false);
+		platform->led_set(2, true);
+		platform->led_set(2, false);
 	} else {
 		fault_flags &= ~FAULT_SELFTEST;
 	}
@@ -133,11 +126,11 @@ void selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,
 			      uint16_t current_ma, bool charge_allowed,
 			      uint8_t thermostat_flags)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 
-	uint32_t now = api->uptime_ms();
+	uint32_t now = platform->uptime_ms();
 	bool cool_call = (thermostat_flags & 0x02) != 0;
 
 	/* --- Clamp mismatch: State C + no current, OR not-C + current --- */
@@ -231,7 +224,7 @@ uint8_t selftest_get_fault_flags(void)
 int selftest_run_shell(void (*print)(const char *, ...),
 		       void (*error)(const char *, ...))
 {
-	if (!api || !print || !error) {
+	if (!platform || !print || !error) {
 		return -1;
 	}
 

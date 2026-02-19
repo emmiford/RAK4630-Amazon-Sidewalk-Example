@@ -7,20 +7,13 @@
  */
 
 #include <diag_request.h>
-#include <platform_api.h>
+#include <app_platform.h>
 #include <selftest.h>
 #include <charge_control.h>
 #include <time_sync.h>
 #include <event_buffer.h>
 #include <app_tx.h>
 #include <string.h>
-
-static const struct platform_api *api;
-
-void diag_request_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
 
 uint8_t diag_request_get_error_code(void)
 {
@@ -81,11 +74,11 @@ uint8_t diag_request_get_state_flags(void)
 
 int diag_request_build_response(uint8_t *buf)
 {
-	if (!buf || !api) {
+	if (!buf || !platform) {
 		return -1;
 	}
 
-	uint32_t uptime_s = api->uptime_ms() / 1000;
+	uint32_t uptime_s = platform->uptime_ms() / 1000;
 	uint16_t app_ver = APP_CALLBACK_VERSION;
 	uint16_t boot_count = 0;  /* No persistent storage yet (future) */
 	uint8_t error_code = diag_request_get_error_code();
@@ -112,7 +105,7 @@ int diag_request_build_response(uint8_t *buf)
 
 int diag_request_process_cmd(const uint8_t *data, size_t len)
 {
-	if (!data || len < 1 || !api) {
+	if (!data || len < 1 || !platform) {
 		return -1;
 	}
 
@@ -120,19 +113,19 @@ int diag_request_process_cmd(const uint8_t *data, size_t len)
 		return -1;
 	}
 
-	api->log_inf("Diagnostics request received, sending 0xE6 response");
+	platform->log_inf("Diagnostics request received, sending 0xE6 response");
 
 	uint8_t response[DIAG_PAYLOAD_SIZE];
 	int ret = diag_request_build_response(response);
 	if (ret < 0) {
-		api->log_err("Failed to build diagnostics response");
+		platform->log_err("Failed to build diagnostics response");
 		return ret;
 	}
 
-	api->log_inf("DIAG TX: ver=%d, uptime=%us, err=%d, flags=0x%02x, pending=%d",
+	platform->log_inf("DIAG TX: ver=%d, uptime=%us, err=%d, flags=0x%02x, pending=%d",
 		     APP_CALLBACK_VERSION,
 		     (response[4] | (response[5] << 8) | (response[6] << 16) | (response[7] << 24)),
 		     response[10], response[11], response[12]);
 
-	return api->send_msg(response, DIAG_PAYLOAD_SIZE);
+	return platform->send_msg(response, DIAG_PAYLOAD_SIZE);
 }

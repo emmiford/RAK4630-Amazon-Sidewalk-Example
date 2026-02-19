@@ -87,6 +87,7 @@ include_directories(
 
 # App source files
 set(APP_SOURCES
+    ${APP_SRC}/app_platform.c
     ${APP_SRC}/app_entry.c
     ${APP_SRC}/evse_sensors.c
     ${APP_SRC}/charge_control.c

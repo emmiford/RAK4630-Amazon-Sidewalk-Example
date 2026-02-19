@@ -5,17 +5,10 @@
  */
 
 #include <thermostat_inputs.h>
-#include <platform_api.h>
+#include <app_platform.h>
 
 /* GPIO pin indices — must match platform board-level mapping */
 #define EVSE_PIN_COOL   2
-
-static const struct platform_api *api;
-
-void thermostat_inputs_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
 
 int thermostat_inputs_init(void)
 {
@@ -25,10 +18,10 @@ int thermostat_inputs_init(void)
 
 bool thermostat_cool_call_get(void)
 {
-	if (!api) {
+	if (!platform) {
 		return false;
 	}
-	int val = api->gpio_get(EVSE_PIN_COOL);
+	int val = platform->gpio_get(EVSE_PIN_COOL);
 	return (val > 0);
 }
 

@@ -12,8 +12,6 @@
 extern "C" {
 #endif
 
-struct platform_api;  /* forward declaration */
-
 typedef enum {
     J1772_STATE_A = 0,      /* Not connected (+12V) */
     J1772_STATE_B,          /* Connected, not ready (+9V) */
@@ -24,7 +22,6 @@ typedef enum {
     J1772_STATE_UNKNOWN
 } j1772_state_t;
 
-void evse_sensors_set_api(const struct platform_api *platform);
 int evse_sensors_init(void);
 int evse_pilot_voltage_read(uint16_t *voltage_mv);
 int evse_j1772_state_get(j1772_state_t *state, uint16_t *voltage_mv);

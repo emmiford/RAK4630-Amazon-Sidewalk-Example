@@ -5,7 +5,7 @@
  */
 
 #include "evse_sensors.h"
-#include <platform_api.h>
+#include <app_platform.h>
 #include <string.h>
 
 /* ADC channel indices (match platform devicetree order) */
@@ -22,33 +22,26 @@
 #define CURRENT_CLAMP_MAX_MA        30000
 #define CURRENT_CLAMP_VOLTAGE_MV    3300
 
-static const struct platform_api *api;
-
 /* Simulation mode state */
 static bool simulation_active;
 static j1772_state_t simulated_state;
 static uint32_t simulation_end_ms;
 
-void evse_sensors_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
-
 int evse_sensors_init(void)
 {
 	/* No init needed — platform owns the ADC hardware */
-	if (api) {
-		api->log_inf("EVSE sensors ready (platform ADC)");
+	if (platform) {
+		platform->log_inf("EVSE sensors ready (platform ADC)");
 	}
 	return 0;
 }
 
 int evse_pilot_voltage_read(uint16_t *voltage_mv)
 {
-	if (!voltage_mv || !api) {
+	if (!voltage_mv || !platform) {
 		return -1;
 	}
-	int mv = api->adc_read_mv(ADC_CHANNEL_PILOT);
+	int mv = platform->adc_read_mv(ADC_CHANNEL_PILOT);
 	if (mv < 0) {
 		return mv;
 	}
@@ -58,15 +51,15 @@ int evse_pilot_voltage_read(uint16_t *voltage_mv)
 
 int evse_j1772_state_get(j1772_state_t *state, uint16_t *voltage_mv)
 {
-	if (!state || !api) {
+	if (!state || !platform) {
 		return -1;
 	}
 
 	/* Check simulation mode */
 	if (simulation_active) {
-		if (api->uptime_ms() >= simulation_end_ms) {
+		if (platform->uptime_ms() >= simulation_end_ms) {
 			simulation_active = false;
-			api->log_inf("Simulation expired, returning to real sensors");
+			platform->log_inf("Simulation expired, returning to real sensors");
 		} else {
 			*state = simulated_state;
 			static const uint16_t state_voltages[] = {
@@ -107,11 +100,11 @@ int evse_j1772_state_get(j1772_state_t *state, uint16_t *voltage_mv)
 
 int evse_current_read(uint16_t *current_ma)
 {
-	if (!current_ma || !api) {
+	if (!current_ma || !platform) {
 		return -1;
 	}
 
-	int mv = api->adc_read_mv(ADC_CHANNEL_CURRENT);
+	int mv = platform->adc_read_mv(ADC_CHANNEL_CURRENT);
 	if (mv < 0) {
 		return mv;
 	}
@@ -136,26 +129,26 @@ const char *j1772_state_to_string(j1772_state_t state)
 
 void evse_sensors_simulate_state(uint8_t j1772_state, uint32_t duration_ms)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 
 	if (duration_ms == 0) {
 		simulation_active = false;
-		api->log_inf("Simulation cancelled");
+		platform->log_inf("Simulation cancelled");
 		return;
 	}
 
 	if (j1772_state > J1772_STATE_F) {
-		api->log_err("Invalid J1772 state: %d", j1772_state);
+		platform->log_err("Invalid J1772 state: %d", j1772_state);
 		return;
 	}
 
 	simulated_state = (j1772_state_t)j1772_state;
 	simulation_active = true;
-	simulation_end_ms = api->uptime_ms() + duration_ms;
+	simulation_end_ms = platform->uptime_ms() + duration_ms;
 
-	api->log_inf("Simulating J1772 state %c for %u ms",
+	platform->log_inf("Simulating J1772 state %c for %u ms",
 		     'A' + j1772_state, duration_ms);
 }
 

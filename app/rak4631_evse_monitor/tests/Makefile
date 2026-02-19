@@ -18,6 +18,7 @@ APP_SRC = ../src/app_evse
 SRCS = \
     test_app.c \
     mock_platform.c \
+    $(APP_SRC)/app_platform.c \
     $(APP_SRC)/app_entry.c \
     $(APP_SRC)/evse_sensors.c \
     $(APP_SRC)/charge_control.c \

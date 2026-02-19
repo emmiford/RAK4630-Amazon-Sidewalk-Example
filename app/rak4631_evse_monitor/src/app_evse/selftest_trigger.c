@@ -13,10 +13,9 @@
 #include <selftest_trigger.h>
 #include <selftest.h>
 #include <charge_now.h>
-#include <platform_api.h>
+#include <app_platform.h>
 #include <string.h>
 
-static const struct platform_api *api;
 static selftest_send_fn send_fn;
 
 /* ------------------------------------------------------------------ */
@@ -53,15 +52,6 @@ static int green_end_tick;
 static int red_start_tick;
 static int total_blink_ticks;
 static bool send_pending;
-
-/* ------------------------------------------------------------------ */
-/*  API setup                                                          */
-/* ------------------------------------------------------------------ */
-
-void selftest_trigger_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
 
 void selftest_trigger_set_send_fn(selftest_send_fn fn)
 {
@@ -134,8 +124,8 @@ static void start_selftest(void)
 	blink_tick = 0;
 	state = TRIG_BLINKING;
 
-	if (api) {
-		api->log_inf("Self-test triggered: %d pass, %d fail",
+	if (platform) {
+		platform->log_inf("Self-test triggered: %d pass, %d fail",
 			     passed_count, failed_count);
 	}
 }
@@ -146,12 +136,12 @@ static void start_selftest(void)
 
 static void poll_button(void)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 
-	bool pressed = (api->gpio_get(EVSE_PIN_BUTTON) == 1);
-	uint32_t now = api->uptime_ms();
+	bool pressed = (platform->gpio_get(EVSE_PIN_BUTTON) == 1);
+	uint32_t now = platform->uptime_ms();
 
 	/* Rising edge — new press */
 	if (pressed && !last_button_pressed) {
@@ -223,27 +213,27 @@ static void poll_button(void)
 
 static void drive_blinks(void)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 
 	if (blink_tick < green_end_tick) {
 		/* Green phase: even ticks = ON, odd ticks = OFF */
 		bool on = (blink_tick % 2 == 0);
-		api->led_set(LED_GREEN, on);
+		platform->led_set(LED_GREEN, on);
 	} else if (blink_tick < red_start_tick) {
 		/* Pause phase: all LEDs off */
-		api->led_set(LED_GREEN, false);
-		api->led_set(LED_RED, false);
+		platform->led_set(LED_GREEN, false);
+		platform->led_set(LED_RED, false);
 	} else if (blink_tick < total_blink_ticks) {
 		/* Red phase: even offset ticks = ON, odd = OFF */
 		int rt = blink_tick - red_start_tick;
 		bool on = (rt % 2 == 0);
-		api->led_set(LED_RED, on);
+		platform->led_set(LED_RED, on);
 	} else {
 		/* Done */
-		api->led_set(LED_GREEN, false);
-		api->led_set(LED_RED, false);
+		platform->led_set(LED_GREEN, false);
+		platform->led_set(LED_RED, false);
 
 		if (send_pending && send_fn) {
 			send_fn();
@@ -263,7 +253,7 @@ static void drive_blinks(void)
 
 void selftest_trigger_tick(void)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 

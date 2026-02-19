@@ -8,7 +8,7 @@
 #include <charge_control.h>
 #include <charge_now.h>
 #include <time_sync.h>
-#include <platform_api.h>
+#include <app_platform.h>
 #include <string.h>
 
 /* EVSE payload format constants */
@@ -23,22 +23,22 @@
 /* Minimum interval between uplinks to avoid flooding on rapid state changes */
 #define MIN_SEND_INTERVAL_MS  5000
 
-static const struct platform_api *api;
 static bool sidewalk_ready;
 static uint32_t last_link_mask;
 static uint32_t last_send_ms;
 
-void app_tx_set_api(const struct platform_api *platform)
+void app_tx_init(void)
 {
-	api = platform;
+	sidewalk_ready = false;
+	last_link_mask = 0;
 	last_send_ms = 0;
 }
 
 void app_tx_set_ready(bool ready)
 {
 	sidewalk_ready = ready;
-	if (api) {
-		api->log_inf("Sidewalk %s", ready ? "READY" : "NOT READY");
+	if (platform) {
+		platform->log_inf("Sidewalk %s", ready ? "READY" : "NOT READY");
 	}
 }
 
@@ -61,19 +61,19 @@ uint32_t app_tx_get_link_mask(void)
 
 int app_tx_send_evse_data(void)
 {
-	if (!api) {
+	if (!platform) {
 		return -1;
 	}
 
-	if (!api->is_ready()) {
-		api->log_wrn("Sidewalk not ready, skipping send");
+	if (!platform->is_ready()) {
+		platform->log_wrn("Sidewalk not ready, skipping send");
 		return -1;
 	}
 
 	/* Rate limit: don't send more often than every 5s */
-	uint32_t now = api->uptime_ms();
+	uint32_t now = platform->uptime_ms();
 	if (last_send_ms && (now - last_send_ms) < MIN_SEND_INTERVAL_MS) {
-		api->log_inf("TX rate-limited, skipping");
+		platform->log_inf("TX rate-limited, skipping");
 		return 0;
 	}
 
@@ -112,12 +112,12 @@ int app_tx_send_evse_data(void)
 		reason,
 	};
 
-	api->log_inf("EVSE TX v%02x: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u, reason=%d",
+	platform->log_inf("EVSE TX v%02x: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u, reason=%d",
 		     EVSE_VERSION, data.j1772_state, data.j1772_mv, data.current_ma,
 		     flags, timestamp, reason);
 
 	last_send_ms = now;
-	return api->send_msg(payload, sizeof(payload));
+	return platform->send_msg(payload, sizeof(payload));
 }
 
 /**
@@ -129,16 +129,16 @@ int app_tx_send_evse_data(void)
  */
 int app_tx_send_snapshot(const struct event_snapshot *snap)
 {
-	if (!api || !snap) {
+	if (!platform || !snap) {
 		return -1;
 	}
 
-	if (!api->is_ready()) {
+	if (!platform->is_ready()) {
 		return -1;
 	}
 
 	/* Shared rate limit with send_evse_data */
-	uint32_t now = api->uptime_ms();
+	uint32_t now = platform->uptime_ms();
 	if (last_send_ms && (now - last_send_ms) < MIN_SEND_INTERVAL_MS) {
 		return 0;
 	}
@@ -165,9 +165,9 @@ int app_tx_send_snapshot(const struct event_snapshot *snap)
 		snap->transition_reason,
 	};
 
-	api->log_inf("EVSE TX buffered: state=%d, ts=%u, reason=%d",
+	platform->log_inf("EVSE TX buffered: state=%d, ts=%u, reason=%d",
 		     snap->j1772_state, snap->timestamp, snap->transition_reason);
 
 	last_send_ms = now;
-	return (api->send_msg(payload, sizeof(payload)) == 0) ? 1 : -1;
+	return (platform->send_msg(payload, sizeof(payload)) == 0) ? 1 : -1;
 }

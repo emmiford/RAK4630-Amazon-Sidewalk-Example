@@ -11,6 +11,7 @@
  */
 
 #include <platform_api.h>
+#include <app_platform.h>
 #include <evse_sensors.h>
 #include <charge_control.h>
 #include <charge_now.h>
@@ -28,8 +29,6 @@
 #include <event_filter.h>
 #include <led_engine.h>
 #include <string.h>
-
-static const struct platform_api *api;
 
 /* ------------------------------------------------------------------ */
 /*  Polling and change detection                                       */
@@ -102,23 +101,9 @@ static int shell_hvac_status(void (*print)(const char *, ...), void (*error)(con
 /*  Callback implementations                                          */
 /* ------------------------------------------------------------------ */
 
-static int app_init(const struct platform_api *platform)
+static int app_init(const struct platform_api *api)
 {
-	api = platform;
-
-	/* Pass API to all app modules */
-	evse_sensors_set_api(api);
-	charge_control_set_api(api);
-	thermostat_inputs_set_api(api);
-	evse_payload_set_api(api);
-	app_tx_set_api(api);
-	app_rx_set_api(api);
-	delay_window_set_api(api);
-	diag_request_set_api(api);
-	selftest_set_api(api);
-	selftest_trigger_set_api(api);
-	time_sync_set_api(api);
-	charge_now_set_api(api);
+	platform = api;
 
 	/* Command authentication: call cmd_auth_set_key() with a 32-byte
 	 * HMAC key to enable signed downlink verification. When no key is
@@ -141,21 +126,21 @@ static int app_init(const struct platform_api *platform)
 	event_buffer_init();
 	event_filter_init();
 	charge_now_init();
+	app_tx_init();
 	selftest_trigger_set_send_fn(app_tx_send_evse_data);
 	selftest_trigger_init();
-	led_engine_set_api(api);
 	led_engine_init();
 
 	/* Boot self-test (reset first — split-image arch has no C runtime BSS init) */
 	selftest_reset();
 	selftest_boot_result_t st_result;
 	if (selftest_boot(&st_result) != 0) {
-		api->log_err("Boot self-test FAILED (flags=0x%02x)",
+		platform->log_err("Boot self-test FAILED (flags=0x%02x)",
 			     selftest_get_fault_flags());
 	}
 
 	/* Request 500ms poll interval from platform */
-	api->set_timer_interval(POLL_INTERVAL_MS);
+	platform->set_timer_interval(POLL_INTERVAL_MS);
 
 	/* Read initial sensor state */
 	uint16_t mv = 0;
@@ -167,13 +152,13 @@ static int app_init(const struct platform_api *platform)
 	}
 
 	last_thermostat_flags = thermostat_flags_get();
-	last_heartbeat_ms = api->uptime_ms();
+	last_heartbeat_ms = platform->uptime_ms();
 	decimation_counter = 0;
 	drain_active = false;
 	drain_cursor = 0;
 	drain_oldest_ts = 0;
 
-	api->log_inf("App initialized (EVSE monitor v2, poll=%dms)", POLL_INTERVAL_MS);
+	platform->log_inf("App initialized (EVSE monitor v2, poll=%dms)", POLL_INTERVAL_MS);
 	return 0;
 }
 
@@ -189,22 +174,22 @@ static void app_on_msg_received(const uint8_t *data, size_t len)
 
 static void app_on_msg_sent(uint32_t msg_id)
 {
-	if (api) {
-		api->log_inf("Message %u sent OK", msg_id);
+	if (platform) {
+		platform->log_inf("Message %u sent OK", msg_id);
 	}
 	led_engine_notify_uplink_sent();
 }
 
 static void app_on_send_error(uint32_t msg_id, int error)
 {
-	if (api) {
-		api->log_err("Message %u send error: %d", msg_id, error);
+	if (platform) {
+		platform->log_err("Message %u send error: %d", msg_id, error);
 	}
 }
 
 static void app_on_timer(void)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 
@@ -234,7 +219,7 @@ static void app_on_timer(void)
 	led_engine_report_adc_result(adc_ret == 0);
 	if (adc_ret == 0) {
 		if (state != last_j1772_state) {
-			api->log_inf("J1772: %s -> %s (%d mV)",
+			platform->log_inf("J1772: %s -> %s (%d mV)",
 				     j1772_state_to_string(last_j1772_state),
 				     j1772_state_to_string(state), voltage_mv);
 			last_j1772_state = state;
@@ -247,7 +232,7 @@ static void app_on_timer(void)
 	if (evse_current_read(&current_ma) == 0) {
 		bool current_on = (current_ma >= CURRENT_ON_THRESHOLD_MA);
 		if (current_on != last_current_on) {
-			api->log_inf("Current: %s (%d mA)",
+			platform->log_inf("Current: %s (%d mA)",
 				     current_on ? "ON" : "OFF", current_ma);
 			last_current_on = current_on;
 			changed = true;
@@ -257,7 +242,7 @@ static void app_on_timer(void)
 	/* Thermostat inputs */
 	uint8_t flags = thermostat_flags_get();
 	if (flags != last_thermostat_flags) {
-		api->log_inf("Thermostat: cool=%d", (flags & 0x02) ? 1 : 0);
+		platform->log_inf("Thermostat: cool=%d", (flags & 0x02) ? 1 : 0);
 		last_thermostat_flags = flags;
 		changed = true;
 	}
@@ -274,7 +259,7 @@ static void app_on_timer(void)
 					? EVENT_FLAG_CHARGE_ALLOWED : 0,
 			.transition_reason = charge_control_get_last_reason(),
 		};
-		event_filter_submit(&snap, api->uptime_ms());
+		event_filter_submit(&snap, platform->uptime_ms());
 		charge_control_clear_last_reason();
 	}
 
@@ -286,7 +271,7 @@ static void app_on_timer(void)
 				charge_control_is_allowed(), flags);
 
 	/* --- Send on change or heartbeat --- */
-	uint32_t now = api->uptime_ms();
+	uint32_t now = platform->uptime_ms();
 	bool heartbeat_due = !last_heartbeat_ms ||
 			     (now - last_heartbeat_ms) >= HEARTBEAT_INTERVAL_MS;
 

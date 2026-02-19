@@ -18,8 +18,6 @@
 extern "C" {
 #endif
 
-struct platform_api;  /* forward declaration */
-
 /* Command type for diagnostics request downlink */
 #define DIAG_REQUEST_CMD_TYPE  0x40
 
@@ -43,11 +41,6 @@ struct platform_api;  /* forward declaration */
 #define DIAG_ERR_CLAMP      2
 #define DIAG_ERR_INTERLOCK  3
 #define DIAG_ERR_SELFTEST   4
-
-/**
- * Set the platform API pointer. Call once during app_init().
- */
-void diag_request_set_api(const struct platform_api *platform);
 
 /**
  * Process a diagnostics request downlink (cmd type 0x40).

@@ -12,7 +12,7 @@
 #include <evse_sensors.h>
 #include <charge_control.h>
 #include <thermostat_inputs.h>
-#include <platform_api.h>
+#include <app_platform.h>
 
 /* ------------------------------------------------------------------ */
 /*  Pattern table                                                      */
@@ -94,8 +94,6 @@ static const struct blink_pattern *patterns[LED_PRI_COUNT] = {
 /*  Module state                                                       */
 /* ------------------------------------------------------------------ */
 
-static const struct platform_api *api;
-
 /* Pattern playback */
 static led_priority_t active_priority;
 static uint8_t step_index;
@@ -170,7 +168,7 @@ static bool has_commissioning(void)
 	}
 
 	/* Exit on timeout */
-	if (api && api->uptime_ms() >= LED_COMMISSION_TIMEOUT_MS) {
+	if (platform && platform->uptime_ms() >= LED_COMMISSION_TIMEOUT_MS) {
 		commissioning_active = false;
 		return false;
 	}
@@ -184,7 +182,7 @@ static bool has_disconnected(void)
 	if (commissioning_active) {
 		return false;
 	}
-	return api && !api->is_ready();
+	return platform && !platform->is_ready();
 }
 
 static bool has_charge_now(void)
@@ -246,11 +244,6 @@ static const struct blink_step ack_pattern[ACK_STEPS] = {
 /*  Public API                                                         */
 /* ------------------------------------------------------------------ */
 
-void led_engine_set_api(const struct platform_api *platform)
-{
-	api = platform;
-}
-
 void led_engine_init(void)
 {
 	active_priority = LED_PRI_IDLE;
@@ -279,7 +272,7 @@ void led_engine_init(void)
 
 void led_engine_tick(void)
 {
-	if (!api) {
+	if (!platform) {
 		return;
 	}
 
@@ -291,18 +284,18 @@ void led_engine_tick(void)
 	}
 
 	/* Sidewalk timeout tracking: start timer on first tick if not ready */
-	if (!sidewalk_timeout_error && !sidewalk_timeout_started && !api->is_ready()) {
+	if (!sidewalk_timeout_error && !sidewalk_timeout_started && !platform->is_ready()) {
 		sidewalk_timeout_started = true;
-		sidewalk_timeout_start_ms = api->uptime_ms();
+		sidewalk_timeout_start_ms = platform->uptime_ms();
 	}
 	/* Check for sidewalk timeout */
-	if (sidewalk_timeout_started && !sidewalk_timeout_error && !api->is_ready()) {
-		if ((api->uptime_ms() - sidewalk_timeout_start_ms) >= LED_SIDEWALK_TIMEOUT_MS) {
+	if (sidewalk_timeout_started && !sidewalk_timeout_error && !platform->is_ready()) {
+		if ((platform->uptime_ms() - sidewalk_timeout_start_ms) >= LED_SIDEWALK_TIMEOUT_MS) {
 			sidewalk_timeout_error = true;
 		}
 	}
 	/* Clear sidewalk timeout when connected */
-	if (sidewalk_timeout_error && api->is_ready()) {
+	if (sidewalk_timeout_error && platform->is_ready()) {
 		sidewalk_timeout_error = false;
 		sidewalk_timeout_started = false;
 	}
@@ -315,7 +308,7 @@ void led_engine_tick(void)
 			if (ack_remaining == 0) {
 				ack_remaining = ack_pattern[ack_step].duration;
 			}
-			api->led_set(LED_GREEN, ack_pattern[ack_step].on);
+			platform->led_set(LED_GREEN, ack_pattern[ack_step].on);
 			ack_remaining--;
 			if (ack_remaining == 0) {
 				ack_step++;
@@ -345,7 +338,7 @@ void led_engine_tick(void)
 	}
 
 	/* Drive LED */
-	api->led_set(LED_GREEN, pat->steps[step_index].on);
+	platform->led_set(LED_GREEN, pat->steps[step_index].on);
 
 	/* Advance */
 	remaining--;

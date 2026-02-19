@@ -21,15 +21,12 @@
 extern "C" {
 #endif
 
-struct platform_api;  /* forward declaration */
-
 /* Subtype byte in charge control downlink (0x10) */
 #define DELAY_WINDOW_SUBTYPE        0x02
 
 /* Delay window payload: cmd(1) + subtype(1) + start(4) + end(4) = 10 bytes */
 #define DELAY_WINDOW_PAYLOAD_SIZE   10
 
-void delay_window_set_api(const struct platform_api *platform);
 void delay_window_init(void);
 
 /**
