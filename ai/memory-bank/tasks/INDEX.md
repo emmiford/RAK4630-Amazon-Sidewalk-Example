@@ -24,13 +24,12 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (18)
+## Open Tasks (17)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-065 | reopened | Eliel | AC-priority software interlock + charge_block rename (incomplete) | — |
-| TASK-092 | not started | Eliel | BUG: J1772 state enum mismatch between firmware and Lambda | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -56,7 +55,7 @@ Special: deferred, declined
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (73)
+## Completed Tasks (74)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-032 | Cloud command authentication (HMAC-SHA256) | MERGED DONE | 2026-02-19 | Eliel |
@@ -133,6 +132,7 @@ Special: deferred, declined
 | TASK-090 | Codebase streamlining — test consolidation, LOG macros, DRY constants | MERGED DONE | 2026-02-19 | Eliel+Utz+Eero |
 | TASK-078 | Implement daily aggregation Lambda | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-091 | Documentation sync — PRD, TDD, commissioning card, project plan | MERGED DONE | 2026-02-19 | Pam+Eliel+Utz |
+| TASK-092 | BUG: J1772 state enum mismatch between firmware and Lambda | MERGED DONE | 2026-02-19 | Eliel |
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
