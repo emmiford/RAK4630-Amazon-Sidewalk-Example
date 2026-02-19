@@ -1,6 +1,6 @@
 # TASK-064: Cloud Charge Now protocol — detection, opt-out guard, heartbeat
 
-**Status**: in progress (2026-02-17, Eliel)
+**Status**: MERGED DONE (2026-02-18, Eliel)
 **Priority**: P2
 **Owner**: Eliel
 **Branch**: task/064-charge-now-protocol

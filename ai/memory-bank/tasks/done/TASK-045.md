@@ -1,6 +1,6 @@
 # TASK-045: Integrate real ED25519 verify library into platform firmware
 
-**Status**: committed (2026-02-17, Eliel)
+**Status**: MERGED DONE (2026-02-17, Eliel)
 **Priority**: P1
 **Owner**: Eliel
 **Branch**: `task/045-ed25519-verify-lib`

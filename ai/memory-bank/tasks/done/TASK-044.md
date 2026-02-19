@@ -1,6 +1,6 @@
 # TASK-044: PRD update — add commissioning sections, update wiring to G = earth ground
 
-**Status**: done (2026-02-16, Pam)
+**Status**: MERGED DONE (2026-02-16, Pam)
 **Priority**: P1
 **Owner**: Pam
 **Branch**: `task/044-prd-commissioning`

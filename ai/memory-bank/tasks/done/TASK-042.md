@@ -1,6 +1,6 @@
 # TASK-042: Privacy agent — find/assign privacy/legal agent, draft policy, CCPA review
 
-**Status**: committed (2026-02-17, Pam)
+**Status**: MERGED DONE (2026-02-17, Pam)
 **Priority**: P2
 **Owner**: Pam
 **Branch**: `task/038-data-privacy`

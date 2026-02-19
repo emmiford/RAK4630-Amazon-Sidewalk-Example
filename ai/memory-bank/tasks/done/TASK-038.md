@@ -1,6 +1,6 @@
 # TASK-038: Data privacy — privacy policy, retention rules, and CCPA compliance review
 
-**Status**: committed (2026-02-17, Pam)
+**Status**: MERGED DONE (2026-02-17, Pam)
 **Priority**: P2
 **Owner**: Pam
 **Branch**: `task/038-data-privacy`

@@ -1,6 +1,6 @@
 # TASK-023: BUG — PSA crypto AEAD error -149 after platform re-flash
 
-**Status**: done (2026-02-17, Eliel — verified: Eero)
+**Status**: MERGED DONE (2026-02-17, Eliel — verified: Eero)
 **Priority**: P1
 **Owner**: Eliel
 **Branch**: `task/023-psa-crypto-149`

@@ -1,6 +1,6 @@
 # TASK-073: Automate remote diagnostic queries from health digest
 
-**Status**: committed (2026-02-17, Eliel)
+**Status**: MERGED DONE (2026-02-17, Eliel)
 **Priority**: P2
 **Owner**: Eliel
 **Branch**: task/073-auto-diag-queries
