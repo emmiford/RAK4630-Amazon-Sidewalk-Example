@@ -417,7 +417,7 @@ Different audiences need different language for the same concepts. Here is the m
 | The AC system | Air conditioning, AC | HVAC compressor contactor |
 | Connectivity | Connected over a free neighborhood network | Amazon Sidewalk LoRa 915MHz |
 | Charging paused | Charging paused -- your AC needed the circuit | State transition: interlock engaged, cool call active |
-| Charging resumed | Charging resumed | Charge enable GPIO set HIGH |
+| Charging resumed | Charging resumed | Charge block GPIO set LOW (not blocking) |
 | Savings | No panel upgrade needed (saves $2,400+) | NEC 220.60 noncoincident load calculation |
 | Override button | Charge Now button | Charge Now override with 30-minute AC call block |
 | Update | Your SideCharge just got smarter | Delta OTA app binary update via Sidewalk LoRa |

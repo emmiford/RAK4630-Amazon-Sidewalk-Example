@@ -11,7 +11,7 @@
 #include <string.h>
 
 /* GPIO pin index — must match platform board-level mapping */
-#define EVSE_PIN_CHARGE_EN  0
+#define EVSE_PIN_CHARGE_BLOCK  0
 
 /* Current state */
 static charge_control_state_t current_state = {
@@ -31,9 +31,10 @@ int charge_control_init(void)
 	current_state.pause_timestamp_ms = 0;
 	last_transition_reason = TRANSITION_REASON_NONE;
 
-	/* Platform owns GPIO init — just set default state */
+	/* Platform owns GPIO init — default = not blocking (EVSE allowed).
+	 * charge_block HIGH = blocking, LOW = not blocking. */
 	if (platform) {
-		platform->gpio_set(EVSE_PIN_CHARGE_EN, 1);
+		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
 	}
 	LOG_INF("Charge control initialized");
 	return 0;
@@ -84,7 +85,7 @@ void charge_control_set_with_reason(bool allowed, uint16_t auto_resume_min,
 	}
 
 	if (platform) {
-		platform->gpio_set(EVSE_PIN_CHARGE_EN, allowed ? 1 : 0);
+		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, allowed ? 0 : 1);
 	}
 	LOG_INF("Charge control: %s%s",
 		allowed ? "ALLOW" : "PAUSE",
@@ -140,7 +141,7 @@ void charge_control_tick(void)
 					current_state.charging_allowed = true;
 					current_state.auto_resume_min = 0;
 					current_state.pause_timestamp_ms = 0;
-					platform->gpio_set(EVSE_PIN_CHARGE_EN, 1);
+					platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
 				}
 				delay_window_clear();
 			} else if (now >= start && current_state.charging_allowed) {
@@ -148,7 +149,7 @@ void charge_control_tick(void)
 				platform->log_inf("Delay window active, pausing");
 				last_transition_reason = TRANSITION_REASON_DELAY_WINDOW;
 				current_state.charging_allowed = false;
-				platform->gpio_set(EVSE_PIN_CHARGE_EN, 0);
+				platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
 			}
 			return;  /* Delay window controls state — skip auto-resume */
 		}
@@ -169,7 +170,7 @@ void charge_control_tick(void)
 			current_state.charging_allowed = true;
 			current_state.auto_resume_min = 0;
 			current_state.pause_timestamp_ms = 0;
-			platform->gpio_set(EVSE_PIN_CHARGE_EN, 1);
+			platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
 		}
 	}
 }

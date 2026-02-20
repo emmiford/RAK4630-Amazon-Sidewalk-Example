@@ -96,7 +96,7 @@ static void start_selftest(void)
 	if (result.adc_pilot_ok)   passed_count++;
 	if (result.adc_current_ok) passed_count++;
 	if (result.gpio_cool_ok)   passed_count++;
-	if (result.charge_en_ok)   passed_count++;
+	if (result.charge_block_ok)   passed_count++;
 	failed_count = SELFTEST_CHECK_COUNT - passed_count;
 
 	/* Compute blink sequence tick layout:

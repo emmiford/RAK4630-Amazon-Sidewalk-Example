@@ -12,7 +12,7 @@
 | adc_current | PASS | ADC channel 1 readable |
 | gpio_heat | PASS | GPIO input readable |
 | gpio_cool | PASS | GPIO input readable |
-| charge_en | PASS | Fixed: added GPIO_INPUT flag for readback |
+| charge_block | PASS | Fixed: added GPIO_INPUT flag for readback |
 | Error LED pattern | N/A | LED 2 not mapped on RAK4631 (cosmetic log error) |
 
 Boot log: no selftest failure message (all 5 checks pass → selftest_boot returns 0).
@@ -26,7 +26,7 @@ Boot log: no selftest failure message (all 5 checks pass → selftest_boot retur
   ADC current:   PASS
   GPIO heat:     PASS
   GPIO cool:     PASS
-  Charge enable: PASS
+  Charge block: PASS
   J1772 state:   E (Error) (276 mV)
   Current:       2372 mA
   Clamp match:   WARN (mismatch)
@@ -37,7 +37,7 @@ Boot log: no selftest failure message (all 5 checks pass → selftest_boot retur
 
 ### Run 2 — After 48s uptime (continuous monitoring has accumulated)
 ```
-  Charge enable: PASS
+  Charge block: PASS
   Fault flags:   0xe0
 === FAIL ===
 ```
@@ -52,7 +52,7 @@ All 5 hardware path checks **PASS**. Overall "FAIL" is from cross-checks, which 
 | ADC current | PASS | Channel readable |
 | GPIO heat | PASS | Input readable |
 | GPIO cool | PASS | Input readable |
-| Charge enable | PASS | Toggle-and-verify succeeds (GPIO_INPUT flag fix) |
+| Charge block | PASS | Toggle-and-verify succeeds (GPIO_INPUT flag fix) |
 | J1772 state | E (276 mV) | Floating ADC noise, no EVSE pilot signal |
 | Current | 2372 mA | Floating ADC noise (~260 mV × 30000/3300 calibration) |
 | Clamp match | WARN | Expected: not in state C + current > 500 mA |
@@ -66,7 +66,7 @@ All 5 hardware path checks **PASS**. Overall "FAIL" is from cross-checks, which 
 
 ### Bugs Found and Fixed
 
-1. **Charge enable readback** — `GPIO_OUTPUT_ACTIVE` without `GPIO_INPUT` disconnects nRF52840 input buffer. Fix: `GPIO_OUTPUT_ACTIVE | GPIO_INPUT` in platform_api_impl.c.
+1. **Charge block readback** — `GPIO_OUTPUT_ACTIVE` without `GPIO_INPUT` disconnects nRF52840 input buffer. Fix: `GPIO_OUTPUT_ACTIVE | GPIO_INPUT` in platform_api_impl.c.
 
 2. **Uninitialized BSS** — Split-image architecture: platform calls `app_cb->init()` as plain function call, no C runtime zeroes BSS. Fix: (a) platform zeroes APP_RAM before app init, (b) app calls `selftest_reset()` before `selftest_boot()`.
 

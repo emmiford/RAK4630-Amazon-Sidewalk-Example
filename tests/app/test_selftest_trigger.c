@@ -23,7 +23,7 @@ static void setup_all_pass(void)
 	mock_adc_values[0] = 9000;  /* pilot ADC OK */
 	mock_adc_values[1] = 100;   /* current ADC OK */
 	mock_gpio_values[2] = 0;    /* cool GPIO readable */
-	/* charge_en (pin 0) passes because gpio_set now updates mock_gpio_values */
+	/* charge_block (pin 0) passes because gpio_set now updates mock_gpio_values */
 }
 
 /* Helper: set ADC/GPIO so some checks fail */
@@ -180,7 +180,7 @@ void test_all_pass_no_uplink(void)
 
 /* ------------------------------------------------------------------ */
 /*  Blink codes — max fail (1 green, 3 red)                           */
-/*  Note: charge_en toggle always passes because gpio_set updates      */
+/*  Note: charge_block toggle always passes because gpio_set updates      */
 /*  readable value. So 3 of 4 is the maximum failure count.            */
 /* ------------------------------------------------------------------ */
 
@@ -197,7 +197,7 @@ void test_blink_max_fail_counts(void)
 	int ticks = run_blinks_to_completion();
 	TEST_ASSERT_FALSE(selftest_trigger_is_running());
 
-	/* 1 passed (charge_en), 3 failed (pilot, current, cool) */
+	/* 1 passed (charge_block), 3 failed (pilot, current, cool) */
 	TEST_ASSERT_EQUAL_INT(1, mock_led_on_count[LED_GREEN] - green_start);
 	TEST_ASSERT_EQUAL_INT(3, mock_led_on_count[LED_RED] - red_start);
 
@@ -219,7 +219,7 @@ void test_failures_send_uplink(void)
 
 void test_blink_mixed_counts(void)
 {
-	/* 2 pass (pilot, charge_en), 2 fail (current, cool) */
+	/* 2 pass (pilot, charge_block), 2 fail (current, cool) */
 	mock_adc_values[0] = 9000;  /* pilot OK */
 	mock_adc_values[1] = -1;    /* current FAIL */
 	mock_gpio_values[2] = -1;   /* cool FAIL */
@@ -233,7 +233,7 @@ void test_blink_mixed_counts(void)
 	int ticks = run_blinks_to_completion();
 	TEST_ASSERT_FALSE(selftest_trigger_is_running());
 
-	/* 2 passed (pilot, charge_en), 2 failed (current, cool) */
+	/* 2 passed (pilot, charge_block), 2 failed (current, cool) */
 	TEST_ASSERT_EQUAL_INT(2, mock_led_on_count[LED_GREEN] - green_start);
 	TEST_ASSERT_EQUAL_INT(2, mock_led_on_count[LED_RED] - red_start);
 

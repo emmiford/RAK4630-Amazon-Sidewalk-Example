@@ -21,14 +21,14 @@ extern "C" {
 /* Fault flag bits for uplink byte 7, bits 4-7 */
 #define FAULT_SENSOR     0x10   /* ADC/GPIO read failure or pilot out-of-range */
 #define FAULT_CLAMP      0x20   /* Current vs. J1772 state disagreement */
-#define FAULT_INTERLOCK  0x40   /* Charge enable ineffective / relay stuck */
+#define FAULT_INTERLOCK  0x40   /* Charge block ineffective / relay stuck */
 #define FAULT_SELFTEST   0x80   /* Boot self-test failure (latched) */
 
 typedef struct {
     bool adc_pilot_ok;
     bool adc_current_ok;
     bool gpio_cool_ok;
-    bool charge_en_ok;
+    bool charge_block_ok;
     bool all_pass;
 } selftest_boot_result_t;
 

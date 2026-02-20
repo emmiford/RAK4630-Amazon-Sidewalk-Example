@@ -18,7 +18,7 @@ This test verifies all shell commands still work on-device after the refactor.
 | `sid mfg` | PASS | Version: 8, Device ID: bf:c1:de:6b:b9 |
 | `sid ota status` | PASS | OTA Status: IDLE |
 | `app evse status` | PASS | J1772=E (Error), pilot=211mV, current=2309mA, charge=NO, sim=NO |
-| `sid selftest` | PASS | ADC pilot PASS, ADC current PASS, GPIO cool PASS, Charge enable PASS |
+| `sid selftest` | PASS | ADC pilot PASS, ADC current PASS, GPIO cool PASS, Charge block PASS |
 | `sid lora` | PASS | Link switched to LoRa (0x4), no crash, Sidewalk re-initialized |
 | `sid ble` | PASS | BT initialized (nRF52x, Identity: D0:52:E5:E8:6D:60), no crash |
 

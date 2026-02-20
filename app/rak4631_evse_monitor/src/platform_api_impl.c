@@ -28,7 +28,7 @@ LOG_MODULE_REGISTER(platform_api, CONFIG_SIDEWALK_LOG_LEVEL);
 /* GPIO pin indices — board-level mapping of abstract indices to physical pins.
  * Apps use these same indices via gpio_get()/gpio_set() without knowing the
  * physical pin assignment. */
-#define GPIO_PIN_0   0   /* output: charge enable relay */
+#define GPIO_PIN_0   0   /* output: charge block relay */
 #define GPIO_PIN_1   1   /* input: reserved (heat call wired but unused) */
 #define GPIO_PIN_2   2   /* input: cool call */
 #define GPIO_PIN_3   3   /* input: charge now button */
@@ -78,8 +78,8 @@ static int platform_adc_init(void) { return -ENODEV; }
 /*  GPIO hardware                                                      */
 /* ------------------------------------------------------------------ */
 
-static const struct gpio_dt_spec charge_en_gpio =
-	GPIO_DT_SPEC_GET_OR(DT_NODELABEL(charge_enable), gpios, {0});
+static const struct gpio_dt_spec charge_block_gpio =
+	GPIO_DT_SPEC_GET_OR(DT_NODELABEL(charge_block), gpios, {0});
 
 #define COOL_CALL_NODE DT_NODELABEL(cool_call)
 
@@ -99,15 +99,15 @@ static int platform_gpio_init(void)
 		return 0;
 	}
 
-	/* Charge enable output */
-	if (gpio_is_ready_dt(&charge_en_gpio)) {
-		int err = gpio_pin_configure_dt(&charge_en_gpio,
+	/* Charge block output */
+	if (gpio_is_ready_dt(&charge_block_gpio)) {
+		int err = gpio_pin_configure_dt(&charge_block_gpio,
 					       GPIO_OUTPUT_ACTIVE | GPIO_INPUT);
 		if (err < 0) {
-			LOG_ERR("charge_en GPIO config err %d", err);
+			LOG_ERR("charge_block GPIO config err %d", err);
 			return err;
 		}
-		gpio_pin_set_dt(&charge_en_gpio, 1);
+		gpio_pin_set_dt(&charge_block_gpio, 1);
 	}
 
 	/* Cool call input */
@@ -272,10 +272,10 @@ static int platform_gpio_get(int pin_index)
 
 	switch (pin_index) {
 	case GPIO_PIN_0:
-		if (!gpio_is_ready_dt(&charge_en_gpio)) {
+		if (!gpio_is_ready_dt(&charge_block_gpio)) {
 			return -ENODEV;
 		}
-		return gpio_pin_get_dt(&charge_en_gpio);
+		return gpio_pin_get_dt(&charge_block_gpio);
 	case GPIO_PIN_2:
 		if (!gpio_is_ready_dt(&cool_call_gpio)) {
 			return -ENODEV;
@@ -300,10 +300,10 @@ static int platform_gpio_set(int pin_index, int val)
 
 	switch (pin_index) {
 	case GPIO_PIN_0:
-		if (!gpio_is_ready_dt(&charge_en_gpio)) {
+		if (!gpio_is_ready_dt(&charge_block_gpio)) {
 			return -ENODEV;
 		}
-		return gpio_pin_set_dt(&charge_en_gpio, val);
+		return gpio_pin_set_dt(&charge_block_gpio, val);
 	default:
 		return -EINVAL;  /* heat/cool are inputs, not settable */
 	}
