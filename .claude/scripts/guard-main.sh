@@ -22,7 +22,7 @@ if [[ "$CWD" == "$REPO_ROOT"* ]] && [[ "$CWD" != *"/worktrees/"* ]]; then
 
     # For Bash: allow git and read-only commands (needed to create worktrees/branches)
     if [[ "$TOOL_NAME" == "Bash" ]]; then
-      if echo "$CMD" | grep -qE '^git (worktree|branch|checkout|switch|log|status|diff|remote|fetch|rev-parse|show-current|stash)'; then
+      if echo "$CMD" | grep -qE '^git (-C [^ ]+ )?(worktree|branch|checkout|switch|log|status|diff|remote|fetch|rev-parse|show-current|stash|add|commit)'; then
         exit 0
       fi
       if echo "$CMD" | grep -qE '^(ls|cat|head|tail|find|grep|rg|wc|echo|python3 -c|cd |pwd|which|type|file )'; then
