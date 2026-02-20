@@ -29,8 +29,8 @@ Special: deferred, declined
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-065 | reopened | Eliel | AC-priority software interlock + charge_block rename (incomplete) | — |
-| TASK-094 | not started | Pam+Utz | Merge PRD + TDD inline wiring doc updates | — |
+| TASK-065 | committed | Eliel | Complete charge_block rename + GPIO polarity fix | — |
+| TASK-094 | merged done | Pam+Utz | Merge PRD + TDD inline wiring doc updates | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |

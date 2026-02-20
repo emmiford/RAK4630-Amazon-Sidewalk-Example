@@ -1,6 +1,6 @@
 # TASK-094: Merge PRD + TDD inline wiring doc updates
 
-**Status**: not started
+**Status**: merged done (2026-02-19)
 **Priority**: P1
 **Owner**: Pam + Utz
 **Branch**: `task/prd-hvac-return-paths` (PRD), `task/tdd-hvac-return-paths` (TDD)
