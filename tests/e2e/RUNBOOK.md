@@ -48,7 +48,7 @@ Prerequisites: flashed device, Sidewalk gateway powered, AWS credentials configu
 - [ ] Flash current main (platform + app): `./flash.sh all`
 - [ ] Open serial console, observe boot log
 - [ ] Confirm self-test runs on power-on — look for `selftest: boot` log lines
-- [ ] Verify all checks pass: `adc_pilot OK`, `adc_current OK`, `gpio_heat OK`, `gpio_cool OK`, `charge_en OK`
+- [ ] Verify all checks pass: `adc_pilot OK`, `adc_current OK`, `gpio_heat OK`, `gpio_cool OK`, `charge_block OK`
 - [ ] Confirm no error LED pattern (LED2 should not flash)
 
 ### 6b. Shell Self-Test

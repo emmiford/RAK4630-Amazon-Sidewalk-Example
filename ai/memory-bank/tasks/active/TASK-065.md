@@ -1,45 +1,42 @@
 # TASK-065: AC-priority software interlock + charge_block rename
 
-**Status**: reopened (2026-02-19, Malcolm)
+**Status**: done (2026-02-19, Eliel)
 **Priority**: P1
 **Owner**: Eliel
 **Size**: M (5 points)
+**Branch**: `task/065-charge-block-rename`
 
 ## Summary
-Added baseline AC-priority logic to firmware. Renamed `charge_enable` → `charge_block` with polarity inversion (HIGH = blocking, LOW = not blocking). Boot sequence reads cool_call before setting GPIO. Runtime: cool_call HIGH → pause charging, cool_call LOW → resume (if no cloud pause). Updated selftest toggle-and-verify for new name/polarity. PRD and TDD doc corrections.
 
-## Session Work (2026-02-19)
+Complete rename of `charge_enable` → `charge_block` across all firmware, tests, and documentation. Fixed critical GPIO polarity bug: the rename changed the name but not the signal values. With `charge_block`, HIGH = blocking (spoof engaged, EVSE sees no vehicle) and LOW = not blocking (pilot passes through, EVSE allowed). On MCU power loss, GPIO floats LOW → EVSE operates normally (safe default).
 
-### ADC pin swap (completed, on main)
-Swapped ADC channel physical pins: pilot voltage AIN0→AIN1, current clamp AIN1→AIN0. Overlay-only change (channel 0 still = pilot in code). Updated docs: TDD §3.1 + §9.1, PRD (9 references), lexicon. All 15 C + 326 Python tests pass. Built and flashed to device.
+## Changes (19 files)
 
-### Incomplete Rename (reopened)
-The `charge_enable` → `charge_block` rename did not fully land on `main`. The following locations still use the old name:
+### Firmware (6 files)
+- `rak4631_nrf52840.overlay` — nodelabel `charge_enable` → `charge_block`, label updated
+- `platform_api_impl.c` — DT_NODELABEL, variable names, comments → `charge_block`
+- `charge_control.c` — `EVSE_PIN_CHARGE_EN` → `EVSE_PIN_CHARGE_BLOCK`, **polarity inversion**: `allowed ? 0 : 1` (was `allowed ? 1 : 0`), all gpio_set calls corrected
+- `selftest.c` — `EVSE_PIN_CHARGE_EN` → `EVSE_PIN_CHARGE_BLOCK`, `charge_en_ok` → `charge_block_ok`
+- `selftest.h` — `charge_en_ok` → `charge_block_ok`, FAULT_INTERLOCK comment updated
+- `selftest_trigger.c` — `charge_en_ok` → `charge_block_ok`
+- `app_entry.c` — shell messages now say `charge_block low/high` instead of `GPIO high/low`
 
-### Firmware
-- `boards/rak4631_nrf52840.overlay` — devicetree nodelabel still `charge_enable`, label still "EVSE Charge Enable"
-- `src/platform_api_impl.c` — `DT_NODELABEL(charge_enable)` reference
-- `src/app_evse/charge_control.c` — constant named `EVSE_PIN_CHARGE_EN`
+### Tests (5 files)
+- `test_app.c` — renamed test functions (pause=high, allow=low), flipped GPIO assertions
+- `test_charge_control.c` — flipped init/allow/pause GPIO assertions
+- `test_shell_commands.c` — flipped allow/pause GPIO assertions
+- `test_selftest_trigger.c` — `charge_en` → `charge_block` in comments
+- `tests/e2e/RESULTS-selftest.md`, `RESULTS-task058-shell-smoke.md`, `RUNBOOK.md` — "Charge enable" → "Charge block"
 
-### Documentation
-- `CLAUDE.md` — shell command comments still say "charge_block GPIO" but overlay doesn't match
-- `docs/technical-design.md` §9.1 — table row says `charge_enable`
+### Documentation (3 files)
+- `docs/technical-design.md` — §6.3 polarity description rewritten (LOW=pass-through, HIGH=spoof), §6.5 selftest refs, §9.1 pin table, §9.3.2 relay table, §9.3.3 MCU power loss behavior
+- `docs/PRD.md` — pin table, fault descriptions, boot default decision (PDL-006)
+- `docs/lexicon.md` — "Charge enable GPIO set HIGH" → "Charge block GPIO set LOW"
 
-### What "done" looks like
-- All firmware references use `charge_block` (nodelabel, variable names, constants)
-- Overlay polarity: `GPIO_ACTIVE_HIGH` where HIGH = blocking
-- Docs and code are consistent
+## Key Design Point
 
-## Original Deliverables (partially completed)
-- Modified `rak4631_nrf52840.overlay` — `charge_enable` → `charge_block` (**NOT on main**)
-- Modified `platform_api_impl.c` — GPIO init as `GPIO_OUTPUT_INACTIVE` (**name still old**)
-- Modified `charge_control.c` — AC-priority logic, boot-time cool_call read (done)
-- Modified `selftest.c` / `selftest.h` — renamed to `charge_block_ok` (done)
-- Updated unit tests (done)
-- Updated PRD §2.0 status labels, §2.4.1 implementation table (done)
-- Updated TDD §6.3 charge control documentation (done)
+**No power to PCB = EVSE allowed.** The relay is normally-closed (pass-through). The MCU must actively assert `charge_block` HIGH to block charging. This is the safe default — if the SideCharge device loses power or crashes, the EVSE works as if the device isn't there.
 
-## Follow-up
-- TASK-048b: Charge Now 30-min latch (overrides AC priority) — DONE
-- TASK-066: Button re-test clears FAULT_SELFTEST on all-pass — DONE
-- TASK-068: charge_block rename propagation across remaining docs (Pam) — DONE (docs only)
+## Test Results
+- 15/15 C unit tests pass (341 assertions)
+- 326/326 Python tests pass

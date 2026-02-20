@@ -215,7 +215,7 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 
 | Pin | Signal | Description | Status |
 |-----|--------|-------------|--------|
-| P0.06 | Charge enable | Controls EV charging via PILOT-out -- inserts ~900 ohm resistance on the PILOT-out line when LOW, making charger see State B (see 2.0.1 asymmetric mechanism) | IMPLEMENTED (HW) |
+| P0.06 | Charge block | Controls EV charging via PILOT-out -- when HIGH, inserts ~900 ohm resistance on the PILOT-out line, making charger see State A (no vehicle). When LOW or unpowered, pilot passes through normally. | IMPLEMENTED (HW) |
 | TBD | Y-out relay | Pass-through relay on cool call: when open, blocks Y-in signal from reaching compressor contactor via Y-out | IMPLEMENTED (HW) |
 | TBD | W-out relay | Pass-through relay on heat call: when open, blocks W-in signal from reaching compressor contactor via W-out. Controlled by hardware interlock in v1.0; firmware control in v1.1 | DESIGNED (HW v1.0) |
 
@@ -437,7 +437,7 @@ The RAK4631 has one user-controllable green LED (LED_ID_0). With a single LED, i
 - GPIO read returns negative error code 3 consecutive times
 - Sidewalk not ready 10+ minutes after boot (past commissioning window)
 - OTA apply failure (CRC mismatch after staging)
-- Charge enable GPIO set fails
+- Charge block GPIO set fails
 
 Error states clear automatically on the next successful sensor poll cycle. A persistent error that never clears keeps the LED on rapid flash indefinitely -- correct behavior (installer needs to investigate).
 
@@ -561,7 +561,7 @@ There is no remote reboot or remote fault-clear command. The continuous monitors
 | Current clamp errors | Yes (most) | Current vs. J1772 cross-check |
 | J1772 pilot problems | Yes | ADC range validation |
 | Thermostat wiring | Partially -- detects signal presence/noise, not correct wiring | Requires manual trigger to verify (C-08, C-09) |
-| Charge enable / relay | Yes | Toggle-and-verify on boot + effectiveness check during operation |
+| Charge block / relay | Yes | Toggle-and-verify on boot + effectiveness check during operation |
 | Physical mounting | No | Visual inspection only (C-05) |
 | Sidewalk connectivity | Yes | Existing Sidewalk init checks (3.1.1) |
 
@@ -569,7 +569,7 @@ There is no remote reboot or remote fault-clear command. The continuous monitors
 |-------------|--------|----------|
 | Boot self-test (ADC, GPIO, charge_block toggle-and-verify) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Current vs. J1772 cross-check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
-| Charge enable effectiveness check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
+| Charge block effectiveness check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Pilot voltage range validation (continuous) | IMPLEMENTED (SW) (TASK-039) | P1 |
 | Thermostat chatter detection (continuous) | IMPLEMENTED (SW) (TASK-039) | P2 |
 | `sid selftest` shell command | IMPLEMENTED (SW) (TASK-039) | P0 |
@@ -712,7 +712,7 @@ Byte 7:    Flags                   Bitfield:
              Bit 3 (0x08): CHARGE_NOW      Charge Now override active
              Bit 4 (0x10): SENSOR_FAULT    ADC/GPIO read failure or pilot out-of-range (see 2.5.3)
              Bit 5 (0x20): CLAMP_MISMATCH  Current vs. J1772 state disagreement (see 2.5.3)
-             Bit 6 (0x40): INTERLOCK_FAULT Charge enable ineffective or relay stuck (see 2.5.3)
+             Bit 6 (0x40): INTERLOCK_FAULT Charge block ineffective or relay stuck (see 2.5.3)
              Bit 7 (0x80): SELFTEST_FAIL   On-demand self-test detected a failure (see 2.5.3)
 Bytes 8-11: Timestamp              SideCharge epoch: seconds since 2026-01-01 00:00:00 UTC,
                                    little-endian uint32. 1-second granularity. Device computes
@@ -1593,7 +1593,7 @@ These decisions and deliverables feed into PCB design. Some are already resolved
 | Charge Now button type | PDL-001 | DECIDED (momentary) | Enclosure design must accommodate button. GPIO + debounce circuit needed on PCB. |
 | LED count and colors | PDL-007 | DECIDED (green + blue) | Two LEDs, two GPIOs, two resistors. Enclosure must have light pipes or windows. |
 | Transition delay | PDL-005 | DECIDED (not needed) | No RC time constant on relay driver. Simplifies relay drive circuit. |
-| Boot default | PDL-006 | DECIDED (read-then-decide) | Charge enable GPIO must initialize LOW (safe default). Relay must be normally-open (de-energized = EV paused). |
+| Boot default | PDL-006 | DECIDED (read-then-decide) | Charge block GPIO initializes HIGH on boot (blocking until app decides). On power loss, GPIO floats LOW (not blocking = EVSE allowed). This is the safe default. |
 | Dual interlock layers | PDL-002 | DECIDED (HW + SW redundancy) | Hardware interlock circuit is a hard requirement on the PCB, not just a relay driven by GPIO. |
 | J1772 Cp duty cycle measurement | TASK-022 | NOT STARTED (firmware) | The analog conditioning circuit for AIN1 must preserve PWM shape. No separate hardware, but affects component selection (bandwidth). |
 | Car-side interlock mechanism (PWM 0%) | TASK-023 / EXP-001 | NOT VALIDATED | If PWM 0% works across car makes, the PILOT-out circuit needs a PWM output path in addition to the resistance spoof. May affect charge_block circuit design. |

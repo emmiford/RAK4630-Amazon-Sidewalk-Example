@@ -329,11 +329,11 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 			return 0;
 		} else if (strcmp(args, "allow") == 0) {
 			charge_control_set_with_reason(true, 0, TRANSITION_REASON_MANUAL);
-			print("Charging ALLOWED (GPIO high)");
+			print("Charging ALLOWED (charge_block low)");
 			return 0;
 		} else if (strcmp(args, "pause") == 0) {
 			charge_control_set_with_reason(false, 0, TRANSITION_REASON_MANUAL);
-			print("Charging PAUSED (GPIO low)");
+			print("Charging PAUSED (charge_block high)");
 			return 0;
 		} else if (strcmp(args, "buffer") == 0) {
 			uint8_t cnt = event_buffer_count();

@@ -765,19 +765,20 @@ current_ma = (adc_mv × 30000) / 3300
 
 ### 6.3 Charge Control
 
-Controls the EVSE pilot spoof relay via GPIO pin 0 (`EVSE_PIN_CHARGE_EN`):
-- GPIO HIGH = charging allowed (pilot pass-through: PILOT-in connected to PILOT-out)
-- GPIO LOW = charging blocked (~900 ohm load inserted inline on PILOT, spoofing "no vehicle")
+Controls the EVSE pilot spoof relay via GPIO pin 0 (`EVSE_PIN_CHARGE_BLOCK`):
+- GPIO LOW (or no power) = not blocking (pilot passes through normally, EVSE allowed)
+- GPIO HIGH = blocking (spoof circuit engaged, ~900 ohm load spoofs State A — EVSE sees no vehicle)
 
 The EVSE pilot signal is **inline** (pass-through), not tapped. The SideCharge
 device sits between the EVSE's pilot output (PILOT-in) and the vehicle connector
-(PILOT-out). When the relay is de-energized (GPIO LOW or MCU power loss), the
-spoof circuit inserts a resistive load that pulls the pilot to a State A voltage,
-causing the EVSE to see "no vehicle connected" and stop delivering power.
+(PILOT-out). When the charge_block GPIO is LOW (or unpowered), the pilot passes
+through to the vehicle connector and the EVSE operates normally. When the MCU
+asserts charge_block HIGH, the spoof circuit inserts a resistive load that pulls
+the pilot to a State A voltage, causing the EVSE to see "no vehicle connected."
 
-On MCU power loss the GPIO floats LOW (blocked), so the hardware safety
-gate remains in control — it allows charging when AC is off and blocks it when
-AC is on. This is the safe default.
+On MCU power loss the GPIO floats LOW (not blocking), so the EVSE operates
+normally — the car can charge. The hardware safety gate remains in control,
+blocking the compressor when the EV is charging. This is the safe default.
 
 State tracked in `charge_control_state_t`:
 ```c
@@ -879,7 +880,7 @@ hardware paths are functional before the device begins normal operation.
 2. ADC current channel readable (channel 1 returns >= 0)
 3. GPIO cool input readable (P0.05)
 4. GPIO heat input readable (P0.04) — added in v1.1 firmware
-5. GPIO charge_enable writable (toggle HIGH → readback → toggle LOW → readback → restore)
+5. GPIO charge_block writable (toggle HIGH → readback → toggle LOW → readback → restore)
 
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
 (0x80) is set in the fault flags.
@@ -892,7 +893,7 @@ and knows to investigate. The error pattern persists until the fault clears
 (via button re-test or reboot). FAULT_SELFTEST is also included in every
 uplink so the cloud sees the failure immediately.
 
-**Why boot-only for check 4**: The charge_enable toggle test physically
+**Why boot-only for check 5**: The charge_block toggle test physically
 actuates the relay. This is safe at boot (relay state is undefined, no active
 charge session) but unsafe during operation — it would momentarily interrupt an
 active charge. The continuous monitors (§6.5.3) detect relay failures at runtime
@@ -1278,7 +1279,7 @@ Components:
 
 | Abstract Pin | nRF52840 Pin | Physical Function | Direction | Usage |
 |-------------|-------------|-------------------|-----------|-------|
-| GPIO 0 | P0.06 | `charge_enable` | Output | EVSE pilot spoof relay (HIGH=pass-through, LOW=spoof State A). Controls inline pilot circuit (§6.3). Also gates the AC block relay via hardware interlock (§9.3). |
+| GPIO 0 | P0.06 | `charge_block` | Output | EVSE pilot spoof relay (LOW=pass-through, HIGH=spoof State A). Controls inline pilot circuit (§6.3). Also gates the AC block relay via hardware interlock (§9.3). |
 | GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand — **input side** of W pass-through (pull-down, active-high). HW wired from v1.0; firmware reads in v1.1 (§6.4). |
 | GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand — **input side** of Y pass-through (pull-down, active-high). Primary interlock trigger in v1.0. |
 | GPIO 3 | P0.07 | `charge_now_button` | Input | Charge Now button / 5-press self-test trigger (pull-down, active-high) |
@@ -1329,8 +1330,8 @@ a load that makes the EVSE see "no vehicle."
 
 | Relay | Controlled By | Energized State | De-energized State |
 |-------|--------------|-----------------|-------------------|
-| **AC block relay** | Hardware interlock circuit (linked to charge_enable GPIO via P0.06) | Y-in/W-in disconnected from Y-out/W-out (compressor blocked) | Y-in/W-in pass through to Y-out/W-out (compressor can run) |
-| **Pilot spoof relay** | `charge_enable` GPIO (P0.06) | PILOT-in passes through to PILOT-out (EV can charge) | ~900 ohm load on PILOT spoofs State A (EVSE sees no vehicle) |
+| **AC block relay** | Hardware interlock circuit (linked to charge_block GPIO via P0.06) | Y-in/W-in disconnected from Y-out/W-out (compressor blocked) | Y-in/W-in pass through to Y-out/W-out (compressor can run) |
+| **Pilot spoof relay** | `charge_block` GPIO (P0.06) | PILOT-in passes through to PILOT-out (EV can charge) | ~900 ohm load on PILOT spoofs State A (EVSE sees no vehicle) |
 
 Both relays are ganged to the same interlock circuit. They are mechanically or
 electrically linked so that when one is energized, the other is de-energized.
@@ -1340,10 +1341,10 @@ prevents simultaneous operation.
 
 #### 9.3.3 MCU Power Loss Behavior
 
-On MCU power loss, P0.06 floats LOW (de-energized). The spoof relay inserts the
-resistive load (EVSE sees no vehicle), and the AC block relay passes thermostat
-signals through (compressor can run). This is the safe default: the home retains
-full HVAC function and the EV charger is disabled.
+On MCU power loss, P0.06 floats LOW (not blocking). The pilot passes through
+normally (EVSE operates as if SideCharge is not present), and the AC block relay
+passes thermostat signals through (compressor can run). This is the safe default:
+the home retains full HVAC function and the EV can charge normally.
 
 #### 9.3.4 Hardware vs. Firmware Scope
 
