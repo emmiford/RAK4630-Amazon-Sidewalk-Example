@@ -24,13 +24,14 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (24)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-065 | reopened | Eliel | AC-priority software interlock + charge_block rename (incomplete) | — |
 | TASK-094 | not started | Pam+Utz | Merge PRD + TDD inline wiring doc updates | — |
+| TASK-100 | not started | Eliel | Remap firmware pins to RAK19007 WisBlock connector | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
