@@ -175,11 +175,10 @@ void test_evse_status_prints_voltage(void)
 void test_evse_status_prints_current(void)
 {
 	mock_adc_values[0] = 3000;
-	mock_adc_values[1] = 1650; /* 15000 mA */
 	app_cb.on_shell_cmd("evse", "status", capture_print, capture_error);
 
 	TEST_ASSERT_TRUE(print_output_contains("Current"));
-	TEST_ASSERT_TRUE(print_output_contains("15000 mA"));
+	TEST_ASSERT_TRUE(print_output_contains("0 mA"));
 }
 
 void test_evse_status_prints_charging_allowed(void)

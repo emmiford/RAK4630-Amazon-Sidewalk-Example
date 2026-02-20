@@ -29,9 +29,7 @@ LOG_MODULE_REGISTER(platform_api, CONFIG_SIDEWALK_LOG_LEVEL);
  * Apps use these same indices via gpio_get()/gpio_set() without knowing the
  * physical pin assignment. */
 #define GPIO_PIN_0   0   /* output: charge block relay */
-#define GPIO_PIN_1   1   /* input: reserved (heat call wired but unused) */
 #define GPIO_PIN_2   2   /* input: cool call */
-#define GPIO_PIN_3   3   /* input: charge now button */
 
 /* ------------------------------------------------------------------ */
 /*  ADC hardware                                                       */
@@ -44,7 +42,6 @@ LOG_MODULE_REGISTER(platform_api, CONFIG_SIDEWALK_LOG_LEVEL);
 
 static const struct adc_dt_spec platform_adc_channels[] = {
 	ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0),
-	ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 1),
 };
 #define PLATFORM_ADC_CHANNEL_COUNT ARRAY_SIZE(platform_adc_channels)
 
@@ -86,11 +83,6 @@ static const struct gpio_dt_spec charge_block_gpio =
 static const struct gpio_dt_spec cool_call_gpio =
 	GPIO_DT_SPEC_GET(COOL_CALL_NODE, gpios);
 
-#define CHARGE_NOW_NODE DT_NODELABEL(charge_now)
-
-static const struct gpio_dt_spec charge_now_gpio =
-	GPIO_DT_SPEC_GET(CHARGE_NOW_NODE, gpios);
-
 static bool gpio_initialized;
 
 static int platform_gpio_init(void)
@@ -99,7 +91,7 @@ static int platform_gpio_init(void)
 		return 0;
 	}
 
-	/* Charge block output */
+	/* Charge enable output */
 	if (gpio_is_ready_dt(&charge_block_gpio)) {
 		int err = gpio_pin_configure_dt(&charge_block_gpio,
 					       GPIO_OUTPUT_ACTIVE | GPIO_INPUT);
@@ -115,15 +107,6 @@ static int platform_gpio_init(void)
 		int err = gpio_pin_configure_dt(&cool_call_gpio, GPIO_INPUT);
 		if (err < 0) {
 			LOG_ERR("cool_call GPIO config err %d", err);
-			return err;
-		}
-	}
-
-	/* Charge Now button input */
-	if (gpio_is_ready_dt(&charge_now_gpio)) {
-		int err = gpio_pin_configure_dt(&charge_now_gpio, GPIO_INPUT);
-		if (err < 0) {
-			LOG_ERR("charge_now GPIO config err %d", err);
 			return err;
 		}
 	}
@@ -281,11 +264,6 @@ static int platform_gpio_get(int pin_index)
 			return -ENODEV;
 		}
 		return gpio_pin_get_dt(&cool_call_gpio);
-	case GPIO_PIN_3:
-		if (!gpio_is_ready_dt(&charge_now_gpio)) {
-			return -ENODEV;
-		}
-		return gpio_pin_get_dt(&charge_now_gpio);
 	default:
 		return -EINVAL;
 	}

@@ -67,8 +67,9 @@ RAM: platform uses most of the nRF52840's 256KB SRAM; the app gets the last 8KB
    ├─ Validate magic (must equal 0x53415050 = "SAPP")
    └─ Validate version (must equal APP_CALLBACK_VERSION exactly)
 5. app_cb->init(&platform_api_table) — app bootstraps all modules
-   ├─ Read cool call (P0.05) AND heat call (P0.04) GPIOs
-   └─ If either is active → set charge_block = allowed (do not start EV charging)
+   ├─ Read cool call (P1.02 / IO2) GPIO
+   └─ If cool call is active → set charge_block HIGH (block EV charging while compressor runs)
+   (Heat call GPIO not connected on WisBlock prototype; production PCB restores it)
 6. Start Sidewalk: sid_platform_init() → sid_init() → sid_start()
 7. Start periodic timer (app requests 500ms via set_timer_interval())
 8. Event loop:
@@ -200,7 +201,7 @@ Offset  Size  Field               Type          Description
 ```
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
-measure line voltage. The J1772 pilot signal voltage (ADC AIN1) is included in the uplink
+measure line voltage. The J1772 pilot signal voltage (ADC AIN7 on WisBlock; AIN1 on production PCB) is included in the uplink
 alongside the classified state enum. The raw millivolt reading enables cloud-side detection
 of marginal pilot connections — readings near a threshold boundary (e.g., 2590 mV near the
 2600 mV A/B boundary) indicate a degraded connection that the enum alone would not reveal.
@@ -231,9 +232,11 @@ Bit  Mask  Name              Source
 7    0x80  FAULT_SELFTEST    boot self-test failure (latched until reboot, see §6.5.4)
 ```
 
-Bit 0 is the HEAT flag. The heat call GPIO (P0.04) is physically wired and the
-hardware interlock blocks the W-out signal from v1.0, but firmware does not read or
-report the heat call GPIO until v1.1. In v1.0 firmware, bit 0 is always 0. Bit 1
+Bit 0 is the HEAT flag. On the production PCB, the heat call GPIO is physically
+wired and the charge_block GPIO drives the W-out relay (along with the pilot spoof relay) from v1.0, but firmware
+does not read or report the heat call GPIO until v1.1. On the WisBlock prototype,
+the heat call GPIO is not connected (no pin available on J11 header). In v1.0
+firmware, bit 0 is always 0. Bit 1
 comes from `thermostat_flags_get()`. Bit 2 is OR'd in by `app_tx.c` from
 `charge_control_is_allowed()`. Bit 3 from `charge_now_is_active()`. Bits 4-7 come
 from `selftest_get_fault_flags()`.
@@ -766,19 +769,28 @@ current_ma = (adc_mv × 30000) / 3300
 ### 6.3 Charge Control
 
 Controls the EVSE pilot spoof relay via GPIO pin 0 (`EVSE_PIN_CHARGE_BLOCK`):
-- GPIO LOW (or no power) = not blocking (pilot passes through normally, EVSE allowed)
-- GPIO HIGH = blocking (spoof circuit engaged, ~900 ohm load spoofs State A — EVSE sees no vehicle)
+- GPIO HIGH = charging blocked (~900 ohm load inserted inline on PILOT, spoofing "no vehicle")
+- GPIO LOW = charging allowed (pilot pass-through: PILOT-in connected to PILOT-out)
 
 The EVSE pilot signal is **inline** (pass-through), not tapped. The SideCharge
 device sits between the EVSE's pilot output (PILOT-in) and the vehicle connector
-(PILOT-out). When the charge_block GPIO is LOW (or unpowered), the pilot passes
-through to the vehicle connector and the EVSE operates normally. When the MCU
-asserts charge_block HIGH, the spoof circuit inserts a resistive load that pulls
-the pilot to a State A voltage, causing the EVSE to see "no vehicle connected."
+(PILOT-out). The pilot spoof relay is **normally-closed** (pass-through): when
+de-energized (GPIO LOW or MCU power loss), the relay contacts are closed and
+PILOT-in connects directly to PILOT-out — the EVSE operates normally as if
+SideCharge were not installed. When energized (GPIO HIGH), the relay opens the
+direct path and inserts a ~900 ohm resistive load that pulls the pilot to a
+State A voltage, causing the EVSE to see "no vehicle connected" and stop
+delivering power.
 
-On MCU power loss the GPIO floats LOW (not blocking), so the EVSE operates
-normally — the car can charge. The hardware safety gate remains in control,
-blocking the compressor when the EV is charging. This is the safe default.
+> **Safe default on MCU power loss**: On MCU power loss the GPIO floats LOW
+> (nRF52840 pins default to high-impedance input on reset; the external
+> pull-down ensures a defined LOW). The relay de-energizes, pilot passes
+> through, and the EVSE operates normally. **This is completely safe by
+> design.** The SideCharge device becomes transparent — electrically identical
+> to a direct wire between PILOT-in and PILOT-out. The EVSE retains all of
+> its own safety systems (GFCI, overcurrent protection, ground fault
+> detection, J1772 state machine) regardless of SideCharge's state. No
+> power to the PCB = EVSE allowed = safe.
 
 State tracked in `charge_control_state_t`:
 ```c
@@ -791,7 +803,7 @@ typedef struct {
 
 **Auto-resume**: When paused with `duration_min > 0`, `charge_control_tick()` checks on
 each 500ms poll cycle whether the duration has elapsed. If so, it sets
-`charging_allowed = true` and drives the GPIO high.
+`charging_allowed = true` and drives the GPIO LOW (charging allowed).
 
 **Delay window integration**: `charge_control_tick()` checks the delay window
 module first (see §4.1.2 and `delay_window.c`). If a window is active and
@@ -835,9 +847,10 @@ Y-out and W-out are disconnected from their respective inputs. The compressor ca
 run in either cooling or heating mode while the EV charger is active. This is the
 core interlock guarantee.
 
-The GPIO inputs (P0.05 for cool call, P0.04 for heat call) read the **input side**
-of the pass-through — they sense what the thermostat is requesting, regardless of
-whether SideCharge is currently passing or blocking the signal.
+The GPIO inputs (P1.02 / IO2 for cool call; heat call not connected on WisBlock
+prototype) read the **input side** of the pass-through — they sense what the
+thermostat is requesting, regardless of whether SideCharge is currently passing
+or blocking the signal. The production PCB will add a dedicated heat call input pin.
 
 #### 6.4.2 Signal Flags
 
@@ -850,8 +863,10 @@ The flags byte packs these inputs as:
 - Bit 0x02 — `THERMOSTAT_FLAG_COOL`. Cool demand active.
 
 **v1.0 firmware**: `thermostat_flags_get()` returns only the cool call bit.
-Heat call GPIO is physically wired, the hardware interlock blocks W-out during
-EV charging, but the firmware does not read P0.04 or set bit 0.
+On the production PCB, the heat call GPIO is physically wired and the hardware
+interlock blocks W-out during EV charging, but the firmware does not read the
+heat call GPIO or set bit 0. On the WisBlock prototype, the heat call GPIO is
+not connected (no pin available on J11 header).
 
 **v1.1 firmware**: `thermostat_flags_get()` returns both heat and cool call bits.
 A rising edge on **either** signal pauses EV charging (same logic as cool call
@@ -862,8 +877,10 @@ alone in v1.0). Changes to either flag trigger an uplink.
 Heat pumps use the same compressor for both heating and cooling. The compressor
 must not run during EV charging regardless of whether the thermostat is calling
 for heat or cool. The hardware supports this from v1.0 by routing both Y and W
-through the AC block relay. Firmware support (reading P0.04, reporting bit 0,
-using heat call as an interlock trigger) is deferred to v1.1.
+through the AC block relay. Firmware support (reading the heat call GPIO,
+reporting bit 0, using heat call as an interlock trigger) is deferred to v1.1.
+On the WisBlock prototype, the heat call GPIO is not connected; this feature
+requires the production PCB.
 
 ### 6.5 Self-Test
 
@@ -875,12 +892,10 @@ feedback, and continuous runtime monitoring.
 `selftest_boot()` runs once during `app_init()` (<100ms). It verifies that all
 hardware paths are functional before the device begins normal operation.
 
-**Checks** (5 total; check 4 added in v1.1):
+**Checks** (3 total on WisBlock prototype; production PCB adds current clamp and heat call):
 1. ADC pilot channel readable (channel 0 returns >= 0)
-2. ADC current channel readable (channel 1 returns >= 0)
-3. GPIO cool input readable (P0.05)
-4. GPIO heat input readable (P0.04) — added in v1.1 firmware
-5. GPIO charge_block writable (toggle HIGH → readback → toggle LOW → readback → restore)
+2. GPIO cool input readable (P1.02 / IO2)
+3. GPIO charge_block writable (toggle HIGH → readback → toggle LOW → readback → restore)
 
 Result is stored in `selftest_boot_result_t`. If any check fails, `FAULT_SELFTEST`
 (0x80) is set in the fault flags.
@@ -893,7 +908,7 @@ and knows to investigate. The error pattern persists until the fault clears
 (via button re-test or reboot). FAULT_SELFTEST is also included in every
 uplink so the cloud sees the failure immediately.
 
-**Why boot-only for check 5**: The charge_block toggle test physically
+**Why boot-only for check 3**: The charge_block toggle test physically
 actuates the relay. This is safe at boot (relay state is undefined, no active
 charge session) but unsafe during operation — it would momentarily interrupt an
 active charge. The continuous monitors (§6.5.3) detect relay failures at runtime
@@ -908,19 +923,24 @@ the self-test via the **Charge Now button** and **LED blink codes**.
 5 seconds. The 5-second window accommodates the 500ms GPIO polling resolution.
 Normal single-press behavior (Charge Now) is not affected.
 
+**WisBlock prototype note**: The Charge Now button (GPIO pin 3) is not available
+on the RAK19007 J11 header. On the WisBlock prototype, the self-test can still be
+triggered via the `sid selftest` shell command. The production PCB will restore
+the button with a dedicated pin assignment.
+
 **Execution** (`selftest_trigger.c`): On trigger, `selftest_boot()` re-runs all
-4 hardware checks. Results are reported as LED blink codes:
+3 hardware checks (on WisBlock prototype; production PCB runs 5). Results are reported as LED blink codes:
 
 | Phase | LED | Meaning |
 |-------|-----|---------|
-| Green blinks | LED 0 (green) | Count of **passed** checks (0–4). Each blink = 500ms on + 500ms off. |
+| Green blinks | LED 0 (green) | Count of **passed** checks (0–3 on WisBlock). Each blink = 500ms on + 500ms off. |
 | Pause | All off | 1-second pause (2 ticks). Skipped if all passed or all failed. |
-| Red blinks | LED 2 (red) | Count of **failed** checks (0–4). Same blink timing. |
+| Red blinks | LED 2 (red) | Count of **failed** checks (0–3 on WisBlock). Same blink timing. |
 
-**Examples**:
-- All pass: 4 green blinks (4 seconds), no red → installer sees solid green sequence
-- 3 pass / 1 fail: 3 green blinks, 1s pause, 1 red blink
-- All fail: 4 red blinks (4 seconds), no green
+**Examples** (WisBlock prototype):
+- All pass: 3 green blinks (3 seconds), no red → installer sees solid green sequence
+- 2 pass / 1 fail: 2 green blinks, 1s pause, 1 red blink
+- All fail: 3 red blinks (3 seconds), no green
 
 **Uplink**: If any check fails, a fault uplink is automatically sent with
 `FAULT_SELFTEST` (0x80) set, so the cloud sees the failure even without serial.
@@ -1277,17 +1297,16 @@ Components:
 
 ### 9.1 Pin Mapping
 
-| Abstract Pin | nRF52840 Pin | Physical Function | Direction | Usage |
-|-------------|-------------|-------------------|-----------|-------|
-| GPIO 0 | P0.06 | `charge_block` | Output | EVSE pilot spoof relay (LOW=pass-through, HIGH=spoof State A). Controls inline pilot circuit (§6.3). Also gates the AC block relay via hardware interlock (§9.3). |
-| GPIO 1 | P0.04 | `heat_call` | Input | Thermostat heat demand — **input side** of W pass-through (pull-down, active-high). HW wired from v1.0; firmware reads in v1.1 (§6.4). |
-| GPIO 2 | P0.05 | `cool_call` | Input | Thermostat cool demand — **input side** of Y pass-through (pull-down, active-high). Primary interlock trigger in v1.0. |
-| GPIO 3 | P0.07 | `charge_now_button` | Input | Charge Now button / 5-press self-test trigger (pull-down, active-high) |
+| Abstract Pin | WisBlock Label | nRF52840 Pin | Physical Function | Direction | Usage |
+|-------------|---------------|-------------|-------------------|-----------|-------|
+| GPIO 0 | IO1 (J11 pin 2) | P0.17 | `charge_block` | Output | EVSE pilot spoof relay (HIGH=blocking, LOW=not blocking). Controls inline pilot circuit (§6.3). Also drives the AC block relay (§9.3). Both relays are normally-closed (pass-through when de-energized). |
+| GPIO 2 | IO2 (J11 pin 3) | P1.02 | `cool_call` | Input | Thermostat cool demand — **input side** of Y pass-through (pull-down, active-high). Primary interlock trigger in v1.0. |
 
-| ADC Channel | nRF52840 Pin | Function | Range | Calibration |
-|-------------|-------------|----------|-------|-------------|
-| 0 | P0.03 (AIN1) | J1772 pilot voltage (reads PILOT-in, upstream of spoof relay) | 0–3300 mV | Direct millivolt reading |
-| 1 | P0.02 (AIN0) | Current clamp output | 0–3300 mV | Linear: 0mV=0A, 3300mV=30A |
+| ADC Channel | WisBlock Label | nRF52840 Pin | Function | Range | Calibration |
+|-------------|---------------|-------------|----------|-------|-------------|
+| 0 | A1 (J11 pin 1) | P0.31 (AIN7) | J1772 pilot voltage (reads PILOT-in, upstream of spoof relay) | 0–3300 mV | Direct millivolt reading |
+
+**WisBlock prototype note**: GPIO 1 (heat call), GPIO 3 (charge now button), and ADC channel 1 (current clamp) are not available on the RAK19007 J11 header. These signals are dropped in the WisBlock prototype; the production PCB will restore them with dedicated pin assignments.
 
 ### 9.2 Flash Constraints
 
@@ -1311,55 +1330,77 @@ signal passes through.
 THERMOSTAT                  SideCharge PCB                    EQUIPMENT
 ──────────                  ──────────────                    ─────────
 
-Y (cool call) ──► Y-in ─┬─► [sense: P0.05] ─── (GPIO read)
+Y (cool call) ──► Y-in ─┬─► [sense: P1.02 / IO2] ─── (GPIO read)
                          └─► [AC block relay] ──► Y-out ──► Compressor contactor
 
-W (heat call) ──► W-in ─┬─► [sense: P0.04] ─── (GPIO read)
+W (heat call) ──► W-in ─┬─► [not connected on WisBlock prototype]
                          └─► [AC block relay] ──► W-out ──► Compressor contactor
 
-EVSE pilot    ──► PILOT-in ─┬─► [sense: ADC AIN1] ─── (ADC read)
-                             └─► [spoof relay: P0.06] ──► PILOT-out ──► Vehicle connector
+EVSE pilot    ──► PILOT-in ─┬─► [sense: ADC AIN7 / A1] ─── (ADC read)
+                             └─► [spoof relay: P0.17 / IO1] ──► PILOT-out ──► Vehicle connector
 ```
 
-All three paths share the same interlock logic: when EV charging is active,
-thermostat signals are blocked (Y-out and W-out disconnected) and the pilot
-passes through. When the compressor is running, the pilot spoof circuit inserts
-a load that makes the EVSE see "no vehicle."
+All three paths are controlled by a single GPIO (P0.17 / IO1). Both relays
+are **normally-closed** (pass-through when de-energized). When the firmware
+drives the GPIO HIGH (blocking): the pilot spoof relay energizes to insert the
+~900 ohm load (EVSE sees "no vehicle") and the AC block relay energizes to
+disconnect Y-out/W-out (compressor blocked). When the GPIO is LOW (allowing):
+both relays de-energize, all signals pass through, and both loads can operate.
+The mutual exclusion is enforced by firmware — the MCU reads the thermostat
+inputs and decides when to assert HIGH.
 
 #### 9.3.2 Relay Positions
 
 | Relay | Controlled By | Energized State | De-energized State |
 |-------|--------------|-----------------|-------------------|
-| **AC block relay** | Hardware interlock circuit (linked to charge_block GPIO via P0.06) | Y-in/W-in disconnected from Y-out/W-out (compressor blocked) | Y-in/W-in pass through to Y-out/W-out (compressor can run) |
-| **Pilot spoof relay** | `charge_block` GPIO (P0.06) | PILOT-in passes through to PILOT-out (EV can charge) | ~900 ohm load on PILOT spoofs State A (EVSE sees no vehicle) |
+| **AC block relay** | `charge_block` GPIO (P0.17 / IO1), same signal as pilot spoof relay | Y-in/W-in disconnected from Y-out/W-out (compressor blocked) | Y-in/W-in pass through to Y-out/W-out (compressor can run — **normally-closed**, safe default on power loss) |
+| **Pilot spoof relay** | `charge_block` GPIO (P0.17 / IO1) | ~900 ohm load on PILOT spoofs State A (EVSE sees no vehicle, charging blocked) | PILOT-in passes through to PILOT-out (EV can charge — **normally-closed**, safe default on power loss) |
 
-Both relays are ganged to the same interlock circuit. They are mechanically or
-electrically linked so that when one is energized, the other is de-energized.
-This hardware mutual exclusion operates independently of the MCU: if firmware
-crashes, the relays remain in their last position and the interlock still
-prevents simultaneous operation.
+Both relays are driven by the same GPIO (P0.17 / IO1). Both are
+normally-closed (pass-through when de-energized). When the MCU drives the GPIO
+HIGH, the pilot spoof relay energizes (inserting the spoof load to block EV
+charging) and the AC block relay energizes (opening the Y-out/W-out path to
+block the compressor). When the GPIO is LOW (or the MCU loses power), both
+relays de-energize and all signals pass through — the device is transparent.
+The mutual exclusion interlock is enforced by firmware: the MCU reads the
+thermostat inputs and drives the GPIO accordingly.
 
 #### 9.3.3 MCU Power Loss Behavior
 
-On MCU power loss, P0.06 floats LOW (not blocking). The pilot passes through
-normally (EVSE operates as if SideCharge is not present), and the AC block relay
-passes thermostat signals through (compressor can run). This is the safe default:
-the home retains full HVAC function and the EV can charge normally.
+On MCU power loss, P0.17 (IO1) floats LOW (de-energized). Both relays de-energize
+to their normally-closed (pass-through) state:
+
+- **Pilot spoof relay**: de-energized = contacts closed = PILOT-in passes through
+  to PILOT-out. The EVSE operates normally, as if SideCharge were not installed.
+- **AC block relay**: de-energized = contacts closed = Y-in/W-in pass through to
+  Y-out/W-out. The compressor can run.
+
+**This is completely safe by design.** When SideCharge has no power, the device is
+electrically transparent — every signal passes straight through. The EVSE retains
+all of its own safety systems (GFCI, overcurrent protection, ground fault
+detection, J1772 state machine). The thermostat retains full control of the
+compressor. The home operates exactly as it would without SideCharge installed.
+The interlock (mutual exclusion of EV and compressor loads) is a *firmware-driven*
+feature that requires MCU power; it is not preserved on power loss, and that is
+the correct design choice — a dead device should never prevent either load from
+operating.
 
 #### 9.3.4 Hardware vs. Firmware Scope
 
 | Feature | v1.0 Hardware (PCB) | v1.0 Firmware | v1.1 Firmware |
 |---------|--------------------|--------------|--------------|
-| Y (cool call) pass-through | Wired, relay in path | Reads P0.05, interlock trigger | No change |
-| W (heat call) pass-through | Wired, relay in path | P0.04 wired but not read | Reads P0.04, interlock trigger |
-| PILOT pass-through | Wired, spoof relay in path | P0.06 controls spoof relay | No change |
-| AC block relay blocks both Y + W | Yes (ganged relay) | Implicit via HW interlock | No change |
+| Y (cool call) pass-through | Wired, relay in path | Reads P1.02 (IO2), interlock trigger | No change |
+| W (heat call) pass-through | Wired, relay in path | Not connected on WisBlock prototype | Reads heat call GPIO (production PCB pin TBD), interlock trigger |
+| PILOT pass-through | Wired, spoof relay in path | P0.17 (IO1) controls spoof relay | No change |
+| AC block relay blocks both Y + W | Yes (same GPIO drives both relays) | Implicit — when charge_block HIGH, both Y-out and W-out disconnect | No change |
 | Heat call flag in uplink (bit 0) | N/A | Always 0 | Reports actual state |
-| Heat call triggers EV pause | Yes (HW interlock) | No (SW only pauses on cool call) | Yes (SW pauses on either) |
+| Heat call triggers EV pause | Via same GPIO (when charge_block HIGH, both blocked) | No (SW only pauses on cool call) | Yes (SW pauses on either) |
 
-The hardware interlock blocks both Y and W from v1.0 — the PCB must have terminals
-and relays for both signals even though the firmware initially only uses the cool
-call. This ensures heat pump compatibility at the hardware level from day one.
+Both the pilot spoof relay and the AC block relay are driven by the same
+charge_block GPIO (P0.17 / IO1). Both are normally-closed (pass-through when
+de-energized). The PCB must have terminals and relays for both Y-out and W-out
+even though the firmware initially only uses the cool call — this ensures heat
+pump compatibility at the hardware level from day one.
 
 ### 9.4 Radio
 

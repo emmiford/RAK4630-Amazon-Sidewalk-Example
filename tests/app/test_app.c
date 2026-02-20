@@ -160,13 +160,13 @@ static void test_j1772_null_api_returns_error(void)
 
 static void test_current_read_conversion(void)
 {
+	/* Current clamp stubbed on WisBlock — always returns 0 mA */
 	mock_platform_api_reset();
-	mock_adc_values[1] = 1650;  /* half scale -> 15A */
 	platform = mock_platform_api_get();
 
 	uint16_t current_ma;
 	assert(evse_current_read(&current_ma) == 0);
-	assert(current_ma == 15000);
+	assert(current_ma == 0);
 }
 
 static void test_current_read_zero(void)
@@ -243,7 +243,7 @@ static void test_charge_control_defaults_to_allowed(void)
 	charge_control_init();
 
 	assert(charge_control_is_allowed() == true);
-	/* Init should set charge_block pin 0 low (not blocking = allowed) */
+	/* Init should set GPIO pin 0 low (allowed = LOW) */
 	assert(mock_gpio_set_last_pin == 0);
 	assert(mock_gpio_set_last_val == 0);
 }
@@ -434,15 +434,15 @@ static void test_on_timer_j1772_change_triggers_send(void)
 	assert(mock_send_count == 1);
 }
 
-static void test_on_timer_current_change_triggers_send(void)
+static void test_on_timer_current_change_no_send_stubbed(void)
 {
+	/* Current clamp stubbed on WisBlock — ADC changes don't affect current */
 	init_app_for_timer_tests();
 
-	/* Turn on current (above 500mA threshold) */
-	mock_adc_values[1] = 1650;  /* = 15000 mA */
+	mock_adc_values[1] = 1650;  /* would be 15A if clamp existed */
 	mock_uptime_ms = timer_test_base + 1000;
 	tick_sensor_cycle();
-	assert(mock_send_count == 1);
+	assert(mock_send_count == 0);  /* no change detected — current stays 0 */
 }
 
 static void test_on_timer_thermostat_change_triggers_send(void)
@@ -523,8 +523,7 @@ static void init_selftest(void)
 {
 	mock_platform_api_reset();
 	mock_adc_values[0] = 2980;  /* pilot OK (State A) */
-	mock_adc_values[1] = 0;     /* current OK (0 mA, consistent with State A) */
-	mock_gpio_values[0] = 0;    /* charge_block (0 = not blocking) */
+	mock_gpio_values[0] = 1;    /* charge block */
 	mock_gpio_values[2] = 0;    /* cool */
 	mock_uptime_ms = 1000000;      /* high base */
 	platform = mock_platform_api_get();
@@ -537,7 +536,6 @@ static void test_selftest_boot_all_pass(void)
 	selftest_boot_result_t result;
 	assert(selftest_boot(&result) == 0);
 	assert(result.adc_pilot_ok == true);
-	assert(result.adc_current_ok == true);
 	assert(result.gpio_cool_ok == true);
 	assert(result.charge_block_ok == true);
 	assert(result.all_pass == true);
@@ -553,16 +551,6 @@ static void test_selftest_boot_adc_pilot_fail(void)
 	assert(result.adc_pilot_ok == false);
 	assert(result.all_pass == false);
 	assert(selftest_get_fault_flags() & FAULT_SELFTEST);
-}
-
-static void test_selftest_boot_adc_current_fail(void)
-{
-	init_selftest();
-	mock_adc_fail[1] = true;
-	selftest_boot_result_t result;
-	assert(selftest_boot(&result) == -1);
-	assert(result.adc_current_ok == false);
-	assert(result.all_pass == false);
 }
 
 static void test_selftest_boot_gpio_cool_fail(void)
@@ -902,7 +890,7 @@ static void init_diag(void)
 	mock_platform_api_reset();
 	mock_adc_values[0] = 2980;  /* pilot OK */
 	mock_adc_values[1] = 0;
-	mock_gpio_values[0] = 0;    /* charge_block (0 = not blocking) */
+	mock_gpio_values[0] = 1;    /* charge enable */
 	mock_gpio_values[2] = 0;
 	mock_uptime_ms = 120000;       /* 120 seconds */
 	mock_sidewalk_ready = true;
@@ -1953,7 +1941,7 @@ static void init_charge_now_test(void)
 	mock_platform_api_reset();
 	mock_adc_values[0] = 1489;  /* State C (charging) */
 	mock_adc_values[1] = 1650;  /* current flowing */
-	mock_gpio_values[0] = 0;    /* charge_block (0 = not blocking) */
+	mock_gpio_values[0] = 1;    /* charge enable */
 	mock_gpio_values[2] = 0;    /* no cool */
 	mock_uptime_ms = 2000000;
 	mock_sidewalk_ready = true;
@@ -3187,7 +3175,7 @@ int main(void)
 	printf("\non_timer change detection:\n");
 	RUN_TEST(test_on_timer_no_change_no_send);
 	RUN_TEST(test_on_timer_j1772_change_triggers_send);
-	RUN_TEST(test_on_timer_current_change_triggers_send);
+	RUN_TEST(test_on_timer_current_change_no_send_stubbed);
 	RUN_TEST(test_on_timer_thermostat_change_triggers_send);
 	RUN_TEST(test_on_timer_heartbeat_sends_after_60s);
 	RUN_TEST(test_on_timer_no_heartbeat_before_60s);
@@ -3198,7 +3186,6 @@ int main(void)
 	printf("\nselftest_boot:\n");
 	RUN_TEST(test_selftest_boot_all_pass);
 	RUN_TEST(test_selftest_boot_adc_pilot_fail);
-	RUN_TEST(test_selftest_boot_adc_current_fail);
 	RUN_TEST(test_selftest_boot_gpio_cool_fail);
 	RUN_TEST(test_selftest_boot_charge_block_toggle_pass);
 	RUN_TEST(test_selftest_boot_charge_block_readback_fail);

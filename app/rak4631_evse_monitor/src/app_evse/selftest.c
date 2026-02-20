@@ -64,7 +64,6 @@ int selftest_boot(selftest_boot_result_t *result)
 	}
 
 	result->adc_pilot_ok = false;
-	result->adc_current_ok = false;
 	result->gpio_cool_ok = false;
 	result->charge_block_ok = false;
 	result->all_pass = false;
@@ -72,13 +71,10 @@ int selftest_boot(selftest_boot_result_t *result)
 	/* 1. ADC pilot channel readable */
 	result->adc_pilot_ok = (platform->adc_read_mv(0) >= 0);
 
-	/* 2. ADC current channel readable */
-	result->adc_current_ok = (platform->adc_read_mv(1) >= 0);
-
-	/* 3. GPIO cool input readable */
+	/* 2. GPIO cool input readable */
 	result->gpio_cool_ok = (platform->gpio_get(EVSE_PIN_COOL) >= 0);
 
-	/* 4. Toggle-and-verify on charge block pin:
+	/* 3. Toggle-and-verify on charge block pin:
 	 *    Save current → set 1 → readback → set 0 → readback → restore */
 	int saved = platform->gpio_get(EVSE_PIN_CHARGE_BLOCK);
 	bool toggle_ok = true;
@@ -101,7 +97,6 @@ int selftest_boot(selftest_boot_result_t *result)
 
 	/* Overall result */
 	result->all_pass = result->adc_pilot_ok &&
-			   result->adc_current_ok &&
 			   result->gpio_cool_ok &&
 			   result->charge_block_ok;
 
@@ -234,7 +229,6 @@ int selftest_run_shell(void (*print)(const char *, ...),
 	selftest_boot(&result);
 
 	print("  ADC pilot:     %s", result.adc_pilot_ok ? "PASS" : "FAIL");
-	print("  ADC current:   %s", result.adc_current_ok ? "PASS" : "FAIL");
 	print("  GPIO cool:     %s", result.gpio_cool_ok ? "PASS" : "FAIL");
 	print("  Charge block:  %s", result.charge_block_ok ? "PASS" : "FAIL");
 

@@ -43,7 +43,7 @@ extern "C" {
 #define BLINK_PAUSE_TICKS      2
 
 /* Number of individual checks in the boot self-test */
-#define SELFTEST_CHECK_COUNT   4
+#define SELFTEST_CHECK_COUNT   3
 
 /* Callback for sending uplink when self-test has failures */
 typedef int (*selftest_send_fn)(void);

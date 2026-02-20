@@ -26,7 +26,6 @@ extern "C" {
 
 typedef struct {
     bool adc_pilot_ok;
-    bool adc_current_ok;
     bool gpio_cool_ok;
     bool charge_block_ok;
     bool all_pass;

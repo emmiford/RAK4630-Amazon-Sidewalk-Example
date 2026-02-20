@@ -24,12 +24,14 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (23)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-100 | not started | Eliel+Pam+Utz | Pin reassignment — move EVSE GPIOs/ADCs to WisBlock-accessible pins | — |
+| TASK-065 | reopened | Eliel | AC-priority software interlock + charge_block rename (incomplete) | — |
+| TASK-094 | not started | Pam+Utz | Merge PRD + TDD inline wiring doc updates | — |
+| TASK-100 | not started | Eliel | Remap firmware pins to RAK19007 WisBlock connector | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -41,11 +43,11 @@ Special: deferred, declined
 | TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
 | TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
 | TASK-093 | not started | Eliel | Clean up stale IoT rules and old Lambdas | — |
-| TASK-095 | not started | — | PCB design update — 3 relays, 11 terminals, inline interlock | — |
-| TASK-096 | not started | Eliel | Firmware — W-out relay GPIO + platform API update | TASK-095 |
+| TASK-095 | not started | — | PCB design update — 3 relays, 11 terminals, inline interlock | TASK-094 |
+| TASK-096 | not started | Eliel | Firmware — W-out relay GPIO + platform API update | TASK-094, TASK-095 |
 | TASK-097 | not started | Eliel | Firmware v1.1 — Heat call input + interlock + uplink HEAT flag | TASK-096 |
 | TASK-098 | not started | Eliel | Cloud v1.1 — Decode HEAT flag in Lambda + DynamoDB | TASK-097 |
-| TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | — |
+| TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | TASK-094 |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
@@ -61,11 +63,9 @@ Special: deferred, declined
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (76)
+## Completed Tasks (74)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
-| TASK-065 | Complete charge_block rename + GPIO polarity fix | MERGED DONE | 2026-02-19 | Eliel |
-| TASK-094 | Merge PRD + TDD inline wiring doc updates | MERGED DONE | 2026-02-19 | Pam+Utz |
 | TASK-032 | Cloud command authentication (HMAC-SHA256) | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-069 | Interlock transition event logging | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-061 | Event buffer — write on state change | MERGED DONE | 2026-02-19 | Eliel |

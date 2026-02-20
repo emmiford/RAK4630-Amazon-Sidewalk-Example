@@ -1,57 +1,75 @@
-# TASK-100: Pin reassignment — move EVSE GPIOs/ADCs to WisBlock-accessible pins
+# TASK-100: Remap firmware pin assignments to RAK19007 + RAK4631 WisBlock connector
 
 **Status**: not started
 **Priority**: P1
-**Owner**: Eliel + Pam + Utz
-**Branch**: —
-**Size**: M (3 points)
+**Owner**: Eliel
+**Branch**: task/100-wisblock-pin-remap
+**Size**: M (5 points)
 
 ## Description
-The current EVSE pin assignments use nRF52840 GPIOs (P0.06, P0.07, P0.02) that are NOT routed to the RAK4631 WisBlock connector. They cannot be tested on the RAK19007 base board. Reassign all EVSE pins to WisBlock-accessible pins, update the overlay, and update all documentation with triple-label pin tables (nRF52840 pin, WisBlock/RAK4631 name, RAK19007 silkscreen label).
+The current devicetree overlay uses raw nRF52840 pins (P0.02–P0.07) that are **not routed through the WisBlock connector**. The RAK19007 base board J11 header only exposes 3 usable pins: A1 (P0.31/AIN7), IO1 (P0.17), IO2 (P1.02). The overlay, platform API, and all documentation must be updated to use these physical pins.
 
-### Proposed pin mapping
+### Current (broken for WisBlock)
+| Signal | nRF52840 | WisBlock | Accessible? |
+|--------|----------|----------|-------------|
+| Pilot voltage (ADC) | P0.03 / AIN1 | — | NO |
+| Current clamp (ADC) | P0.02 / AIN0 | — | NO |
+| Charge block (output) | P0.06 | — | NO |
+| Cool call (input) | P0.05 | — | NO |
+| Heat call (input) | P0.04 | IO4/A0 | Not on J11 |
+| Charge Now button | P0.07 | — | NO |
 
-| Signal | Current Pin | New Pin | WisBlock Name | RAK19007 Label |
-|--------|-------------|---------|---------------|----------------|
-| charge_block (output) | P0.06 | P0.17 | WB_IO1 | J11 IO1 |
-| cool_call (input) | P0.05 | P1.02 | WB_IO2 | J11 IO2 |
-| charge_now (input) | P0.07 | P0.09 | WB_IO5 | IO slot |
-| heat_call (input) | P0.04 | P0.04 | WB_IO4 | IO slot (unchanged) |
-| pilot ADC (analog) | P0.03 / AIN1 | P0.05 / AIN3 | WB_A0 | IO slot |
-| current ADC (analog) | P0.02 / AIN0 | P0.31 / AIN7 | WB_A1 | J11 AIN1 |
+### Target (RAK19007 J11 header)
 
-### Rationale
-- The 3 most-needed test signals (charge_block, cool_call, current ADC) land on J11 header pins accessible without disassembly
-- All ADC pins remain on SAADC-capable AINx inputs
-- heat_call stays on P0.04 (already WisBlock-accessible via IO slot)
+| RAK19007 J11 | WisBlock Label | RAK4631 Pin | nRF52840 | Analog | Signal |
+|---|---|---|---|---|---|
+| Pin 1 | A1 | WB_A1 | P0.31 | AIN7 | **Pilot voltage** (ADC input) |
+| Pin 2 | IO1 | WB_IO1 | P0.17 | — | **Charge block** (GPIO output) |
+| Pin 3 | IO2 | WB_IO2 | P1.02 | — | **Cool call** (GPIO input) |
+| Pin 4 | VBAT | — | — | — | Battery voltage (not used) |
+
+### Dropped signals (no pins available)
+- **Current clamp** — no second analog pin; report 0 mA, rely on pilot state
+- **Heat call** — future heat pump, not needed for v1.0
+- **Charge Now button** — use cloud command or shell instead
+
+### IO2 / 3V3_S concern
+On the RAK19007, IO2 (P1.02) also controls the 3V3_S switched power rail. Using it as cool_call input requires confirming no driver conflict with the base board's 3V3_S enable circuit. If conflict exists, swap charge_block and cool_call pin assignments.
 
 ## Dependencies
-**Blocked by**: TASK-065
-**Blocks**: none
+**Blocked by**: none
+**Blocks**: TASK-095 (PCB design), TASK-096 (W-out relay GPIO)
 
 ## Acceptance Criteria
-- [ ] Overlay updated with new pin assignments (`rak4631_nrf52840.overlay`)
-- [ ] TDD §9.1 pin table uses triple labels (nRF52840 / WisBlock / RAK19007)
-- [ ] All TDD pin references updated (§6.3, §9.3, signal path diagrams)
-- [ ] PRD §2.0.3 pin tables updated with triple labels
-- [ ] All PRD pin references updated (~15 locations)
-- [ ] `docs/lexicon.md` pin references updated
-- [ ] `docs/project-plan.md` pin references updated
-- [ ] All C unit tests pass (app code uses abstract pin indices — no code changes expected)
+- [ ] Overlay updated: ADC channel 0 → NRF_SAADC_AIN7 (P0.31) for pilot
+- [ ] Overlay updated: charge_block GPIO → P0.17 (IO1)
+- [ ] Overlay updated: cool_call GPIO → P1.02 (IO2)
+- [ ] Overlay updated: remove heat_call, charge_now, current clamp ADC channel
+- [ ] platform_api_impl.c compiles with new pin assignments
+- [ ] Selftest updated — only 2 checks remain (ADC pilot + charge_block toggle)
+- [ ] evse_sensors.c gracefully handles missing current clamp (return 0)
+- [ ] charge_now.c disabled or stubbed (no button GPIO)
+- [ ] TDD §9.1 pin mapping table updated
+- [ ] PRD §2.0.3 pin table updated
+- [ ] All C unit tests pass
 - [ ] All Python tests pass
 - [ ] Platform + app build succeeds
-- [ ] Device flashed and verified (`app evse status` shows correct defaults)
+- [ ] Verified on physical RAK19007: pilot ADC reads voltage on J11 pin 1
 
 ## Testing Requirements
-- [ ] C unit tests pass (`cmake ... && ctest`)
-- [ ] Python tests pass (`pytest aws/tests/ -v`)
-- [ ] Platform build succeeds (west build)
-- [ ] App build succeeds (cmake)
-- [ ] On-device verification after flash
+- [ ] Host-side C tests pass (15 executables)
+- [ ] Python Lambda tests pass (326 tests)
+- [ ] On-device: `app evse status` shows pilot voltage via J11 A1 pin
+- [ ] On-device: `app evse allow` / `app evse pause` toggles J11 IO1
+- [ ] On-device: cool_call input readable via J11 IO2
 
 ## Deliverables
-- Modified `boards/rak4631_nrf52840.overlay` — new pin assignments
-- Modified `docs/technical-design.md` — triple-label pin tables, updated references
-- Modified `docs/PRD.md` — triple-label pin tables, updated references
-- Modified `docs/lexicon.md` — updated pin references
-- Modified `docs/project-plan.md` — updated pin references
+- Modified `boards/rak4631_nrf52840.overlay`
+- Modified `src/platform_api_impl.c`
+- Modified `src/app_evse/evse_sensors.c` (current clamp stub)
+- Modified `src/app_evse/selftest.c` (reduced check count)
+- Modified `src/app_evse/charge_now.c` (disabled/stubbed)
+- Modified `src/app_evse/thermostat_inputs.c` (remove heat_call)
+- Updated `docs/technical-design.md` §9.1
+- Updated `docs/PRD.md` §2.0.3
+- Updated `CLAUDE.md` pin references

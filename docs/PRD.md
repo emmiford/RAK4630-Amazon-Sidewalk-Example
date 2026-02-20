@@ -28,7 +28,7 @@ This document uses consistent terms (see `docs/lexicon.md` for the full referenc
 - **EV charger** (not "EVSE") in user-facing context. "EVSE" appears only in J1772 technical sections.
 - **Interlock** — the hardware + software system that prevents simultaneous operation of the compressor and EV charger. In v1.0, the interlock triggers on the cool call signal. In v1.1, it triggers on cool call OR heat call, blocking the compressor regardless of heating or cooling mode.
 - **Cool call** — the thermostat signal requesting cooling (Y wire). Use "cool call" in spec/code context, "AC call" in user-facing context. Avoid "thermostat call" (ambiguous), "HVAC call", "AC demand" (as a signal name).
-- **Heat call** — the thermostat signal requesting heating (W wire). Relevant for heat pump systems where the same compressor serves both heating and cooling. The v1.0 PCB wires the heat call GPIO (P0.04) and the W pass-through relay; firmware reading and reporting is v1.1 scope.
+- **Heat call** — the thermostat signal requesting heating (W wire). Relevant for heat pump systems where the same compressor serves both heating and cooling. The production PCB wires the heat call GPIO (P0.04) and the W pass-through relay; the heat call GPIO is not connected on the WisBlock prototype (no available pin). Firmware reading and reporting is v1.1 scope.
 - **Pause** / **allow** — the canonical verbs for stopping and permitting EV charging in user-facing and product context. Avoid "disable" (implies broken), "enable" (ambiguous with GPIO). The GPIO pin is named `charge_block` (HIGH = block, LOW = not blocking) — "block" is the correct technical term for the pin, while "pause" is the user-facing equivalent.
 - **AC priority** — the default operating mode: when the thermostat calls for cooling, EV charging pauses.
 - **Cloud override** — a cloud-initiated charge control command. Avoid "force-block", "remote override".
@@ -134,9 +134,9 @@ This is the core function of SideCharge -- the reason the product exists. The in
 - **To pause EV charging**: Two mechanisms, used for different triggers:
   - *Local interlock* (compressor needs priority): The device inserts ~900 ohm resistance on the PILOT-out line (between the device and the vehicle connector), making the charger see J1772 State B (connected, not ready). The charger stops supplying power gracefully. The PILOT-in line continues to carry the charger's signal to the device for monitoring.
   - *Cloud/utility override*: Set the J1772 PWM duty cycle to 0%, telling the car that no current is available. **This approach is not finalized** -- it needs testing with multiple car makes to verify behavior. See Oliver EXP-001.
-- **To pause compressor** (when EV is charging): The device blocks the 24VAC thermostat call signals by opening the Y-out and W-out pass-through relays. Both cool call and heat call are interrupted -- the compressor cannot run in either heating or cooling mode while the EV charger is active. This is a v1.0 hardware requirement: even though firmware reading of the heat call GPIO is v1.1 scope, the W-out relay must be wired and controlled by the hardware interlock from day one so that heat pump installations are safe without a board respin.
+- **To pause compressor** (when EV is charging): The device blocks the 24VAC thermostat call signals by opening the Y-out and W-out pass-through relays. Both cool call and heat call are interrupted -- the compressor cannot run in either heating or cooling mode while the EV charger is active. This is a v1.0 hardware requirement: even though firmware reading of the heat call GPIO is v1.1 scope, the W-out relay must be wired and driven by the same charge_block GPIO from day one so that heat pump installations are safe without a board respin.
 
-The interlock is implemented in both hardware and software -- a deliberate redundancy choice. The hardware circuit enforces mutual exclusion independently of the microcontroller, so basic interlock function works even if the firmware crashes. The software layer adds the smarts: cloud override, Charge Now button, logging, and boot-time thermostat reading. Both layers stay active in production.
+The interlock is firmware-driven: the MCU reads thermostat inputs and drives the charge_block GPIO to control both relays (pilot spoof and AC block). Both relays are normally-closed (pass-through when de-energized), so on MCU power loss the device becomes transparent and both loads can operate — this is safe by design because the EVSE retains its own safety systems (GFCI, overcurrent protection, J1772 state machine). The firmware layer provides the mutual exclusion logic, cloud override, Charge Now button, logging, and boot-time thermostat reading.
 
 AC always wins by default -- if the thermostat calls, charging pauses. The "Charge Now" button (physical momentary, see PDL-001) lets the user override AC priority for a limited duration. See section 2.0.1.1 for duration options.
 
@@ -203,21 +203,21 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 
 **Inputs**
 
-| Pin | Signal | Description | Status |
-|-----|--------|-------------|--------|
-| AIN1 | J1772 Cp voltage | Pilot voltage level — classifies car presence/state (A-F) | IMPLEMENTED (HW+SW) |
-| AIN1 | J1772 Cp PWM | Pilot duty cycle — encodes max allowed current per J1772 | NOT STARTED |
-| AIN0 | Current clamp | Analog voltage proportional to EV charger current (0-3.3V) | IMPLEMENTED (HW) |
-| P0.05 | Cool call | Thermostat cooling request from Y-in (active high, pull-down) | IMPLEMENTED (HW+SW) |
-| P0.04 | Heat call | Thermostat heating request from W-in (active high, pull-down). Wired and sensed by hardware interlock in v1.0; firmware reading is v1.1 | DESIGNED (HW wired v1.0, SW v1.1) |
+| WisBlock (J11) | nRF52840 | Signal | Description | Status |
+|----------------|----------|--------|-------------|--------|
+| AIN1 | P0.31 / AIN7 | J1772 Cp voltage | Pilot voltage level — classifies car presence/state (A-F) | IMPLEMENTED (HW+SW) |
+| AIN1 | P0.31 / AIN7 | J1772 Cp PWM | Pilot duty cycle — encodes max allowed current per J1772 | NOT STARTED |
+| — | — | Current clamp | Not available on WisBlock prototype (no second analog pin). Production PCB will use dedicated ADC channel | NOT AVAILABLE (WisBlock) |
+| IO2 | P1.02 | Cool call | Thermostat cooling request from Y-in (active high, pull-down) | IMPLEMENTED (HW+SW) |
+| — | P0.04 | Heat call | Not connected on WisBlock prototype. Production PCB will use dedicated GPIO | DESIGNED (production PCB) |
 
 **Outputs**
 
-| Pin | Signal | Description | Status |
-|-----|--------|-------------|--------|
-| P0.06 | Charge block | Controls EV charging via PILOT-out -- when HIGH, inserts ~900 ohm resistance on the PILOT-out line, making charger see State A (no vehicle). When LOW or unpowered, pilot passes through normally. | IMPLEMENTED (HW) |
-| TBD | Y-out relay | Pass-through relay on cool call: when open, blocks Y-in signal from reaching compressor contactor via Y-out | IMPLEMENTED (HW) |
-| TBD | W-out relay | Pass-through relay on heat call: when open, blocks W-in signal from reaching compressor contactor via W-out. Controlled by hardware interlock in v1.0; firmware control in v1.1 | DESIGNED (HW v1.0) |
+| WisBlock (J11) | nRF52840 | Signal | Description | Status |
+|----------------|----------|--------|-------------|--------|
+| IO1 | P0.17 | Charge block | Controls EV charging via PILOT-out — inserts ~900 ohm resistance on the PILOT-out line when HIGH (blocking), making charger see State B (see 2.0.1 asymmetric mechanism) | IMPLEMENTED (HW) |
+| TBD | TBD | Y-out relay | Pass-through relay on cool call: when open, blocks Y-in signal from reaching compressor contactor via Y-out | IMPLEMENTED (HW) |
+| TBD | TBD | W-out relay | Pass-through relay on heat call: when open, blocks W-in signal from reaching compressor contactor via W-out. Driven by charge_block GPIO (same signal as pilot spoof relay) in v1.0; firmware adds heat call reading in v1.1 | DESIGNED (HW v1.0) |
 
 **Power**
 
@@ -226,7 +226,7 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 | USB-C | RAK4631 USB port (development only) | IMPLEMENTED |
 | 24VAC | AC system transformer — production power source | NOT STARTED |
 
-AIN1 serves double duty: the same pin reads both the Cp voltage level (implemented) and the Cp PWM duty cycle (not yet implemented). The voltage level tells us the car's state; the duty cycle tells us the maximum current the charger is offering. These are two different measurements of the same physical signal.
+AIN1 (WisBlock) / AIN7 (nRF52840 SAADC channel) serves double duty: the same pin reads both the Cp voltage level (implemented) and the Cp PWM duty cycle (not yet implemented). The voltage level tells us the car's state; the duty cycle tells us the maximum current the charger is offering. These are two different measurements of the same physical signal.
 
 #### 2.0.3.1 Wiring Terminal Definitions (Installer-Facing)
 
@@ -238,12 +238,12 @@ These are the terminal labels on the SideCharge device as the electrician sees t
 |----------|------------|--------|-------------|
 | **R** | Thermostat (air handler) | 24VAC hot | Production power source -- always connected to the HVAC transformer |
 | **C** | Thermostat (air handler) | 24VAC common | Power return -- completes the 24VAC circuit back to the transformer |
-| **Y-in** | Thermostat (air handler) | Cool call input | Signal from thermostat -- goes HIGH (24VAC present) when the thermostat calls for cooling. The device reads this signal (GPIO P0.05) and decides whether to pass it through to Y-out |
+| **Y-in** | Thermostat (air handler) | Cool call input | Signal from thermostat -- goes HIGH (24VAC present) when the thermostat calls for cooling. The device reads this signal (IO2 / nRF52840: P1.02) and decides whether to pass it through to Y-out |
 | **Y-out** | To compressor contactor | Cool call output | Signal to compressor -- when the Y-out relay is closed, the cool call passes through to energize the compressor contactor. When the relay is open (EV charging has priority), the cool call is blocked and the compressor does not start. Primary interlock trigger in v1.0 |
-| **W-in** | Thermostat (air handler) | Heat call input | Signal from thermostat -- goes HIGH (24VAC present) when the thermostat calls for heating. Relevant for heat pump systems where the same compressor serves both heating and cooling. The device reads this signal (GPIO P0.04) in v1.1 firmware; the hardware interlock blocks W-out in v1.0 regardless |
-| **W-out** | To compressor contactor | Heat call output | Signal to compressor -- when the W-out relay is closed, the heat call passes through. When the relay is open (EV charging has priority), the heat call is blocked. **This relay is wired and controlled by the hardware interlock in v1.0** even though firmware reading of W-in is v1.1 scope -- this ensures heat pump installations are safe from day one without a board respin |
+| **W-in** | Thermostat (air handler) | Heat call input | Signal from thermostat -- goes HIGH (24VAC present) when the thermostat calls for heating. Relevant for heat pump systems where the same compressor serves both heating and cooling. Not connected on WisBlock prototype; production PCB will read this signal (GPIO P0.04) in v1.1 firmware. The charge_block GPIO drives the W-out relay (same signal as pilot spoof) in v1.0 regardless |
+| **W-out** | To compressor contactor | Heat call output | Signal to compressor -- when the W-out relay is closed, the heat call passes through. When the relay is open (EV charging has priority), the heat call is blocked. **This relay is wired and driven by the charge_block GPIO in v1.0** even though firmware reading of W-in is v1.1 scope -- this ensures heat pump installations are safe from day one without a board respin |
 | **G** | AC compressor junction box | Earth ground | Reference ground from the equipment grounding conductor (EGC) at the compressor's junction box ground screw. **This is NOT the thermostat fan wire.** The G terminal on a standard thermostat controls the indoor fan -- SideCharge repurposes this terminal for earth ground because the device needs a ground reference and does not control the indoor fan. The fan wire from the thermostat bundle is not connected to SideCharge; it either remains connected directly to the air handler (normal operation) or is capped if not needed |
-| **PILOT-in** | EV charger (EVSE) | J1772 Cp input | Pilot signal from the charger -- 1 kHz +/-12V square wave from the charger's control pilot pin. The device reads this signal (ADC AIN1) to detect car presence and charging state. The signal passes through to PILOT-out when charging is allowed |
+| **PILOT-in** | EV charger (EVSE) | J1772 Cp input | Pilot signal from the charger -- 1 kHz +/-12V square wave from the charger's control pilot pin. The device reads this signal (ADC AIN1 / nRF52840: AIN7) to detect car presence and charging state. The signal passes through to PILOT-out when charging is allowed |
 | **PILOT-out** | To vehicle connector | J1772 Cp output | Pilot signal to the vehicle -- in normal operation, the EVSE's pilot signal passes through unmodified. When the interlock pauses charging, the device inserts ~900 ohm resistance on this line, making the charger see State B (connected, not ready). This is the inline spoof mechanism described in 2.0.1 |
 | **CT+/CT-** | Current clamp leads | Analog current | Two-wire analog input from the current clamp wrapped around one 240V conductor on the EV charger leg. Voltage proportional to charging current (0-3.3V = 0-48A target range) |
 
@@ -265,11 +265,11 @@ As stated in the design principles above: SideCharge only touches low-voltage co
 | Microcontroller isolated from J1772 pilot circuit (+/-12V) | IMPLEMENTED (HW) |
 | Earth ground reference from AC compressor junction box ground screw (G terminal — see 2.0.3.1) | IMPLEMENTED (HW) |
 | 24VAC AC power galvanically isolated from 240VAC charging circuit | IMPLEMENTED (HW) |
-| Fail-safe: if microcontroller loses power, basic interlock still functions | IMPLEMENTED (HW) |
+| Fail-safe: if microcontroller loses power, device becomes transparent (NC relays pass all signals through; EVSE retains its own safety systems) | IMPLEMENTED (HW) |
 
 Isolation means there is no direct electrical connection between the microcontroller and the circuits it monitors or controls. Signals cross the isolation barrier via optocouplers (an LED shines on a photodetector across a gap -- light carries the signal, not electricity) or magnetic couplers (transformer-based). This protects the low-voltage microcontroller from surges or faults on the thermostat or J1772 circuits.
 
-The isolation is implemented in the current prototype hardware. The fail-safe behavior is intentionally asymmetric: if the microcontroller loses power, the hardware interlock continues to prevent simultaneous AC and EV charger operation (this is the basic safety guarantee). However, cloud override commands and the "Charge Now" button override will not function without the microcontroller -- only the fundamental mutual exclusion is preserved.
+The isolation is implemented in the current prototype hardware. The fail-safe behavior on MCU power loss is **transparent pass-through**: both relays are normally-closed (NC), so when the microcontroller loses power the GPIO floats LOW, both relays de-energize, and all signals pass straight through. The EVSE operates normally and the thermostat retains full compressor control — the device is electrically invisible, as if it were not installed. **This is completely safe by design.** The EVSE retains all of its own safety systems (GFCI, overcurrent protection, ground fault detection, J1772 state machine) regardless of SideCharge's state. The mutual exclusion interlock is a firmware-driven feature that requires MCU power; it is not preserved on power loss, and that is the correct design choice — a dead device should never prevent either load from operating.
 
 Because we stay entirely in the low-voltage domain (no mains switching), we expect this design to fall outside the scope of UL testing at 220V. This is a key part of the product strategy -- keeping the device simple and certifiable.
 
@@ -292,13 +292,13 @@ Three NEC sections are directly relevant to the SideCharge interlock:
 - **[NEC 220.70](https://blog.se.com/homes/2025/06/09/charging-ahead-managing-ev-load-demand-without-breaking-the-bank/) / [Article 750](https://qmerit.com/blog/top-five-ways-the-2023-nec-will-impact-ev-charging-station-installation-contractors/) (Energy Management Systems)** — Added in the 2023 NEC cycle, this section specifically addresses automated load management systems for EV charging. It provides a code path for devices that dynamically manage EV charging load based on other circuit demands.
 - **[NEC 440.34 exception](https://www.ecmag.com/magazine/articles/article-detail/more-on-2023-s-chapter-2-updates-accepting-(nec)-change-part-7)** — Allows motor-driven air conditioning equipment to share circuits with other loads when interlocked to prevent simultaneous operation, with reduced conductor and overcurrent protection sizing.
 
-We are targeting NEC and Colorado code compliance. However, no formal code compliance review has been conducted, no AHJ (Authority Having Jurisdiction) has evaluated the design, and no inspector has signed off on an installation. UL listing will eventually be required for production deployment -- but because the device operates entirely in the low-voltage domain, the certification path should be simpler than a device that switches mains power. The v1.0 PCB and wiring support both standard AC-only and heat pump installations (W-in/W-out terminals and relay are present). Firmware heat call reading is v1.1 scope, but the hardware interlock blocks the compressor via both Y-out and W-out from day one.
+We are targeting NEC and Colorado code compliance. However, no formal code compliance review has been conducted, no AHJ (Authority Having Jurisdiction) has evaluated the design, and no inspector has signed off on an installation. UL listing will eventually be required for production deployment -- but because the device operates entirely in the low-voltage domain, the certification path should be simpler than a device that switches mains power. The v1.0 PCB and wiring support both standard AC-only and heat pump installations (W-in/W-out terminals and relay are present). Firmware heat call reading is v1.1 scope, but the charge_block GPIO drives both Y-out and W-out relays from day one.
 
 ### 2.1 J1772 Pilot State Monitoring
 
 | Requirement | Status |
 |-------------|--------|
-| Read J1772 pilot voltage via ADC (AIN1, 12-bit, 0-3.6V range) | IMPLEMENTED |
+| Read J1772 pilot voltage via ADC (AIN1 / nRF52840: AIN7, 12-bit, 0-3.6V range) | IMPLEMENTED |
 | Classify into states A through F using voltage thresholds | IMPLEMENTED |
 | State A: >2600 mV (not connected) | IMPLEMENTED |
 | State B: 1850-2600 mV (connected, not ready) | IMPLEMENTED |
@@ -317,7 +317,7 @@ We are targeting NEC and Colorado code compliance. However, no formal code compl
 
 | Requirement | Status |
 |-------------|--------|
-| Read current clamp voltage via ADC (AIN0, 12-bit) | IMPLEMENTED |
+| Read current clamp voltage via ADC (AIN0, 12-bit) | NOT AVAILABLE (WisBlock) — no second analog pin on RAK19007 J11 header. Production PCB will use dedicated ADC channel |
 | Linear scaling: 0-3.3V = 0-30A (0-30,000 mA) | IMPLEMENTED (needs rescaling) |
 | Scale to 48A range (v1.0 target) | NOT STARTED |
 | Transmit on change detection | IMPLEMENTED |
@@ -350,23 +350,23 @@ SideCharge is compatible with any Level 2 J1772-compliant EV charger (EVSE). How
 
 | Requirement | Status |
 |-------------|--------|
-| Read cool call signal from Y-in (GPIO P0.05, active high, pull-down) | IMPLEMENTED |
-| Read heat call signal from W-in (GPIO P0.04, active high, pull-down) | DESIGNED (HW wired v1.0; firmware reading v1.1) |
+| Read cool call signal from Y-in (IO2 / nRF52840: P1.02, active high, pull-down) | IMPLEMENTED |
+| Read heat call signal from W-in (GPIO P0.04, active high, pull-down) | NOT AVAILABLE (WisBlock) — not connected on WisBlock prototype. Production PCB will use dedicated GPIO; firmware reading v1.1 |
 | Pack cool call as flag in uplink payload (bit 1 of flags byte) | IMPLEMENTED |
 | Pack heat call as flag in uplink payload (bit 0 of flags byte) | NOT STARTED (v1.1 firmware -- bit 0 reserved in v1.0, always 0) |
 | Transmit on change detection (cool call v1.0; cool call or heat call v1.1) | IMPLEMENTED (cool call) |
 
-**v1.0 behavior**: The cool call signal (Y-in, GPIO P0.05) is the thermostat input read by firmware in v1.0 -- a rising edge pauses EV charging if active. The heat call GPIO (P0.04) is physically wired to the W-in terminal but not read by firmware in v1.0. Bit 0 of the uplink flags byte is reserved for the heat call flag and is always 0 in v1.0.
+**v1.0 behavior**: The cool call signal (Y-in, IO2 / nRF52840: P1.02) is the thermostat input read by firmware in v1.0 -- a rising edge pauses EV charging if active. The heat call GPIO (P0.04) is not connected on the WisBlock prototype (no available pin); the production PCB will wire it to the W-in terminal. Bit 0 of the uplink flags byte is reserved for the heat call flag and is always 0 in v1.0.
 
-**v1.1 behavior (firmware)**: Firmware reads both cool call (P0.05) and heat call (P0.04). Either signal pauses EV charging. Bit 0 of the flags byte reports the heat call state. This supports heat pump systems where the same compressor serves both heating and cooling -- the interlock blocks the compressor regardless of operating mode.
+**v1.1 behavior (firmware)**: Firmware reads both cool call (IO2 / nRF52840: P1.02) and heat call (P0.04, production PCB only — not available on WisBlock prototype). Either signal pauses EV charging. Bit 0 of the flags byte reports the heat call state. This supports heat pump systems where the same compressor serves both heating and cooling -- the interlock blocks the compressor regardless of operating mode.
 
-**Hardware interlock (v1.0)**: The pass-through architecture means both Y-out and W-out are controlled by relays that the hardware interlock can open independently of firmware. When EV current is flowing, the hardware interlock opens both relays, blocking both cool call and heat call signals from reaching the compressor contactor. This is a v1.0 hardware requirement -- it ensures heat pump installations are safe from day one, even before v1.1 firmware reads the heat call GPIO. The software layer adds redundancy, cloud override, Charge Now, and logging on top of the hardware interlock. Both layers stay active in production -- see section 2.0.1.
+**Relay architecture (v1.0)**: Both the pilot spoof relay and the AC block relay are normally-closed (pass-through when de-energized) and are driven by the same charge_block GPIO (P0.17 / IO1). When firmware drives the GPIO HIGH (blocking EV charging), both relays energize: the pilot spoof relay inserts the ~900 ohm load (EVSE sees no vehicle) and the AC block relay disconnects Y-out/W-out (compressor blocked). When GPIO is LOW (allowing EV charging), both relays de-energize and all signals pass through. This is a v1.0 hardware requirement -- it ensures heat pump installations have both Y-out and W-out relays wired from day one, even before v1.1 firmware reads the heat call GPIO. On MCU power loss, both relays de-energize to pass-through — the device becomes transparent and both loads can operate (see §2.0.4 for why this is safe).
 
 ### 2.4 Charge Control Output
 
 | Requirement | Status |
 |-------------|--------|
-| GPIO output for charge relay (P0.06, active high) | IMPLEMENTED |
+| GPIO output for charge_block relay (IO1 / nRF52840: P0.17, active high) | IMPLEMENTED |
 | Allow/pause via cloud downlink command (0x10) | IMPLEMENTED |
 | Auto-resume timer (configurable duration in minutes) | IMPLEMENTED |
 | Default state on boot: read thermostat, then decide | IMPLEMENTED (SW) (TASK-065) |
@@ -383,29 +383,29 @@ Shell commands for manual charge control (`app evse allow`, `app evse pause`) ar
 
 | Step | Action |
 |------|--------|
-| 1 | Platform configures charge_block GPIO as `GPIO_OUTPUT_INACTIVE` (LOW = not blocking, hardware safety gate decides) |
+| 1 | Platform configures charge_block GPIO as `GPIO_OUTPUT_INACTIVE` (LOW = not blocking, both relays de-energized = pass-through) |
 | 2 | `app_init()` called. API pointers distributed to all app modules |
-| 3 | `charge_control_init()` reads cool call GPIO (P0.05) and heat call GPIO (P0.04) |
+| 3 | `charge_control_init()` reads cool call GPIO (IO2 / nRF52840: P1.02). Heat call GPIO (P0.04) is not available on WisBlock prototype; production PCB will read it here |
 | 4 | **If cool_call HIGH or heat_call HIGH** (compressor running): set charge_block HIGH (EV blocked). Log: "Boot: compressor active, EV blocked" |
 | 4 | **If both LOW** (compressor idle): leave charge_block LOW (not blocking, EV allowed). Log: "Boot: compressor idle, EV allowed" |
 | 5 | Sensors initialized, LED set to commissioning mode (1Hz flash) |
 | 6 | First poll cycle (t=500ms): read all sensors, send first uplink with boot state |
 
-**v1.0 vs v1.1 note**: In v1.0 firmware, only the cool call GPIO (P0.05) is read at boot. Heat call reading at boot is v1.1 scope. However, the hardware interlock independently blocks both Y-out and W-out when charging is active, so the safety guarantee holds even before v1.1 firmware.
+**v1.0 vs v1.1 note**: In v1.0 firmware, only the cool call GPIO (IO2 / nRF52840: P1.02) is read at boot. Heat call GPIO (P0.04) is not connected on the WisBlock prototype; heat call reading at boot is v1.1 scope and requires the production PCB. Both the pilot spoof relay and the AC block relay are driven by the same charge_block GPIO, so when firmware sets charge_block HIGH (blocking EV), both Y-out and W-out are also disconnected — this ensures heat pump installations are safe in v1.0 even before the firmware reads the heat call GPIO.
 
-**Rationale**: The hardware interlock prevents double-load at the circuit level regardless of what the software does. But the software should not contradict the hardware. If the HW interlock is blocking charging because the compressor is running (cool call or heat call), the SW leaving charge_block LOW fights the HW -- even though HW wins (it is downstream), the momentary conflict is unnecessary. Setting charge_block HIGH agrees with the hardware state.
+**Rationale**: The read-then-decide boot sequence ensures the software state matches the physical reality. If the compressor is running when the device boots, setting charge_block HIGH immediately is the correct action — it blocks EV charging to avoid simultaneous load. If the compressor is idle, leaving charge_block LOW allows EV charging. This avoids a brief window where both loads could operate simultaneously between boot and the first sensor poll.
 
 **Edge cases:**
 
 | Scenario | Behavior | Safe? |
 |----------|----------|-------|
 | **Unconnected thermostat GPIOs** (commissioning) | Pull-downs read LOW → allow charging | Yes -- correct for bench testing |
-| **Power cycle during compressor call** | Reads cool_call or heat_call HIGH → pause EV. Agrees with HW interlock. | Yes |
+| **Power cycle during compressor call** | Reads cool_call or heat_call HIGH → set charge_block HIGH (pause EV). | Yes |
 | **Power cycle during EV charging** | Reads cool_call LOW → allow EV. J1772 handshake restarts automatically. | Yes |
 | **Power cycle during Charge Now override** | Override lost (RAM-only). Reads thermostat → safe default. | Yes -- user presses button again if needed |
 | **Power cycle during cloud override** | Cloud override lost (RAM-only). Cloud re-sends on next scheduler cycle. | Yes -- brief gap is acceptable |
 | **Watchdog reset** | Identical to power cycle. All RAM state reinitialized. | Yes |
-| **Platform-only mode (no app)** | Platform sets charge_block GPIO inactive (LOW = not blocking). No read-then-decide. HW interlock still protects. | Acceptable for dev/recovery |
+| **Platform-only mode (no app)** | Platform sets charge_block GPIO inactive (LOW = not blocking). No read-then-decide. No interlock active — both loads can run. | Acceptable for dev/recovery (bench only) |
 
 **Implementation**: All items addressed in TASK-065 (AC-priority software interlock + charge_block rename, merged). Terminology propagated in TASK-068.
 
@@ -437,7 +437,7 @@ The RAK4631 has one user-controllable green LED (LED_ID_0). With a single LED, i
 - GPIO read returns negative error code 3 consecutive times
 - Sidewalk not ready 10+ minutes after boot (past commissioning window)
 - OTA apply failure (CRC mismatch after staging)
-- Charge block GPIO set fails
+- Charge_block GPIO set fails
 
 Error states clear automatically on the next successful sensor poll cycle. A persistent error that never clears keeps the LED on rapid flash indefinitely -- correct behavior (installer needs to investigate).
 
@@ -496,7 +496,7 @@ The full sequence takes 10-15 minutes. Steps C-01 through C-05 are visual/manual
 | C-06 | Power-on | Apply power, observe LED | Green LED begins 1Hz flash (commissioning mode) within 5 seconds | P0 |
 | C-07 | Sidewalk connectivity | Wait for LED transition | Green LED transitions from 1Hz flash to solid (typically 30-90s). If still flashing after 5 min, verify gateway proximity | P0 |
 | C-08 | Cool call detection | Set thermostat to call for cooling | Blue LED transitions to heartbeat pulse. Confirms device sees cool call signal on Y-in. Verify Y-out passes signal to compressor contactor (compressor starts) | P0 |
-| C-08b | Heat call detection (heat pump installations only) | Set thermostat to call for heating | Blue LED transitions to heartbeat pulse (v1.1 firmware; v1.0 may not show LED change but hardware interlock still blocks EV). Verify W-out passes signal to compressor contactor | P1 |
+| C-08b | Heat call detection (heat pump installations only) | Set thermostat to call for heating | Blue LED transitions to heartbeat pulse (v1.1 firmware; v1.0 may not show LED change since heat call GPIO reading is v1.1 scope). Verify W-out passes signal to compressor contactor | P1 |
 | C-09 | Thermostat release | Cancel cooling/heating call | Blue LED returns to off (idle). Confirms device sees signal drop | P0 |
 | C-10 | EV charge detection | Plug in EV (or simulate State C via `app evse c`) | Blue LED goes solid. Current reading >0 in uplink (if cloud-verified) | P0 |
 | C-11 | Interlock test | Trigger AC call while EV is charging | Blue LED transitions to heartbeat pulse. EV charger pauses (pilot drops to State B). This is the critical safety test -- confirms mutual exclusion works end to end | P0 |
@@ -523,8 +523,8 @@ On every boot, after the platform passes control to `app_init()`, the following 
 
 | Check | What It Detects | Failure Action |
 |-------|-----------------|----------------|
-| ADC channels readable | Dead or disconnected ADC (AIN1, AIN0) | Set SENSOR_FAULT flag, error LED |
-| GPIO pins readable | Dead thermostat input GPIOs (P0.04, P0.05) | Set SENSOR_FAULT flag, error LED |
+| ADC channels readable | Dead or disconnected ADC (AIN1 / nRF52840: AIN7). Current clamp ADC (AIN0) not available on WisBlock prototype | Set SENSOR_FAULT flag, error LED |
+| GPIO pins readable | Dead thermostat input GPIO (IO2 / nRF52840: P1.02, cool call). Heat call GPIO (P0.04) not connected on WisBlock prototype | Set SENSOR_FAULT flag, error LED |
 | Charge_block toggle-and-verify | Charge_block GPIO not controlling the relay — if toggling the output does not change the readback state, the relay is stuck or disconnected | Set INTERLOCK_FAULT flag, error LED |
 | Sidewalk init check | MFG keys missing or session keys absent (already implemented, see 3.1.1) | Degraded mode (no connectivity) |
 
@@ -561,7 +561,7 @@ There is no remote reboot or remote fault-clear command. The continuous monitors
 | Current clamp errors | Yes (most) | Current vs. J1772 cross-check |
 | J1772 pilot problems | Yes | ADC range validation |
 | Thermostat wiring | Partially -- detects signal presence/noise, not correct wiring | Requires manual trigger to verify (C-08, C-09) |
-| Charge block / relay | Yes | Toggle-and-verify on boot + effectiveness check during operation |
+| Charge_block / relay | Yes | Toggle-and-verify on boot + effectiveness check during operation |
 | Physical mounting | No | Visual inspection only (C-05) |
 | Sidewalk connectivity | Yes | Existing Sidewalk init checks (3.1.1) |
 
@@ -569,7 +569,7 @@ There is no remote reboot or remote fault-clear command. The continuous monitors
 |-------------|--------|----------|
 | Boot self-test (ADC, GPIO, charge_block toggle-and-verify) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Current vs. J1772 cross-check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
-| Charge block effectiveness check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
+| Charge_block effectiveness check (continuous) | IMPLEMENTED (SW) (TASK-039) | P0 |
 | Pilot voltage range validation (continuous) | IMPLEMENTED (SW) (TASK-039) | P1 |
 | Thermostat chatter detection (continuous) | IMPLEMENTED (SW) (TASK-039) | P2 |
 | `sid selftest` shell command | IMPLEMENTED (SW) (TASK-039) | P0 |
@@ -591,7 +591,7 @@ This section catalogs the installation failure modes that commissioning and self
 | **Current clamp** | Wrong conductor (AC leg instead of EV leg), reversed orientation, loose or fallen off | HIGH | Yes -- J1772 cross-check detects current/state mismatch | C-10, C-11 | Backwards clamp reads zero or negative; wrong conductor reads AC current as EV current. Cross-check catches both. |
 | **J1772 pilot** | Disconnected PILOT-in or PILOT-out wire, swapped PILOT-in/PILOT-out, damaged signal | HIGH | Yes -- ADC reads out-of-range voltage | C-04, C-10, C-11 | Device sees State A (disconnected) or State E/F (error) when it should see State C. Swapped PILOT-in/PILOT-out would mean the spoof resistance is inserted on the wrong side. |
 | **Thermostat** | Reversed R/Y wires, swapped Y-in/Y-out or W-in/W-out, loose connection, wrong terminals | MEDIUM | Partially -- detects signal presence and chatter, not correct wiring | C-03 (visual: R/C on power, Y-in/Y-out pass-through, W-in/W-out pass-through, G on earth ground), C-08, C-08b, C-09 (manual trigger required) | Swapped in/out on Y or W would mean the device reads the compressor side instead of the thermostat side -- the interlock still prevents double-load but the firmware sees the wrong signal direction. G terminal connected to wrong source (e.g., thermostat fan wire instead of earth ground) would not cause a safety failure but defeats the ground reference function. Manual test is required to verify correct behavior. |
-| **Charge_block / relay** | Relay wired backwards, stuck relay, disconnected relay output, failed J1772 spoof circuit | CRITICAL | Yes — toggle-and-verify on boot, effectiveness check during operation | C-11 (interlock test) | If charge_block doesn't work, software interlock is defeated. Hardware interlock is the backstop. |
+| **Charge_block / relay** | Relay wired backwards, stuck relay, disconnected relay output, failed J1772 spoof circuit | CRITICAL | Yes — toggle-and-verify on boot, effectiveness check during operation | C-11 (interlock test) | If charge_block doesn't work, the interlock is defeated — this is a critical failure requiring immediate investigation. |
 | **Physical / power** | Device not secured, loose conduit, no power (LED dark) | LOW-MEDIUM | Partial -- power loss detected (device goes offline), mounting is visual only | C-05 (visual), C-06 (power-on) | Cloud detects offline device via missing heartbeats (section 5.3.2). |
 
 **Implementation**: Boot self-test, continuous monitoring (current/J1772 cross-check, charge_block effectiveness), and `sid selftest` shell command all implemented (TASK-039). Production 5-press button trigger implemented (TASK-040). Commissioning checklist card designed (TASK-041). On-device verification pending (TASK-048).
@@ -706,13 +706,13 @@ Byte 4:    Pilot voltage, high     (e.g., 0xBA 0x08 = 2234 mV ≈ State B)
 Byte 5:    Current, low            Charging current in milliamps, little-endian uint16
 Byte 6:    Current, high           (e.g., 0xD0 0x07 = 2000 mA = 2.0A)
 Byte 7:    Flags                   Bitfield:
-             Bit 0 (0x01): HEAT            Heat call active from W-in (P0.04). Always 0 in v1.0; reported in v1.1 firmware
-             Bit 1 (0x02): COOL            Cool call active (P0.05)
+             Bit 0 (0x01): HEAT            Heat call active from W-in (P0.04, production PCB only — not connected on WisBlock prototype). Always 0 in v1.0; reported in v1.1 firmware
+             Bit 1 (0x02): COOL            Cool call active (IO2 / nRF52840: P1.02)
              Bit 2 (0x04): CHARGE_ALLOWED  Charge control state (1=allowed, 0=paused)
              Bit 3 (0x08): CHARGE_NOW      Charge Now override active
              Bit 4 (0x10): SENSOR_FAULT    ADC/GPIO read failure or pilot out-of-range (see 2.5.3)
              Bit 5 (0x20): CLAMP_MISMATCH  Current vs. J1772 state disagreement (see 2.5.3)
-             Bit 6 (0x40): INTERLOCK_FAULT Charge block ineffective or relay stuck (see 2.5.3)
+             Bit 6 (0x40): INTERLOCK_FAULT Charge_block ineffective or relay stuck (see 2.5.3)
              Bit 7 (0x80): SELFTEST_FAIL   On-demand self-test detected a failure (see 2.5.3)
 Bytes 8-11: Timestamp              SideCharge epoch: seconds since 2026-01-01 00:00:00 UTC,
                                    little-endian uint32. 1-second granularity. Device computes
@@ -722,7 +722,7 @@ Bytes 8-11: Timestamp              SideCharge epoch: seconds since 2026-01-01 00
 **Total: 12 bytes. Fits within 19-byte Sidewalk LoRa MTU with 7 bytes to spare.**
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
-measure line voltage. The J1772 pilot signal voltage (ADC AIN1) is included in the uplink
+measure line voltage. The J1772 pilot signal voltage (ADC AIN1 / nRF52840: AIN7) is included in the uplink
 alongside the classified state enum (byte 2). The raw millivolt reading enables cloud-side
 detection of marginal pilot connections — readings near a threshold boundary (e.g., 2590 mV
 near the 2600 mV A/B boundary) indicate a flaky or degraded connection that the enum alone
@@ -776,7 +776,7 @@ The ACK watermark tells the device "I have all your data through this timestamp"
 
 **Set delay window** (`0x01`): The device stores the window. If the current time falls within `[start, end]`, charging pauses. When `now > end`, charging resumes autonomously — no follow-up command needed. Each new window replaces the previous one (one active window at a time). If `start` is in the past and `end` is in the future, the delay takes effect immediately.
 
-**Clear delay** (`0x02`): Clears any active delay window. Bytes 2-9 are ignored. Charging resumes immediately (subject to AC priority / hardware interlock). Used when the cloud determines a previously sent window is no longer needed (e.g., MOER dropped below threshold mid-window).
+**Clear delay** (`0x02`): Clears any active delay window. Bytes 2-9 are ignored. Charging resumes immediately (subject to AC priority interlock via firmware). Used when the cloud determines a previously sent window is no longer needed (e.g., MOER dropped below threshold mid-window).
 
 The previous pause/allow format (`0x00`/`0x01` in byte 1 with no timestamps) is deprecated. The delay window approach is more resilient — see section 4.4.1 for rationale. Total downlink size is 10 bytes, well within the 19-byte LoRa MTU.
 
@@ -1317,7 +1317,7 @@ Sidewalk provides transport-layer encryption, and PSA crypto handles on-device k
 
 SideCharge controls two high-power loads (30-50A each). A compromised device or cloud doesn't just leak data -- it switches physical loads on and off. The failure modes are more serious than a typical IoT device:
 
-**Double-load on a single breaker**: If the interlock fails (both loads enabled simultaneously), the circuit draws 60-100A through a 30-50A breaker. The breaker trips. This is the designed safety net -- the breaker is the last line of defense. But frequent breaker trips damage the breaker itself, and a breaker that fails to trip is a fire hazard. The hardware interlock (section 2.0.1) prevents this even if the software is compromised, because mutual exclusion is enforced in the circuit itself. **A software-only interlock is not acceptable for production.**
+**Double-load on a single breaker**: If the interlock fails (both loads enabled simultaneously), the circuit draws 60-100A through a 30-50A breaker. The breaker trips — it is sized for the larger of the two loads per NEC 220.60, and will trip before conductors overheat. Frequent breaker trips damage the breaker itself, and a breaker that fails to trip is a fire hazard. The firmware-driven interlock (section 2.0.1) prevents this scenario during normal operation. On MCU power loss, the normally-closed relays pass all signals through (both loads can operate), but this is safe because the breaker provides overcurrent protection and the EVSE retains its own safety systems (GFCI, J1772 state machine, overcurrent protection).
 
 **Fleet-wide coordinated load switching**: This is the utility-scale risk. If an attacker compromises the cloud layer (Lambda, IoT Wireless, or the Sidewalk network itself), they could send simultaneous delay windows or overrides to every SideCharge device in a service area. Thousands of AC compressors or EV chargers turning on or off at the same instant creates a massive demand spike or drop on the distribution grid. This is not hypothetical -- grid operators specifically model "cold load pickup" scenarios where thousands of AC units restart simultaneously after a power outage. A compromised fleet could trigger this artificially.
 
@@ -1525,22 +1525,22 @@ Every requirement below is traced to a PRD section. The PCB must implement all h
 - Estimated MCU + radio power budget: ~50mA continuous at 3.3V during LoRa TX, ~15mA idle. The 24VAC transformer in a typical AC system can supply 1-2A at 24VAC (40-48VA), so SideCharge's draw (~0.17W) is negligible.
 
 **Interlock circuit** (PRD 2.0.1, 2.0.3, 2.0.4)
-- Hardware mutual exclusion: the circuit must prevent simultaneous operation of the compressor and EV charger independently of the microcontroller. If the MCU loses power or crashes, the hardware interlock must continue to enforce mutual exclusion. This is the fundamental safety guarantee (PRD 6.3.2).
+- Relay architecture: both the pilot spoof relay and the AC block relay (Y-out/W-out) must be normally-closed (pass-through when de-energized), driven by the same charge_block GPIO. On MCU power loss, all relays de-energize and signals pass through — the device becomes transparent. This is safe by design: the EVSE retains its own safety systems and the circuit breaker provides overcurrent protection.
 - Three relay outputs:
-  - **Charge block relay** (PRD 2.4): Controls the J1772 pilot spoof circuit on the PILOT-out line. When the MCU drives charge_block HIGH, the relay engages and inserts ~900 ohm resistance on PILOT-out, making the charger see J1772 State B (connected, not ready) and stop supplying power. When charge_block is LOW (or MCU loses power), the hardware safety gate controls the relay independently. GPIO P0.06, active high = blocking.
+  - **Charge block relay** (PRD 2.4): Controls the J1772 pilot spoof circuit on the PILOT-out line. Normally-closed (pass-through when de-energized). When the MCU drives charge_block HIGH, the relay energizes and inserts ~900 ohm resistance on PILOT-out, making the charger see J1772 State B (connected, not ready) and stop supplying power. When charge_block is LOW (or MCU loses power), the relay de-energizes and the pilot passes straight through — the EVSE operates normally. GPIO IO1 (nRF52840: P0.17) on WisBlock prototype, active high = blocking. Production PCB pin TBD.
   - **Y-out pass-through relay** (PRD 2.0.3, 2.3): Sits inline between Y-in and Y-out. When closed, the cool call signal passes through to the compressor contactor. When open, the cool call is blocked. This is the primary AC interlock relay in v1.0.
-  - **W-out pass-through relay** (PRD 2.0.3, 2.3): Sits inline between W-in and W-out. When closed, the heat call signal passes through to the compressor contactor. When open, the heat call is blocked. **This relay is a v1.0 hardware requirement** -- it must be wired and controlled by the hardware interlock even though firmware reading of W-in is v1.1 scope. This ensures heat pump installations are safe from day one without a board respin. Pin TBD.
-- The hardware interlock logic must be implemented so that the charge block relay and both thermostat pass-through relays cannot simultaneously be in the "active load" state. When EV current is flowing, both Y-out and W-out must be open (compressor blocked in both heating and cooling modes). When either thermostat call is active, the charge block relay must engage (EV paused). This can be achieved through relay wiring topology (series/parallel constraints) or through a simple logic gate -- the key requirement is that it works without firmware.
-- Fail-safe default: on power loss, charge_block GPIO floats LOW (not blocking -- hardware safety gate controls EV relay), Y-out and W-out relays de-energize and close (thermostat signals pass through to compressor). Both loads off simultaneously is safe. Both loads on simultaneously must be physically impossible.
+  - **W-out pass-through relay** (PRD 2.0.3, 2.3): Sits inline between W-in and W-out. Normally-closed (pass-through when de-energized). When energized (charge_block HIGH), the heat call is blocked. When de-energized (charge_block LOW or MCU power loss), the heat call passes through. **This relay is a v1.0 hardware requirement** -- it must be wired and driven by the charge_block GPIO even though firmware reading of W-in is v1.1 scope. This ensures heat pump installations are safe from day one without a board respin. Pin TBD.
+- The relay drive circuit must ensure all three relays (pilot spoof, Y-out, W-out) are driven by the same charge_block GPIO signal. When GPIO HIGH: pilot spoof relay energizes (spoof load inserted, EV blocked), Y-out relay energizes (cool call blocked), W-out relay energizes (heat call blocked). When GPIO LOW (or MCU power loss): all relays de-energize to normally-closed state (all signals pass through, device transparent). The mutual exclusion logic is enforced by firmware — the MCU reads thermostat inputs and decides when to assert HIGH.
+- Fail-safe default: on power loss, charge_block GPIO floats LOW (not blocking), all relays de-energize to normally-closed (pass-through). All signals pass through — the EVSE operates normally and the thermostat retains full compressor control. The device is electrically transparent, as if it were not installed. **This is completely safe by design**: the EVSE retains its own safety systems (GFCI, overcurrent protection, ground fault detection, J1772 state machine), and the circuit breaker provides overcurrent protection for the shared circuit.
 
 **Analog inputs** (PRD 2.0.3, 2.1, 2.2)
-- **J1772 Cp voltage** (AIN1): Reads pilot voltage level to classify car presence/state (A-F). The pilot signal is +/-12V, 1kHz square wave. The ADC input circuit must condition this to 0-3.3V range for the nRF52840's 12-bit SAR ADC. Isolation from the J1772 pilot circuit is required (PRD 2.0.4).
+- **J1772 Cp voltage** (AIN1 / nRF52840: AIN7 on WisBlock prototype; production PCB pin TBD): Reads pilot voltage level to classify car presence/state (A-F). The pilot signal is +/-12V, 1kHz square wave. The ADC input circuit must condition this to 0-3.3V range for the nRF52840's 12-bit SAR ADC. Isolation from the J1772 pilot circuit is required (PRD 2.0.4).
 - **J1772 Cp PWM duty cycle** (AIN1, same pin): The same physical signal also encodes maximum allowed current as a duty cycle percentage per J1772 spec. The ADC samples both voltage and timing -- no separate hardware needed, but the conditioning circuit must preserve the square wave shape well enough for duty cycle measurement. (TASK-022, NOT STARTED in firmware.)
-- **Current clamp** (AIN0): Analog voltage proportional to EV charger current. The v1.0 range is 0-48A (PDL-014), covering a 60A circuit at 80% continuous. The clamp selection and resistor divider must produce 0-3.3V across this range. Higher ranges (80A for Ford Charge Station Pro) are a future resistor divider change -- the PCB layout should accommodate this without a board respin.
+- **Current clamp** (AIN0 on production PCB; not available on WisBlock prototype — no second analog pin on RAK19007 J11 header): Analog voltage proportional to EV charger current. The v1.0 range is 0-48A (PDL-014), covering a 60A circuit at 80% continuous. The clamp selection and resistor divider must produce 0-3.3V across this range. Higher ranges (80A for Ford Charge Station Pro) are a future resistor divider change -- the PCB layout should accommodate this without a board respin.
 
 **Digital inputs** (PRD 2.3)
-- **Cool call** (P0.05): Thermostat cooling request from Y-in. Active high with pull-down. This is the primary interlock trigger in v1.0. The input circuit must condition the 24VAC thermostat signal to a 3.3V logic level with isolation (PRD 2.0.4).
-- **Heat call** (P0.04): Thermostat heating request from W-in. Active high with pull-down. Same conditioning circuit as cool call. Wired and connected to the hardware interlock in v1.0; firmware GPIO reading is v1.1. For heat pump installations, this signal indicates the compressor is running in heating mode.
+- **Cool call** (IO2 / nRF52840: P1.02 on WisBlock prototype; production PCB pin TBD): Thermostat cooling request from Y-in. Active high with pull-down. This is the primary interlock trigger in v1.0. The input circuit must condition the 24VAC thermostat signal to a 3.3V logic level with isolation (PRD 2.0.4).
+- **Heat call** (P0.04 on production PCB; not connected on WisBlock prototype — no available pin): Thermostat heating request from W-in. Active high with pull-down. Same conditioning circuit as cool call. Wired and driven by the charge_block GPIO on production PCB (same signal as pilot spoof and Y-out relays); firmware GPIO reading is v1.1. For heat pump installations, this signal indicates the compressor is running in heating mode.
 
 **Charge Now button** (PRD 2.0.1.1, PDL-001)
 - Physical momentary push button on the device enclosure. Single press = activate 30-minute override. Long press (3s) = cancel override. Long press (10s) = activate BLE diagnostics beacon (future). Requires one GPIO with debounce (hardware RC or firmware).
@@ -1593,9 +1593,9 @@ These decisions and deliverables feed into PCB design. Some are already resolved
 | Charge Now button type | PDL-001 | DECIDED (momentary) | Enclosure design must accommodate button. GPIO + debounce circuit needed on PCB. |
 | LED count and colors | PDL-007 | DECIDED (green + blue) | Two LEDs, two GPIOs, two resistors. Enclosure must have light pipes or windows. |
 | Transition delay | PDL-005 | DECIDED (not needed) | No RC time constant on relay driver. Simplifies relay drive circuit. |
-| Boot default | PDL-006 | DECIDED (read-then-decide) | Charge block GPIO initializes HIGH on boot (blocking until app decides). On power loss, GPIO floats LOW (not blocking = EVSE allowed). This is the safe default. |
+| Boot default | PDL-006 | DECIDED (read-then-decide) | Charge_block GPIO must initialize LOW (safe default). Relay is normally-closed (de-energized = pass-through = EV allowed). |
 | Dual interlock layers | PDL-002 | DECIDED (HW + SW redundancy) | Hardware interlock circuit is a hard requirement on the PCB, not just a relay driven by GPIO. |
-| J1772 Cp duty cycle measurement | TASK-022 | NOT STARTED (firmware) | The analog conditioning circuit for AIN1 must preserve PWM shape. No separate hardware, but affects component selection (bandwidth). |
+| J1772 Cp duty cycle measurement | TASK-022 | NOT STARTED (firmware) | The analog conditioning circuit for AIN1 (WisBlock) / production ADC pin must preserve PWM shape. No separate hardware, but affects component selection (bandwidth). |
 | Car-side interlock mechanism (PWM 0%) | TASK-023 / EXP-001 | NOT VALIDATED | If PWM 0% works across car makes, the PILOT-out circuit needs a PWM output path in addition to the resistance spoof. May affect charge_block circuit design. |
 | Self-test toggle-and-verify | TASK-039 | IMPLEMENTED (firmware, TASK-039) | Relay readback path needed on PCB (GPIO or analog feedback from relay coil/contact). |
 | BLE diagnostics (future) | PDL-016 | DECIDED (hard no for v1.0) | No BLE antenna optimization needed for post-registration use. BLE antenna only needs to work for initial registration (one-time, close range). |
@@ -1655,7 +1655,7 @@ These choices must be made during PCB design. They are not yet decided.
 | Decision | Options | Considerations |
 |----------|---------|----------------|
 | **Module vs. discrete radio** | (a) RAK4631 module: pre-certified FCC/IC, larger footprint, higher unit cost (~$20). (b) nRF52840 + SX1262 discrete: smaller, cheaper at volume (~$8-10), requires FCC intentional radiator certification ($10K-$30K). | For initial production run (<100 units), module is almost certainly the right call. Discrete makes sense at 1K+ units if FCC cert cost is amortized. |
-| **Relay type** | Mechanical relay (cheap, proven, audible click, limited cycle life ~100K). Solid-state relay / MOSFET switch (silent, unlimited cycles, more complex drive circuit, potential leakage current). Latching relay (holds state without power, lower power draw, more complex drive). | Three relays total: charge block (pilot spoof), Y-out pass-through, W-out pass-through. All switch low-voltage signals (24VAC thermostat, +/-12V J1772 pilot) -- not mains power. Mechanical relays are likely fine for the signal levels involved. Cycle life of 100K at ~20 cycles/day = 13+ years. The Y-out and W-out relays could potentially be a single dual-pole relay if the hardware interlock always blocks both simultaneously, but separate relays provide more flexibility for future independent control. |
+| **Relay type** | Mechanical relay (cheap, proven, audible click, limited cycle life ~100K). Solid-state relay / MOSFET switch (silent, unlimited cycles, more complex drive circuit, potential leakage current). Latching relay (holds state without power, lower power draw, more complex drive). | Three relays total: charge block (pilot spoof), Y-out pass-through, W-out pass-through. All switch low-voltage signals (24VAC thermostat, +/-12V J1772 pilot) -- not mains power. Mechanical relays are likely fine for the signal levels involved. Cycle life of 100K at ~20 cycles/day = 13+ years. The Y-out and W-out relays could potentially be a single dual-pole relay since the charge_block GPIO always drives all relays together, but separate relays provide more flexibility for future independent control. |
 | **Connector types** | Screw terminals (field-wirable, installer-friendly, larger footprint). Spring-cage / lever terminals (tool-free, faster installation, more expensive). Pin headers (compact, not field-wirable, development only). | Electricians expect screw terminals. Spring-cage terminals are gaining acceptance and faster for low-voltage wiring. |
 | **Form factor** | Single board with all components. Two-board stack (radio module on top, power/interlock on bottom). Circular, rectangular, or shaped to fit a specific enclosure. | Driven by enclosure choice. Standard rectangular PCB is cheapest to fabricate. Two-board stack can reduce footprint. |
 | **Enclosure type** | Off-the-shelf plastic junction box (cheap, available, but may not accommodate button/LED). Custom-molded enclosure (ideal UX, expensive tooling $5K-$15K, 6-8 week lead time). 3D-printed (prototype only, not production-grade). DIN-rail mount (industrial aesthetic, standard mounting, good for panel-adjacent installations). | First production run should use an off-the-shelf enclosure with minimal modification (drill for button, light pipe for LEDs). Custom enclosure is a future investment. |
@@ -1669,7 +1669,7 @@ These choices must be made during PCB design. They are not yet decided.
 |------|-----------|--------|------------|
 | **UL feedback requires PCB respin** | Medium | High (weeks of delay, wasted fab cost) | Schedule a UL pre-submission meeting ($2K-$5K, 2-4 weeks) before committing to final layout. Get their feedback on isolation strategy, creepage distances, and component selection. Even informal guidance reduces respin risk substantially. |
 | **LoRa antenna performance in enclosure** | Medium | Medium (range degradation, failed commissioning) | Test antenna performance with the actual enclosure material and mounting configuration before committing to production enclosure. Metal enclosures are particularly risky -- plastic or fiberglass preferred. |
-| **Hardware interlock logic error** | Low | Critical (safety -- simultaneous load operation) | The hardware interlock must be verified independently of firmware. Design review by a second engineer. Physical testing: disconnect MCU power, verify both loads cannot be on simultaneously. |
+| **Relay drive circuit error** | Low | Critical (safety) | The relay drive circuit must be verified: GPIO HIGH energizes all three relays (blocking both loads), GPIO LOW de-energizes all (pass-through). Design review by a second engineer. Physical testing: disconnect MCU power, verify all relays de-energize to pass-through (device transparent). |
 | **24VAC transformer loading** | Low | Medium (brownout or thermostat malfunction) | SideCharge draws ~0.17W from the 24VAC transformer. Most transformers supply 40-48VA. Risk is only with undersized or heavily loaded transformers (multiple smart thermostats, humidifiers, etc.). Measure actual draw and document minimum transformer VA requirement. |
 | **J1772 pilot signal integrity** | Medium | Medium (state misclassification) | The Cp voltage thresholds have only been tested with simulated signals. The analog conditioning circuit (voltage divider, filter, protection) must preserve signal fidelity for both voltage level and PWM duty cycle measurement. Validate with a real EVSE + car before production. |
 | **Supply chain for key components** | Low-Medium | High (delay) | nRF52840 and SX1262 have had supply constraints. RAK4631 modules depend on RAKwireless inventory. Identify second sources or hold safety stock for initial production. |
@@ -1685,9 +1685,9 @@ These choices must be made during PCB design. They are not yet decided.
 | PDL-014 (current clamp 48A) | DECIDED | Clamp selection can proceed |
 | PDL-001 (Charge Now button) | DECIDED | Button type known (momentary) |
 | PDL-007 (LED matrix) | DECIDED | LED count and colors known (green + blue) |
-| PDL-002 (dual interlock layers) | DECIDED | HW interlock is a hard requirement |
+| PDL-002 (relay architecture) | DECIDED | Both relays NC (pass-through), firmware-driven interlock |
 | PDL-005 (no transition delay) | DECIDED | Simplifies relay drive |
-| PDL-006 (boot default) | DECIDED | Relay polarity known (normally-open) |
+| PDL-006 (boot default) | DECIDED | Relay polarity known (normally-closed = pass-through; GPIO LOW = allowed) |
 | TASK-023 / EXP-001 (PWM 0% validation) | NOT VALIDATED | Soft blocker — if PWM 0% is the production mechanism, charge_block circuit design changes. Can proceed with resistance spoof and add PWM path later. |
 | UL pre-submission (PDL-008) | DEFERRED | Strongest recommendation: do this before final layout. Not a hard blocker, but proceeding without it is the single highest risk. |
 
@@ -1735,6 +1735,6 @@ The following limitations are acknowledged but not tracked as backlog tasks (eit
 - **J1772 thresholds not hardware-calibrated** — possible state misclassification with real chargers (Oliver REC-002).
 - **EVSE rear-entry wiring not supported** — bottom-entry only in v1.0.
 - **Car-side interlock mechanism (PWM 0%) not validated** — needs multi-make testing (Oliver EXP-001).
-- **Heat pump compatibility** — GPIO wired (P0.04) but not read in v1.0. Future goal.
+- **Heat pump compatibility** — GPIO wired (P0.04) on production PCB but not connected on WisBlock prototype; not read in v1.0 firmware. Future goal.
 
 All active gaps with implementation work are tracked in `ai/memory-bank/tasks/INDEX.md`.

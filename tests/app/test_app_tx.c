@@ -106,15 +106,12 @@ void test_voltage_little_endian(void)
 
 void test_current_little_endian(void)
 {
-	/* Set current clamp ADC: 1650mV = 15000mA */
-	mock_adc_values[1] = 1650;
-
-	/* Need non-simulated path for current to be read from ADC */
+	/* Current clamp stubbed on WisBlock — uplink encodes 0 mA */
 	mock_adc_values[0] = 3000; /* State A */
 
 	app_tx_send_evse_data();
 	uint16_t current = mock_last_send_buf[5] | (mock_last_send_buf[6] << 8);
-	TEST_ASSERT_EQUAL_UINT16(15000, current);
+	TEST_ASSERT_EQUAL_UINT16(0, current);
 }
 
 /* --- Flags byte (byte 7) --- */
