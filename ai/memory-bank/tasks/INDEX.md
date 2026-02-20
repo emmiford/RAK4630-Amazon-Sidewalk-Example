@@ -24,13 +24,12 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (24)
+## Open Tasks (23)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-065 | committed | Eliel | Complete charge_block rename + GPIO polarity fix | — |
-| TASK-100 | not started | Eliel+Pam+Utz | Pin reassignment — move EVSE GPIOs/ADCs to WisBlock-accessible pins | TASK-065 |
+| TASK-100 | not started | Eliel+Pam+Utz | Pin reassignment — move EVSE GPIOs/ADCs to WisBlock-accessible pins | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -62,9 +61,10 @@ Special: deferred, declined
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (75)
+## Completed Tasks (76)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-065 | Complete charge_block rename + GPIO polarity fix | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-094 | Merge PRD + TDD inline wiring doc updates | MERGED DONE | 2026-02-19 | Pam+Utz |
 | TASK-032 | Cloud command authentication (HMAC-SHA256) | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-069 | Interlock transition event logging | MERGED DONE | 2026-02-19 | Eliel |

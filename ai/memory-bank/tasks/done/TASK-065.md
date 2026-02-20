@@ -1,6 +1,6 @@
 # TASK-065: AC-priority software interlock + charge_block rename
 
-**Status**: done (2026-02-19, Eliel)
+**Status**: merged done (2026-02-19, Eliel)
 **Priority**: P1
 **Owner**: Eliel
 **Size**: M (5 points)
