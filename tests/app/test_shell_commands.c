@@ -295,21 +295,21 @@ void test_evse_pause_disables_charging(void)
 	TEST_ASSERT_TRUE(print_output_contains("PAUSED"));
 }
 
-void test_evse_allow_sets_gpio_high(void)
+void test_evse_allow_sets_gpio_low(void)
 {
 	charge_control_set(false, 0);
 	app_cb.on_shell_cmd("evse", "allow", capture_print, capture_error);
 
 	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_pin);
-	TEST_ASSERT_EQUAL_INT(1, mock_gpio_set_last_val);
+	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_val);
 }
 
-void test_evse_pause_sets_gpio_low(void)
+void test_evse_pause_sets_gpio_high(void)
 {
 	app_cb.on_shell_cmd("evse", "pause", capture_print, capture_error);
 
 	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_pin);
-	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_val);
+	TEST_ASSERT_EQUAL_INT(1, mock_gpio_set_last_val);
 }
 
 /* ------------------------------------------------------------------ */
@@ -473,8 +473,8 @@ int main(void)
 	/* evse allow/pause */
 	RUN_TEST(test_evse_allow_enables_charging);
 	RUN_TEST(test_evse_pause_disables_charging);
-	RUN_TEST(test_evse_allow_sets_gpio_high);
-	RUN_TEST(test_evse_pause_sets_gpio_low);
+	RUN_TEST(test_evse_allow_sets_gpio_low);
+	RUN_TEST(test_evse_pause_sets_gpio_high);
 
 	/* hvac status */
 	RUN_TEST(test_hvac_status_returns_zero);

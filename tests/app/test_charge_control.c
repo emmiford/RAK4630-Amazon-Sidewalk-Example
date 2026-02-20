@@ -17,10 +17,10 @@ void tearDown(void) {}
 
 /* --- Init behavior --- */
 
-void test_init_sets_gpio_high(void)
+void test_init_sets_gpio_low(void)
 {
 	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_pin);
-	TEST_ASSERT_EQUAL_INT(1, mock_gpio_set_last_val);
+	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_val);
 }
 
 void test_default_is_allowed(void)
@@ -36,7 +36,7 @@ void test_set_allowed_true(void)
 	charge_control_set(true, 0);
 	TEST_ASSERT_TRUE(charge_control_is_allowed());
 	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_pin);
-	TEST_ASSERT_EQUAL_INT(1, mock_gpio_set_last_val);
+	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_val);
 }
 
 void test_set_paused(void)
@@ -44,7 +44,7 @@ void test_set_paused(void)
 	charge_control_set(false, 0);
 	TEST_ASSERT_FALSE(charge_control_is_allowed());
 	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_pin);
-	TEST_ASSERT_EQUAL_INT(0, mock_gpio_set_last_val);
+	TEST_ASSERT_EQUAL_INT(1, mock_gpio_set_last_val);
 }
 
 /* --- Auto-resume --- */
@@ -151,7 +151,7 @@ int main(void)
 {
 	UNITY_BEGIN();
 
-	RUN_TEST(test_init_sets_gpio_high);
+	RUN_TEST(test_init_sets_gpio_low);
 	RUN_TEST(test_default_is_allowed);
 	RUN_TEST(test_set_allowed_true);
 	RUN_TEST(test_set_paused);

@@ -33,7 +33,7 @@ int charge_control_init(void)
 
 	/* Platform owns GPIO init — just set default state */
 	if (platform) {
-		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
+		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
 	}
 	LOG_INF("Charge control initialized");
 	return 0;
@@ -84,7 +84,7 @@ void charge_control_set_with_reason(bool allowed, uint16_t auto_resume_min,
 	}
 
 	if (platform) {
-		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, allowed ? 1 : 0);
+		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, allowed ? 0 : 1);
 	}
 	LOG_INF("Charge control: %s%s",
 		allowed ? "ALLOW" : "PAUSE",
@@ -140,7 +140,7 @@ void charge_control_tick(void)
 					current_state.charging_allowed = true;
 					current_state.auto_resume_min = 0;
 					current_state.pause_timestamp_ms = 0;
-					platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
+					platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
 				}
 				delay_window_clear();
 			} else if (now >= start && current_state.charging_allowed) {
@@ -148,7 +148,7 @@ void charge_control_tick(void)
 				platform->log_inf("Delay window active, pausing");
 				last_transition_reason = TRANSITION_REASON_DELAY_WINDOW;
 				current_state.charging_allowed = false;
-				platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
+				platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
 			}
 			return;  /* Delay window controls state — skip auto-resume */
 		}
@@ -169,7 +169,7 @@ void charge_control_tick(void)
 			current_state.charging_allowed = true;
 			current_state.auto_resume_min = 0;
 			current_state.pause_timestamp_ms = 0;
-			platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
+			platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
 		}
 	}
 }

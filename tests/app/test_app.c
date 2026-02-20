@@ -243,12 +243,12 @@ static void test_charge_control_defaults_to_allowed(void)
 	charge_control_init();
 
 	assert(charge_control_is_allowed() == true);
-	/* Init should set GPIO pin 0 high */
+	/* Init should set GPIO pin 0 low (allowed = LOW) */
 	assert(mock_gpio_set_last_pin == 0);
-	assert(mock_gpio_set_last_val == 1);
+	assert(mock_gpio_set_last_val == 0);
 }
 
-static void test_charge_control_pause_sets_gpio_low(void)
+static void test_charge_control_pause_sets_gpio_high(void)
 {
 	mock_platform_api_reset();
 	platform = mock_platform_api_get();
@@ -256,10 +256,10 @@ static void test_charge_control_pause_sets_gpio_low(void)
 
 	charge_control_set(false, 0);
 	assert(charge_control_is_allowed() == false);
-	assert(mock_gpio_set_last_val == 0);
+	assert(mock_gpio_set_last_val == 1);
 }
 
-static void test_charge_control_allow_sets_gpio_high(void)
+static void test_charge_control_allow_sets_gpio_low(void)
 {
 	mock_platform_api_reset();
 	platform = mock_platform_api_get();
@@ -268,7 +268,7 @@ static void test_charge_control_allow_sets_gpio_high(void)
 	charge_control_set(false, 0);
 	charge_control_set(true, 0);
 	assert(charge_control_is_allowed() == true);
-	assert(mock_gpio_set_last_val == 1);
+	assert(mock_gpio_set_last_val == 0);
 }
 
 static void test_charge_control_auto_resume(void)
@@ -291,7 +291,7 @@ static void test_charge_control_auto_resume(void)
 	mock_uptime_ms = 71000;
 	charge_control_tick();
 	assert(charge_control_is_allowed() == true);
-	assert(mock_gpio_set_last_val == 1);
+	assert(mock_gpio_set_last_val == 0);
 }
 
 static void test_charge_control_no_auto_resume_when_zero(void)
@@ -1812,7 +1812,7 @@ static void test_cc_tick_window_pauses_charging(void)
 	/* Tick should detect window and pause */
 	charge_control_tick();
 	assert(charge_control_is_allowed() == false);
-	assert(mock_gpio_set_last_val == 0);
+	assert(mock_gpio_set_last_val == 1);
 }
 
 static void test_cc_tick_window_expired_resumes(void)
@@ -1832,7 +1832,7 @@ static void test_cc_tick_window_expired_resumes(void)
 	mock_uptime_ms += 501000;  /* +501s → epoch ~ 1500 + 501 = 2001 */
 	charge_control_tick();
 	assert(charge_control_is_allowed() == true);
-	assert(mock_gpio_set_last_val == 1);
+	assert(mock_gpio_set_last_val == 0);
 	assert(delay_window_has_window() == false);  /* cleared */
 }
 
@@ -1985,7 +1985,7 @@ static void test_charge_now_activate_forces_charging_on(void)
 
 	charge_now_activate();
 	assert(charge_control_is_allowed() == true);
-	assert(mock_gpio_set_last_val == 1);
+	assert(mock_gpio_set_last_val == 0);
 }
 
 static void test_charge_now_activate_clears_delay_window(void)
@@ -3162,8 +3162,8 @@ int main(void)
 
 	printf("\ncharge_control:\n");
 	RUN_TEST(test_charge_control_defaults_to_allowed);
-	RUN_TEST(test_charge_control_pause_sets_gpio_low);
-	RUN_TEST(test_charge_control_allow_sets_gpio_high);
+	RUN_TEST(test_charge_control_pause_sets_gpio_high);
+	RUN_TEST(test_charge_control_allow_sets_gpio_low);
 	RUN_TEST(test_charge_control_auto_resume);
 	RUN_TEST(test_charge_control_no_auto_resume_when_zero);
 

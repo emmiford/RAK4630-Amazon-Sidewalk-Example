@@ -126,7 +126,7 @@ J1772 (also known as SAE J1772) is the standard for AC EV charging in North Amer
 
 ### Cp Pin (Control Pilot)
 
-- **Definition**: The physical pin on the J1772 connector that carries the pilot signal. SideCharge taps the Cp pin to read pilot voltage (via ADC on AIN1) and to spoof state changes (via the charge_block output).
+- **Definition**: The physical pin on the J1772 connector that carries the pilot signal. SideCharge sits inline on the pilot wire (PILOT-in from EVSE, PILOT-out to vehicle) and reads the pilot voltage (via ADC on AIN1). When charge_block is driven HIGH, the pilot spoof relay energizes and inserts a resistive load; when LOW (or MCU power loss), the relay is de-energized and pilot passes straight through (normally-closed design).
 - **Context**: Hardware interface docs, wiring diagrams, ADC configuration.
 - **Do NOT use**: "Pilot pin" (not the standard name), "PP pin" (that is the proximity pilot -- a different pin).
 
@@ -168,13 +168,13 @@ The interlock is the product. Everything else is built on top of it.
 
 ### Circuit Interlock
 
-- **Definition**: The hardware + software system that prevents the AC compressor and EV charger from drawing power simultaneously on a shared circuit. Implemented in both hardware (a circuit that enforces mutual exclusion independently of the microcontroller) and software (cloud override, user override, logging). The hardware interlock continues working even if the firmware crashes.
+- **Definition**: The firmware-driven system that prevents the AC compressor and EV charger from drawing power simultaneously on a shared circuit. The MCU reads thermostat inputs and drives the charge_block GPIO to control all relays. Both the pilot spoof relay and the AC block relay are normally-closed (pass-through when de-energized). On MCU power loss, all relays de-energize and the device becomes transparent — this is safe by design because the EVSE retains its own safety systems (GFCI, overcurrent protection, J1772 state machine).
 - **Context**: Everywhere -- this is the core concept of SideCharge. Lead with it in marketing, technical docs, installer materials, and code compliance discussions.
 - **Do NOT use**: "Load management" alone (too generic -- load management could mean anything from dimming lights to curtailing an entire building), "smart switch" (misleading -- we do not switch mains power), "energy management system" (this is the NEC 220.70 / Article 750 term, which is broader than what SideCharge does in v1.0; use it only when citing code compliance).
 
 ### Mutual Exclusion
 
-- **Definition**: The guarantee that the AC compressor and EV charger never draw power at the same time. This is the fundamental safety and code compliance property of SideCharge. Enforced in hardware (the circuit itself prevents double-load) and software (firmware logic, cloud oversight).
+- **Definition**: The guarantee that the AC compressor and EV charger never draw power at the same time during normal operation. This is the fundamental safety and code compliance property of SideCharge. Enforced by firmware (the MCU reads thermostat inputs and drives the charge_block GPIO). On MCU power loss, the device becomes transparent (NC relays pass through) — both loads could theoretically run simultaneously, but the circuit breaker provides overcurrent protection and the EVSE retains its own safety systems.
 - **Context**: Technical docs, safety discussions, code compliance. This is the formal term for what the interlock achieves.
 - **Do NOT use**: "Mutex" in non-firmware contexts (that is a software concurrency primitive, not an electrical concept), "lockout" alone (ambiguous without specifying which load is locked out).
 
@@ -188,7 +188,7 @@ The interlock is the product. Everything else is built on top of it.
 
 - **Definition**: A physical momentary push button on the SideCharge device. When pressed, EV charging takes priority over AC for a limited duration (currently recommended: 30 minutes). The AC compressor call signal is blocked for the override period. When it expires, any pending AC call is immediately honored.
 - **Context**: Product features, homeowner-facing explanations, LED feedback descriptions, button interaction specs.
-- **Do NOT use**: "Override mode" alone (too vague -- override of what?), "force charge" (sounds aggressive), "bypass" (implies defeating a safety system, which is not accurate -- the hardware interlock still prevents double-load; only the priority changes).
+- **Do NOT use**: "Override mode" alone (too vague -- override of what?), "force charge" (sounds aggressive), "bypass" (implies defeating a safety system, which is not accurate -- only the load priority changes; the interlock logic continues running).
 
 ### Circuit Sharing
 
