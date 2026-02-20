@@ -17,20 +17,18 @@ static int mock_send(void)
 	return 0;
 }
 
-/* Helper: set all ADC/GPIO to make selftest_boot pass all 4 checks */
+/* Helper: set all ADC/GPIO to make selftest_boot pass all 3 checks */
 static void setup_all_pass(void)
 {
 	mock_adc_values[0] = 9000;  /* pilot ADC OK */
-	mock_adc_values[1] = 100;   /* current ADC OK */
 	mock_gpio_values[2] = 0;    /* cool GPIO readable */
-	/* charge_en (pin 0) passes because gpio_set now updates mock_gpio_values */
+	/* charge_block (pin 0) passes because gpio_set now updates mock_gpio_values */
 }
 
 /* Helper: set ADC/GPIO so some checks fail */
-static void setup_partial_fail(int adc0, int adc1, int gpio2)
+static void setup_partial_fail(int adc0, int gpio2)
 {
 	mock_adc_values[0] = adc0;
-	mock_adc_values[1] = adc1;
 	mock_gpio_values[2] = gpio2;
 }
 
@@ -147,7 +145,7 @@ void test_button_ignored_while_running(void)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Blink codes — all pass (4 green, 0 red)                           */
+/*  Blink codes — all pass (3 green, 0 red)                           */
 /* ------------------------------------------------------------------ */
 
 void test_blink_all_pass_green_count(void)
@@ -162,13 +160,13 @@ void test_blink_all_pass_green_count(void)
 	int ticks = run_blinks_to_completion();
 	TEST_ASSERT_FALSE(selftest_trigger_is_running());
 
-	/* 4 passed = 4 green blinks (4 LED-on events) */
-	TEST_ASSERT_EQUAL_INT(4, mock_led_on_count[LED_GREEN] - green_start);
+	/* 3 passed = 3 green blinks (3 LED-on events) */
+	TEST_ASSERT_EQUAL_INT(3, mock_led_on_count[LED_GREEN] - green_start);
 	/* 0 failed = 0 red blinks */
 	TEST_ASSERT_EQUAL_INT(0, mock_led_on_count[LED_RED] - red_start);
 
-	/* Total ticks: 4*2 (green on+off) = 8 ticks + 1 done tick */
-	TEST_ASSERT_EQUAL_INT(9, ticks);
+	/* Total ticks: 3*2 (green on+off) = 6 ticks + 1 done tick */
+	TEST_ASSERT_EQUAL_INT(7, ticks);
 }
 
 void test_all_pass_no_uplink(void)
@@ -179,14 +177,14 @@ void test_all_pass_no_uplink(void)
 }
 
 /* ------------------------------------------------------------------ */
-/*  Blink codes — max fail (1 green, 3 red)                           */
-/*  Note: charge_en toggle always passes because gpio_set updates      */
-/*  readable value. So 3 of 4 is the maximum failure count.            */
+/*  Blink codes — max fail (1 green, 2 red)                           */
+/*  Note: charge_block toggle always passes because gpio_set updates   */
+/*  readable value. So 2 of 3 is the maximum failure count.            */
 /* ------------------------------------------------------------------ */
 
 void test_blink_max_fail_counts(void)
 {
-	setup_partial_fail(-1, -1, -1);
+	setup_partial_fail(-1, -1);
 
 	simulate_presses(5, 1000, 200);
 	TEST_ASSERT_TRUE(selftest_trigger_is_running());
@@ -197,31 +195,30 @@ void test_blink_max_fail_counts(void)
 	int ticks = run_blinks_to_completion();
 	TEST_ASSERT_FALSE(selftest_trigger_is_running());
 
-	/* 1 passed (charge_en), 3 failed (pilot, current, cool) */
+	/* 1 passed (charge_block), 2 failed (pilot, cool) */
 	TEST_ASSERT_EQUAL_INT(1, mock_led_on_count[LED_GREEN] - green_start);
-	TEST_ASSERT_EQUAL_INT(3, mock_led_on_count[LED_RED] - red_start);
+	TEST_ASSERT_EQUAL_INT(2, mock_led_on_count[LED_RED] - red_start);
 
-	/* Total: 1*2 (green) + 2 (pause) + 3*2 (red) = 10 + 1 done = 11 */
-	TEST_ASSERT_EQUAL_INT(11, ticks);
+	/* Total: 1*2 (green) + 2 (pause) + 2*2 (red) = 8 + 1 done = 9 */
+	TEST_ASSERT_EQUAL_INT(9, ticks);
 }
 
 void test_failures_send_uplink(void)
 {
-	setup_partial_fail(-1, -1, -1);
+	setup_partial_fail(-1, -1);
 	simulate_presses(5, 1000, 200);
 	run_blinks_to_completion();
 	TEST_ASSERT_EQUAL_INT(1, mock_send_called);
 }
 
 /* ------------------------------------------------------------------ */
-/*  Blink codes — mixed (2 pass, 2 fail)                              */
+/*  Blink codes — mixed (2 pass, 1 fail)                              */
 /* ------------------------------------------------------------------ */
 
 void test_blink_mixed_counts(void)
 {
-	/* 2 pass (pilot, charge_en), 2 fail (current, cool) */
+	/* 2 pass (pilot, charge_block), 1 fail (cool) */
 	mock_adc_values[0] = 9000;  /* pilot OK */
-	mock_adc_values[1] = -1;    /* current FAIL */
 	mock_gpio_values[2] = -1;   /* cool FAIL */
 
 	simulate_presses(5, 1000, 200);
@@ -233,17 +230,16 @@ void test_blink_mixed_counts(void)
 	int ticks = run_blinks_to_completion();
 	TEST_ASSERT_FALSE(selftest_trigger_is_running());
 
-	/* 2 passed (pilot, charge_en), 2 failed (current, cool) */
+	/* 2 passed (pilot, charge_block), 1 failed (cool) */
 	TEST_ASSERT_EQUAL_INT(2, mock_led_on_count[LED_GREEN] - green_start);
-	TEST_ASSERT_EQUAL_INT(2, mock_led_on_count[LED_RED] - red_start);
+	TEST_ASSERT_EQUAL_INT(1, mock_led_on_count[LED_RED] - red_start);
 
-	/* Total ticks: 2*2 (green) + 2 (pause) + 2*2 (red) = 10 + 1 done = 11 */
-	TEST_ASSERT_EQUAL_INT(11, ticks);
+	/* Total ticks: 2*2 (green) + 2 (pause) + 1*2 (red) = 8 + 1 done = 9 */
+	TEST_ASSERT_EQUAL_INT(9, ticks);
 }
 
 void test_mixed_sends_uplink(void)
 {
-	mock_adc_values[1] = -1;    /* current FAIL */
 	mock_gpio_values[2] = -1;   /* cool FAIL */
 
 	simulate_presses(5, 1000, 200);
@@ -337,7 +333,7 @@ void test_button_retest_clears_fault_on_pass(void)
 void test_no_send_fn_does_not_crash(void)
 {
 	selftest_trigger_set_send_fn(NULL);
-	setup_partial_fail(-1, -1, -1);
+	setup_partial_fail(-1, -1);
 
 	simulate_presses(5, 1000, 200);
 	run_blinks_to_completion();

@@ -10,7 +10,6 @@
 
 /* ADC channel indices (match platform devicetree order) */
 #define ADC_CHANNEL_PILOT   0
-#define ADC_CHANNEL_CURRENT 1
 
 /* Voltage thresholds at ADC input (in mV) with hysteresis */
 #define J1772_THRESHOLD_A_B_MV      2600
@@ -98,17 +97,12 @@ int evse_j1772_state_get(j1772_state_t *state, uint16_t *voltage_mv)
 
 int evse_current_read(uint16_t *current_ma)
 {
-	if (!current_ma || !platform) {
+	if (!current_ma) {
 		return -1;
 	}
 
-	int mv = platform->adc_read_mv(ADC_CHANNEL_CURRENT);
-	if (mv < 0) {
-		return mv;
-	}
-
-	*current_ma = (uint16_t)(((uint32_t)mv * CURRENT_CLAMP_MAX_MA) /
-				  CURRENT_CLAMP_VOLTAGE_MV);
+	/* No current clamp on WisBlock prototype — report 0 mA */
+	*current_ma = 0;
 	return 0;
 }
 

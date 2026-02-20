@@ -13,7 +13,7 @@
 #include <app_platform.h>
 
 /* GPIO pin indices — must match platform board-level mapping */
-#define EVSE_PIN_CHARGE_EN  0
+#define EVSE_PIN_CHARGE_BLOCK  0
 #define EVSE_PIN_COOL       2
 
 /* Continuous monitoring thresholds */
@@ -64,46 +64,41 @@ int selftest_boot(selftest_boot_result_t *result)
 	}
 
 	result->adc_pilot_ok = false;
-	result->adc_current_ok = false;
 	result->gpio_cool_ok = false;
-	result->charge_en_ok = false;
+	result->charge_block_ok = false;
 	result->all_pass = false;
 
 	/* 1. ADC pilot channel readable */
 	result->adc_pilot_ok = (platform->adc_read_mv(0) >= 0);
 
-	/* 2. ADC current channel readable */
-	result->adc_current_ok = (platform->adc_read_mv(1) >= 0);
-
-	/* 3. GPIO cool input readable */
+	/* 2. GPIO cool input readable */
 	result->gpio_cool_ok = (platform->gpio_get(EVSE_PIN_COOL) >= 0);
 
-	/* 4. Toggle-and-verify on charge enable pin:
+	/* 3. Toggle-and-verify on charge block pin:
 	 *    Save current → set 1 → readback → set 0 → readback → restore */
-	int saved = platform->gpio_get(EVSE_PIN_CHARGE_EN);
+	int saved = platform->gpio_get(EVSE_PIN_CHARGE_BLOCK);
 	bool toggle_ok = true;
 
-	platform->gpio_set(EVSE_PIN_CHARGE_EN, 1);
-	if (platform->gpio_get(EVSE_PIN_CHARGE_EN) != 1) {
+	platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
+	if (platform->gpio_get(EVSE_PIN_CHARGE_BLOCK) != 1) {
 		toggle_ok = false;
 	}
 
-	platform->gpio_set(EVSE_PIN_CHARGE_EN, 0);
-	if (platform->gpio_get(EVSE_PIN_CHARGE_EN) != 0) {
+	platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
+	if (platform->gpio_get(EVSE_PIN_CHARGE_BLOCK) != 0) {
 		toggle_ok = false;
 	}
 
 	/* Restore original state */
 	if (saved >= 0) {
-		platform->gpio_set(EVSE_PIN_CHARGE_EN, saved);
+		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, saved);
 	}
-	result->charge_en_ok = toggle_ok;
+	result->charge_block_ok = toggle_ok;
 
 	/* Overall result */
 	result->all_pass = result->adc_pilot_ok &&
-			   result->adc_current_ok &&
 			   result->gpio_cool_ok &&
-			   result->charge_en_ok;
+			   result->charge_block_ok;
 
 	if (!result->all_pass) {
 		fault_flags |= FAULT_SELFTEST;
@@ -234,9 +229,8 @@ int selftest_run_shell(void (*print)(const char *, ...),
 	selftest_boot(&result);
 
 	print("  ADC pilot:     %s", result.adc_pilot_ok ? "PASS" : "FAIL");
-	print("  ADC current:   %s", result.adc_current_ok ? "PASS" : "FAIL");
 	print("  GPIO cool:     %s", result.gpio_cool_ok ? "PASS" : "FAIL");
-	print("  Charge enable: %s", result.charge_en_ok ? "PASS" : "FAIL");
+	print("  Charge block:  %s", result.charge_block_ok ? "PASS" : "FAIL");
 
 	/* Snapshot cross-checks against current sensor readings */
 	j1772_state_t state;

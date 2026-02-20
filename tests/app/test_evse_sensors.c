@@ -115,30 +115,13 @@ void test_adc_error_propagated(void)
 	TEST_ASSERT_EQUAL_INT(-5, evse_pilot_voltage_read(&mv));
 }
 
-/* --- Current clamp --- */
+/* --- Current clamp (stubbed — no hardware on WisBlock prototype) --- */
 
-void test_current_clamp_zero(void)
+void test_current_clamp_stub_returns_zero(void)
 {
-	mock_adc_values[1] = 0;
 	uint16_t current_ma;
 	TEST_ASSERT_EQUAL_INT(0, evse_current_read(&current_ma));
 	TEST_ASSERT_EQUAL_UINT16(0, current_ma);
-}
-
-void test_current_clamp_midscale(void)
-{
-	mock_adc_values[1] = 1650;
-	uint16_t current_ma;
-	TEST_ASSERT_EQUAL_INT(0, evse_current_read(&current_ma));
-	TEST_ASSERT_EQUAL_UINT16(15000, current_ma);
-}
-
-void test_current_clamp_fullscale(void)
-{
-	mock_adc_values[1] = 3300;
-	uint16_t current_ma;
-	TEST_ASSERT_EQUAL_INT(0, evse_current_read(&current_ma));
-	TEST_ASSERT_EQUAL_UINT16(30000, current_ma);
 }
 
 /* --- Simulation mode --- */
@@ -209,9 +192,7 @@ int main(void)
 	RUN_TEST(test_pilot_voltage_no_api);
 	RUN_TEST(test_adc_error_propagated);
 
-	RUN_TEST(test_current_clamp_zero);
-	RUN_TEST(test_current_clamp_midscale);
-	RUN_TEST(test_current_clamp_fullscale);
+	RUN_TEST(test_current_clamp_stub_returns_zero);
 
 	RUN_TEST(test_simulation_overrides_adc);
 	RUN_TEST(test_simulation_expiry);
