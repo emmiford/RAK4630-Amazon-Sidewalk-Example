@@ -367,7 +367,7 @@ static void handle_ota_start(const uint8_t *data, size_t len)
 	}
 
 	/* Check if firmware already applied (handles lost COMPLETE after reboot) */
-	uint32_t primary_crc = compute_flash_crc32(OTA_APP_PRIMARY_ADDR, total_size);
+	uint32_t primary_crc = ota_flash_compute_crc32(OTA_APP_PRIMARY_ADDR, total_size);
 	if (primary_crc == crc32) {
 		LOG_INF("OTA START: firmware already applied (CRC 0x%08x), sending COMPLETE", crc32);
 		send_complete(OTA_STATUS_OK, primary_crc);
@@ -485,7 +485,7 @@ static void ota_validate_and_apply(void)
 	ota_state.phase = OTA_PHASE_VALIDATING;
 
 	/* Compute CRC32 over staged image (includes signature if signed) */
-	uint32_t calc_crc32 = compute_flash_crc32(OTA_STAGING_ADDR,
+	uint32_t calc_crc32 = ota_flash_compute_crc32(OTA_STAGING_ADDR,
 						  ota_state.total_size);
 	if (calc_crc32 != ota_state.expected_crc32) {
 		LOG_ERR("OTA: CRC32 mismatch (calc=0x%08x, expected=0x%08x)",

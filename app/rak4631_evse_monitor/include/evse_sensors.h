@@ -29,7 +29,7 @@ int evse_sensors_init(void);
 int evse_pilot_voltage_read(uint16_t *voltage_mv);
 int evse_j1772_state_get(j1772_state_t *state, uint16_t *voltage_mv);
 int evse_current_read(uint16_t *current_ma);
-const char *j1772_state_to_string(j1772_state_t state);
+const char *evse_j1772_state_to_string(j1772_state_t state);
 void evse_sensors_simulate_state(uint8_t j1772_state, uint32_t duration_ms);
 bool evse_sensors_is_simulating(void);
 

@@ -61,7 +61,7 @@ int ota_flash_read(uint32_t addr, uint8_t *buf, size_t len);
  * @param size  Number of bytes to checksum
  * @return CRC32 value, or 0 on read failure
  */
-uint32_t compute_flash_crc32(uint32_t addr, size_t size);
+uint32_t ota_flash_compute_crc32(uint32_t addr, size_t size);
 
 #ifdef __cplusplus
 }

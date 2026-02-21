@@ -16,7 +16,7 @@ int thermostat_inputs_init(void)
 	return 0;
 }
 
-bool thermostat_cool_call_get(void)
+bool thermostat_inputs_cool_call_get(void)
 {
 	if (!platform) {
 		return false;
@@ -25,11 +25,11 @@ bool thermostat_cool_call_get(void)
 	return (val > 0);
 }
 
-uint8_t thermostat_flags_get(void)
+uint8_t thermostat_inputs_flags_get(void)
 {
 	uint8_t flags = 0;
 
-	if (thermostat_cool_call_get()) {
+	if (thermostat_inputs_cool_call_get()) {
 		flags |= THERMOSTAT_FLAG_COOL;
 	}
 

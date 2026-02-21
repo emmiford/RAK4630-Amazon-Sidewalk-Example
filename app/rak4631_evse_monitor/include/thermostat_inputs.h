@@ -16,8 +16,8 @@ extern "C" {
 #define THERMOSTAT_FLAG_COOL    (1 << 1)
 
 int thermostat_inputs_init(void);
-bool thermostat_cool_call_get(void);
-uint8_t thermostat_flags_get(void);
+bool thermostat_inputs_cool_call_get(void);
+uint8_t thermostat_inputs_flags_get(void);
 
 #ifdef __cplusplus
 }

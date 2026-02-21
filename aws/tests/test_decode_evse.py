@@ -231,15 +231,15 @@ class TestFaultFlags:
         raw = bytes([0xE5, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
         result = decode.decode_raw_evse_payload(raw)
         assert result["fault_sensor"] is False
-        assert result["fault_clamp_mismatch"] is False
+        assert result["fault_clamp"] is False
         assert result["fault_interlock"] is False
-        assert result["fault_selftest_fail"] is False
+        assert result["fault_selftest"] is False
 
     def test_selftest_fail_flag(self):
         """Byte 7 = 0x80 → selftest fail, no thermostat."""
         raw = bytes([0xE5, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x80])
         result = decode.decode_raw_evse_payload(raw)
-        assert result["fault_selftest_fail"] is True
+        assert result["fault_selftest"] is True
         assert result["fault_sensor"] is False
         assert result["thermostat_heat"] is False
         assert result["thermostat_cool"] is False
@@ -253,8 +253,8 @@ class TestFaultFlags:
         assert result["thermostat_cool"] is True
         assert result["thermostat_bits"] == 0x03
         assert result["fault_sensor"] is True
-        assert result["fault_selftest_fail"] is True
-        assert result["fault_clamp_mismatch"] is False
+        assert result["fault_selftest"] is True
+        assert result["fault_clamp"] is False
         assert result["fault_interlock"] is False
 
     def test_all_fault_flags_set(self):
@@ -262,9 +262,9 @@ class TestFaultFlags:
         raw = bytes([0xE5, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0xF0])
         result = decode.decode_raw_evse_payload(raw)
         assert result["fault_sensor"] is True
-        assert result["fault_clamp_mismatch"] is True
+        assert result["fault_clamp"] is True
         assert result["fault_interlock"] is True
-        assert result["fault_selftest_fail"] is True
+        assert result["fault_selftest"] is True
         assert result["thermostat_heat"] is False
         assert result["thermostat_cool"] is False
 
@@ -296,10 +296,10 @@ class TestDecodeV07Payload:
         assert result["device_timestamp_epoch"] == 86400
 
     def test_v07_timestamp_to_unix(self):
-        """device_timestamp_unix = epoch + SIDECHARGE_EPOCH_OFFSET."""
+        """device_timestamp_unix = epoch + EPOCH_OFFSET."""
         raw = self._make_v07(timestamp=86400)
         result = decode.decode_raw_evse_payload(raw)
-        assert result["device_timestamp_unix"] == 86400 + decode.SIDECHARGE_EPOCH_OFFSET
+        assert result["device_timestamp_unix"] == 86400 + decode.EPOCH_OFFSET
 
     def test_v07_timestamp_zero_means_not_synced(self):
         """Timestamp=0 means device not yet synced."""
@@ -331,9 +331,9 @@ class TestDecodeV07Payload:
         assert result["charge_allowed"] is True
         assert result["charge_now"] is True
         assert result["fault_sensor"] is True
-        assert result["fault_clamp_mismatch"] is True
+        assert result["fault_clamp"] is True
         assert result["fault_interlock"] is True
-        assert result["fault_selftest_fail"] is True
+        assert result["fault_selftest"] is True
 
     def test_v07_thermostat_bits_only_bits_0_1(self):
         """thermostat_bits should only contain bits 0-1, not control flags."""
@@ -431,9 +431,9 @@ class TestDecodeV08Payload:
         assert result["charge_allowed"] is True
         assert result["charge_now"] is True
         assert result["fault_sensor"] is True
-        assert result["fault_clamp_mismatch"] is True
+        assert result["fault_clamp"] is True
         assert result["fault_interlock"] is True
-        assert result["fault_selftest_fail"] is True
+        assert result["fault_selftest"] is True
         assert "thermostat_heat" not in result
 
     def test_v08_timestamp(self):
@@ -441,7 +441,7 @@ class TestDecodeV08Payload:
         raw = self._make_v08(timestamp=86400)
         result = decode.decode_raw_evse_payload(raw)
         assert result["device_timestamp_epoch"] == 86400
-        assert result["device_timestamp_unix"] == 86400 + decode.SIDECHARGE_EPOCH_OFFSET
+        assert result["device_timestamp_unix"] == 86400 + decode.EPOCH_OFFSET
 
     def test_v08_via_b64(self):
         """v0x08 payload through full base64 decode pipeline."""
@@ -748,7 +748,7 @@ class TestSchedulerDivergence:
         # Should invoke scheduler with force_resend
         mock_lc.invoke.assert_called_once()
         call_kwargs = mock_lc.invoke.call_args[1]
-        assert call_kwargs["FunctionName"] == decode.scheduler_lambda_name
+        assert call_kwargs["FunctionName"] == decode.SCHEDULER_LAMBDA_NAME
         assert call_kwargs["InvocationType"] == "Event"
         payload = json.loads(call_kwargs["Payload"])
         assert payload["force_resend"] is True

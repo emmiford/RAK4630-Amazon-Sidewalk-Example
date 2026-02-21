@@ -30,15 +30,15 @@ from sidewalk_utils import send_sidewalk_msg
 dynamodb = boto3.resource("dynamodb")
 sns = boto3.client("sns")
 
-registry_table_name = os.environ.get("DEVICE_REGISTRY_TABLE", "sidecharge-device-registry")
-events_table_name = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
-sns_topic_arn = os.environ.get("SNS_TOPIC_ARN", "")
-heartbeat_interval_s = int(os.environ.get("HEARTBEAT_INTERVAL_S", "900"))
-auto_diag_enabled = os.environ.get("AUTO_DIAG_ENABLED", "false").lower() == "true"
-latest_app_version = int(os.environ.get("LATEST_APP_VERSION", "0"))
+REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "evse-device-registry")
+EVENTS_TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
+SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
+HEARTBEAT_INTERVAL_S = int(os.environ.get("HEARTBEAT_INTERVAL_S", "900"))
+AUTO_DIAG_ENABLED = os.environ.get("AUTO_DIAG_ENABLED", "false").lower() == "true"
+LATEST_APP_VERSION = int(os.environ.get("LATEST_APP_VERSION", "0"))
 
-registry_table = dynamodb.Table(registry_table_name)
-events_table = dynamodb.Table(events_table_name)
+registry_table = dynamodb.Table(REGISTRY_TABLE_NAME)
+events_table = dynamodb.Table(EVENTS_TABLE_NAME)
 
 # Device is considered offline if no uplink for 2x heartbeat
 OFFLINE_THRESHOLD_MULTIPLIER = 2
@@ -47,7 +47,7 @@ OFFLINE_THRESHOLD_MULTIPLIER = 2
 DIAG_REQUEST_CMD = 0x40
 
 
-def get_all_devices():
+def get_all_active_devices():
     """Scan device registry for all active devices.
 
     Returns list of device records with device_id, wireless_device_id,
@@ -98,7 +98,7 @@ def check_device_health(device, now_unix):
                 time.strptime(last_seen_str, "%Y-%m-%dT%H:%M:%SZ")
             )
             seconds_since_seen = int(now_unix - last_seen_unix)
-            offline_threshold = heartbeat_interval_s * OFFLINE_THRESHOLD_MULTIPLIER
+            offline_threshold = HEARTBEAT_INTERVAL_S * OFFLINE_THRESHOLD_MULTIPLIER
             online = seconds_since_seen <= offline_threshold
         except (ValueError, OverflowError):
             pass
@@ -135,7 +135,7 @@ def identify_unhealthy_reasons(online, recent_faults, app_version):
         reasons.append("offline")
     if recent_faults:
         reasons.append("faults")
-    if latest_app_version > 0 and app_version < latest_app_version:
+    if LATEST_APP_VERSION > 0 and app_version < LATEST_APP_VERSION:
         reasons.append("stale_firmware")
     return reasons
 
@@ -163,8 +163,8 @@ def get_recent_faults(wireless_device_id, now_unix):
         for item in resp.get("Items", []):
             data = item.get("data", {})
             evse = data.get("evse", {})
-            for fault_key in ("fault_sensor", "fault_clamp_mismatch",
-                              "fault_interlock", "fault_selftest_fail"):
+            for fault_key in ("fault_sensor", "fault_clamp",
+                              "fault_interlock", "fault_selftest"):
                 if evse.get(fault_key):
                     faults_seen.add(fault_key)
 
@@ -263,7 +263,7 @@ def build_digest(device_health_list, diag_responses=None):
         versions[v] = versions.get(v, 0) + 1
 
     lines = [
-        "SideCharge Daily Health Digest",
+        "EVSE Monitor Daily Health Digest",
         "=" * 40,
         "",
         f"Total devices: {total}",
@@ -317,7 +317,7 @@ def build_digest(device_health_list, diag_responses=None):
             )
         lines.append("")
 
-    subject = f"SideCharge Health: {online}/{total} online"
+    subject = f"EVSE Health: {online}/{total} online"
     if faulted:
         subject += f", {faulted} faulted"
 
@@ -334,16 +334,16 @@ def build_digest(device_health_list, diag_responses=None):
 
 def publish_digest(digest):
     """Publish the health digest to SNS."""
-    if not sns_topic_arn:
+    if not SNS_TOPIC_ARN:
         print("No SNS_TOPIC_ARN configured, skipping publish")
         return
 
     sns.publish(
-        TopicArn=sns_topic_arn,
+        TopicArn=SNS_TOPIC_ARN,
         Subject=digest["subject"][:100],
         Message=digest["body"],
     )
-    print(f"Published digest to {sns_topic_arn}")
+    print(f"Published digest to {SNS_TOPIC_ARN}")
 
 
 def lambda_handler(event, context):
@@ -351,7 +351,7 @@ def lambda_handler(event, context):
     print(f"Health digest invoked: {json.dumps(event)}")
 
     now_unix = time.time()
-    devices = get_all_devices()
+    devices = get_all_active_devices()
     print(f"Found {len(devices)} active device(s)")
 
     if not devices:
@@ -362,7 +362,7 @@ def lambda_handler(event, context):
 
     # Auto-diagnostics: send 0x40 to unhealthy devices
     diag_queried = []
-    if auto_diag_enabled:
+    if AUTO_DIAG_ENABLED:
         diag_queried = send_diagnostic_requests(health_list)
         print(f"Sent diagnostic requests to {len(diag_queried)} device(s)")
     else:

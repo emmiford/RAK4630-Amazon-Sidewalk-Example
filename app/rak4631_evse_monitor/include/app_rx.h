@@ -23,9 +23,6 @@ struct app_rx_msg {
 /* Called by app entry when platform delivers a message */
 void app_rx_process_msg(const uint8_t *data, size_t len);
 
-/* Platform-side legacy (kept for platform app.c compatibility) */
-int app_rx_msg_received(struct app_rx_msg *rx_msg);
-void app_rx_task(void *dummy1, void *dummy2, void *dummy3);
 
 #ifdef __cplusplus
 }

@@ -45,11 +45,11 @@ def make_event(timestamp_ms, pilot_state="A", current_ma=0,
     if fault_sensor:
         evse["fault_sensor"] = True
     if fault_clamp:
-        evse["fault_clamp_mismatch"] = True
+        evse["fault_clamp"] = True
     if fault_interlock:
         evse["fault_interlock"] = True
     if fault_selftest:
-        evse["fault_selftest_fail"] = True
+        evse["fault_selftest"] = True
     return {
         "device_id": "test-wireless-id",
         "timestamp": timestamp_ms,

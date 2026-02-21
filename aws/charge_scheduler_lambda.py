@@ -6,7 +6,7 @@ based on:
   1. Xcel Colorado TOU rate schedule (on-peak: 5-9 PM MT, weekdays)
   2. WattTime MOER grid signal for PSCO region
 
-Sends delay window downlinks [start, end] in SideCharge epoch to the device.
+Sends delay window downlinks [start, end] in device epoch to the device.
 The device pauses autonomously during the window and resumes when it expires —
 no cloud "allow" message needed for normal expiry.
 
@@ -54,7 +54,7 @@ CHARGE_CONTROL_CMD = 0x10
 DELAY_WINDOW_SUBTYPE = 0x02
 MOER_WINDOW_DURATION_S = 1800   # 30-minute MOER pause windows
 HEARTBEAT_RESEND_S = 1800       # Re-send window if last send >30 min ago
-from protocol_constants import SIDECHARGE_EPOCH_OFFSET
+from protocol_constants import EPOCH_OFFSET
 
 table = dynamodb.Table(TABLE_NAME)
 
@@ -146,9 +146,9 @@ def is_tou_peak(now_mt):
 
 
 def get_tou_peak_end_sc(now_mt):
-    """Get SideCharge epoch of TOU peak end (9 PM MT today)."""
+    """Get device epoch of TOU peak end (9 PM MT today)."""
     peak_end = now_mt.replace(hour=21, minute=0, second=0, microsecond=0)
-    return int(peak_end.timestamp()) - SIDECHARGE_EPOCH_OFFSET
+    return int(peak_end.timestamp()) - EPOCH_OFFSET
 
 
 # --- DynamoDB State ---
@@ -252,7 +252,7 @@ def lambda_handler(event, context):
     """EventBridge scheduled handler. Also handles divergence re-sends."""
     now_mt = datetime.now(MT)
     now_unix = int(time.time())
-    now_sc = now_unix - SIDECHARGE_EPOCH_OFFSET
+    now_sc = now_unix - EPOCH_OFFSET
     force_resend = event.get("force_resend", False)
     print(f"Charge scheduler invoked at {now_mt.isoformat()}"
           f"{' (force_resend)' if force_resend else ''}")

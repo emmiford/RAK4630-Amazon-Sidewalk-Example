@@ -66,7 +66,7 @@ evse_payload_t evse_payload_get(void)
 		payload.current_ma = current_ma;
 	}
 
-	payload.thermostat_flags = thermostat_flags_get() | selftest_get_fault_flags();
+	payload.thermostat_flags = thermostat_inputs_flags_get() | selftest_get_fault_flags();
 
 	LOG_INF("EVSE: J1772=%d (%dmV) I=%dmA therm=0x%02x",
 		payload.j1772_state, payload.j1772_mv,

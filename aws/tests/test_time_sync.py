@@ -34,7 +34,7 @@ class TestBuildTimeSyncBytes:
         assert payload[0] == 0x30
 
     def test_epoch_encoding_le(self):
-        """SideCharge epoch is 4 bytes little-endian at offset 1."""
+        """device epoch is 4 bytes little-endian at offset 1."""
         epoch = 0x12345678
         payload = decode._build_time_sync_bytes(epoch, 0)
         assert payload[1] == 0x78
@@ -63,18 +63,18 @@ class TestBuildTimeSyncBytes:
         assert parsed_wm == wm
 
 
-# --- SideCharge epoch math ---
+# --- device epoch math ---
 
-class TestSideChargeEpoch:
+class TestDeviceEpoch:
     def test_epoch_offset_value(self):
-        """SIDECHARGE_EPOCH_OFFSET should be 2026-01-01T00:00:00Z."""
-        assert decode.SIDECHARGE_EPOCH_OFFSET == 1767225600
+        """EPOCH_OFFSET should be 2026-01-01T00:00:00Z."""
+        assert decode.EPOCH_OFFSET == 1767225600
 
     def test_epoch_conversion(self):
-        """Unix timestamp → SideCharge epoch."""
+        """Unix timestamp → device epoch."""
         # 2026-01-02T00:00:00Z = 1767225600 + 86400
         unix_ts = 1767225600 + 86400
-        sc_epoch = unix_ts - decode.SIDECHARGE_EPOCH_OFFSET
+        sc_epoch = unix_ts - decode.EPOCH_OFFSET
         assert sc_epoch == 86400
 
 
@@ -136,11 +136,11 @@ class TestMaybeSendTimeSync:
     @patch.object(decode.table, "get_item")
     @patch.object(decode.table, "put_item")
     def test_payload_epoch_is_current(self, mock_put, mock_get, mock_send):
-        """Payload epoch should be approximately now - SIDECHARGE_EPOCH_OFFSET."""
+        """Payload epoch should be approximately now - EPOCH_OFFSET."""
         mock_get.return_value = {}
-        before = int(time.time()) - decode.SIDECHARGE_EPOCH_OFFSET
+        before = int(time.time()) - decode.EPOCH_OFFSET
         decode.maybe_send_time_sync("dev-001")
-        after = int(time.time()) - decode.SIDECHARGE_EPOCH_OFFSET
+        after = int(time.time()) - decode.EPOCH_OFFSET
 
         payload = mock_send.call_args[0][0]
         epoch = int.from_bytes(payload[1:5], "little")

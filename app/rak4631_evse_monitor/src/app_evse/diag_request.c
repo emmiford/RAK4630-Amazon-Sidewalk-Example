@@ -48,13 +48,13 @@ uint8_t diag_request_get_state_flags(void)
 	}
 	/* CHARGE_NOW: reserved, always 0 in v1.0 */
 	/* INTERLOCK: thermostat cool demand active */
-	/* Note: we read thermostat_flags_get() bit 1 (COOL) via the
+	/* Note: we read thermostat_inputs_flags_get() bit 1 (COOL) via the
 	 * charge control module — cool_call blocks charging when active.
 	 * For the diagnostics flag, we check if charge is NOT allowed
 	 * due to the interlock. But the interlock state is implicit:
 	 * if cool_call is active, the software interlock blocks charge.
 	 * We expose it directly here. */
-	/* We need thermostat_flags_get() but it's in thermostat_inputs.h.
+	/* We need thermostat_inputs_flags_get() but it's in thermostat_inputs.h.
 	 * To keep dependencies simple, we check: charge not allowed AND
 	 * no explicit pause cmd → interlock is the reason. But that's
 	 * fragile. Instead, just check the selftest's cool_call tracking. */

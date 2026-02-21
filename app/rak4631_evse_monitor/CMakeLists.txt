@@ -7,7 +7,7 @@
 cmake_minimum_required(VERSION 3.20.0)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(evse_monitoring)
+project(evse_platform)
 
 # Platform sources — Zephyr + Sidewalk + drivers + platform API
 # Excludes the app_evse/ directory (built separately as standalone app)

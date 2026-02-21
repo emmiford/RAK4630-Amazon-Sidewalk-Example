@@ -13,7 +13,6 @@
 #include <string.h>
 
 /* EVSE payload format constants */
-#define EVSE_MAGIC   0xE5
 #define PAYLOAD_VERSION 0x0A
 #define EVSE_PAYLOAD_SIZE 15
 

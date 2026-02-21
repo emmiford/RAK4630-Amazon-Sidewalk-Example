@@ -1,4 +1,4 @@
-# --- SideCharge Device Registry ---
+# --- EVSE Monitor Device Registry ---
 # DynamoDB table for device management with human-readable SC-XXXXXXXX IDs.
 # Created by TASK-036; consumed by decode Lambda on each uplink.
 

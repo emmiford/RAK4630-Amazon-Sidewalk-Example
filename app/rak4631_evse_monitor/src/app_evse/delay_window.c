@@ -1,7 +1,7 @@
 /*
  * Delay Window Implementation
  *
- * Stores one active delay window [start, end] in SideCharge epoch seconds.
+ * Stores one active delay window [start, end] in device epoch seconds.
  * Queries time_sync_get_epoch() for current device time.
  */
 

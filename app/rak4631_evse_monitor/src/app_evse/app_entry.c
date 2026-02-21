@@ -77,7 +77,7 @@ static int shell_evse_status(void (*print)(const char *, ...), void (*error)(con
 	charge_control_get_state(&cc_state);
 
 	print("EVSE Status:");
-	print("  J1772 state: %s", j1772_state_to_string(state));
+	print("  J1772 state: %s", evse_j1772_state_to_string(state));
 	print("  Pilot voltage: %d mV", voltage_mv);
 	print("  Current: %d mA", current_ma);
 	print("  Charging allowed: %s", cc_state.charging_allowed ? "YES" : "NO");
@@ -89,7 +89,7 @@ static int shell_evse_status(void (*print)(const char *, ...), void (*error)(con
 static int shell_hvac_status(void (*print)(const char *, ...), void (*error)(const char *, ...))
 {
 	(void)error;
-	uint8_t flags = thermostat_flags_get();
+	uint8_t flags = thermostat_inputs_flags_get();
 	print("Thermostat flags: 0x%02x", flags);
 	print("  Cool: %s", (flags & THERMOSTAT_FLAG_COOL) ? "ON" : "OFF");
 	return 0;
@@ -149,7 +149,7 @@ static int app_init(const struct platform_api *api)
 		last_current_on = (ma >= CURRENT_ON_THRESHOLD_MA);
 	}
 
-	last_thermostat_flags = thermostat_flags_get();
+	last_thermostat_flags = thermostat_inputs_flags_get();
 	last_heartbeat_ms = platform->uptime_ms();
 	decimation_counter = 0;
 	drain_active = false;
@@ -219,8 +219,8 @@ static void app_on_timer(void)
 	if (adc_ret == 0) {
 		if (state != last_j1772_state) {
 			platform->log_inf("J1772: %s -> %s (%d mV)",
-				     j1772_state_to_string(last_j1772_state),
-				     j1772_state_to_string(state), voltage_mv);
+				     evse_j1772_state_to_string(last_j1772_state),
+				     evse_j1772_state_to_string(state), voltage_mv);
 			last_j1772_state = state;
 			changed = true;
 		}
@@ -239,7 +239,7 @@ static void app_on_timer(void)
 	}
 
 	/* Thermostat inputs */
-	uint8_t flags = thermostat_flags_get();
+	uint8_t flags = thermostat_inputs_flags_get();
 	if (flags != last_thermostat_flags) {
 		platform->log_inf("Thermostat: cool=%d", (flags & THERMOSTAT_FLAG_COOL) ? 1 : 0);
 		last_thermostat_flags = flags;
@@ -373,7 +373,7 @@ static int app_on_shell_cmd(const char *cmd, const char *args,
 		uint32_t wm = time_sync_get_ack_watermark();
 		uint32_t since = time_sync_ms_since_sync();
 		print("Time sync status:");
-		print("  SideCharge epoch: %u", epoch);
+		print("  device epoch: %u", epoch);
 		print("  ACK watermark: %u", wm);
 		print("  Since last sync: %u ms", since);
 		return 0;

@@ -2,14 +2,14 @@
  * Time Sync Implementation
  *
  * Receives TIME_SYNC (0x30) downlinks from the cloud and maintains
- * device wall-clock time derived from SideCharge epoch + local uptime.
+ * device wall-clock time derived from device epoch + local uptime.
  */
 
 #include <time_sync.h>
 #include <app_platform.h>
 
 /* Sync state */
-static uint32_t sync_epoch;       /* SideCharge epoch at sync point */
+static uint32_t sync_epoch;       /* device epoch at sync point */
 static uint32_t sync_uptime_ms;   /* uptime_ms() when sync was received */
 static uint32_t ack_watermark;    /* last ACK watermark from cloud */
 static bool     synced;           /* true after first successful sync */
@@ -34,7 +34,7 @@ int time_sync_process_cmd(const uint8_t *data, size_t len)
 		return -1;
 	}
 
-	/* Parse 4-byte SideCharge epoch (LE) */
+	/* Parse 4-byte device epoch (LE) */
 	uint32_t epoch = (uint32_t)data[1]
 		       | ((uint32_t)data[2] << 8)
 		       | ((uint32_t)data[3] << 16)

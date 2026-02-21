@@ -600,7 +600,7 @@ resource "aws_cloudwatch_metric_alarm" "ota_retry_not_firing" {
 
 # SNS topic for all operational alerts
 resource "aws_sns_topic" "alerts" {
-  name = "sidecharge-alerts"
+  name = "evse-alerts"
 
   tags = {
     Project     = "evse-monitor"
@@ -628,7 +628,7 @@ resource "aws_cloudwatch_log_metric_filter" "device_uplink" {
 
   metric_transformation {
     name          = "DeviceUplinkCount"
-    namespace     = "SideCharge"
+    namespace     = "EVSE Monitor"
     value         = "1"
     default_value = "0"
   }
@@ -637,7 +637,7 @@ resource "aws_cloudwatch_log_metric_filter" "device_uplink" {
 resource "aws_cloudwatch_metric_alarm" "device_offline" {
   alarm_name          = "device-offline"
   alarm_description   = "No device uplink received for 30 min (2x heartbeat). Device may be offline or out of range."
-  namespace           = "SideCharge"
+  namespace           = "EVSE Monitor"
   metric_name         = "DeviceUplinkCount"
   statistic           = "Sum"
   period              = 1800  # 30 minutes (2x 15-min heartbeat)
@@ -666,7 +666,7 @@ resource "aws_cloudwatch_log_metric_filter" "interlock_activation" {
 
   metric_transformation {
     name          = "InterlockActivationCount"
-    namespace     = "SideCharge"
+    namespace     = "EVSE Monitor"
     value         = "1"
     default_value = "0"
   }
@@ -683,7 +683,7 @@ resource "aws_cloudwatch_log_metric_filter" "divergence_exhausted" {
 
   metric_transformation {
     name          = "DivergenceRetriesExhausted"
-    namespace     = "SideCharge"
+    namespace     = "EVSE Monitor"
     value         = "1"
     default_value = "0"
   }
@@ -692,7 +692,7 @@ resource "aws_cloudwatch_log_metric_filter" "divergence_exhausted" {
 resource "aws_cloudwatch_metric_alarm" "divergence_exhausted" {
   alarm_name          = "scheduler-divergence-exhausted"
   alarm_description   = "Device has not acknowledged scheduler command after 3 re-sends. LoRa link may be down."
-  namespace           = "SideCharge"
+  namespace           = "EVSE Monitor"
   metric_name         = "DivergenceRetriesExhausted"
   statistic           = "Sum"
   period              = 3600  # 1 hour

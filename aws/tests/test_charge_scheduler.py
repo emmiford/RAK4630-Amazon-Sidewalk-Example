@@ -71,16 +71,16 @@ class TestTouPeakEnd:
     def test_peak_end_is_9pm_today(self):
         now = datetime(2026, 2, 16, 18, 30, tzinfo=MT)  # Monday 6:30 PM
         end_sc = sched.get_tou_peak_end_sc(now)
-        # 9 PM MT today as SideCharge epoch
+        # 9 PM MT today as device epoch
         expected_9pm = now.replace(hour=21, minute=0, second=0, microsecond=0)
-        expected_sc = int(expected_9pm.timestamp()) - sched.SIDECHARGE_EPOCH_OFFSET
+        expected_sc = int(expected_9pm.timestamp()) - sched.EPOCH_OFFSET
         assert end_sc == expected_sc
 
     def test_peak_end_at_5pm_still_9pm(self):
         now = datetime(2026, 2, 16, 17, 0, tzinfo=MT)  # Monday 5 PM
         end_sc = sched.get_tou_peak_end_sc(now)
         expected_9pm = now.replace(hour=21, minute=0, second=0, microsecond=0)
-        expected_sc = int(expected_9pm.timestamp()) - sched.SIDECHARGE_EPOCH_OFFSET
+        expected_sc = int(expected_9pm.timestamp()) - sched.EPOCH_OFFSET
         assert end_sc == expected_sc
 
 
@@ -129,7 +129,7 @@ class TestSendDelayWindow:
         assert mock_sidewalk_utils.send_sidewalk_msg.call_args[1]["transmit_mode"] == 1
 
     def test_window_large_epoch_values(self):
-        """SideCharge epoch values can be large 32-bit numbers."""
+        """device epoch values can be large 32-bit numbers."""
         mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
         sched.send_delay_window(4000000, 4014400)  # ~46 days + 4 hours
         payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
@@ -208,7 +208,7 @@ class TestLambdaHandler:
         payload = mock_sidewalk_utils.send_sidewalk_msg.call_args[0][0]
         end_sc = struct.unpack_from("<I", payload, 6)[0]
         expected_9pm = now.replace(hour=21, minute=0, second=0, microsecond=0)
-        expected_end_sc = int(expected_9pm.timestamp()) - sched.SIDECHARGE_EPOCH_OFFSET
+        expected_end_sc = int(expected_9pm.timestamp()) - sched.EPOCH_OFFSET
         assert end_sc == expected_end_sc
 
 
@@ -219,7 +219,7 @@ class TestHeartbeat:
         """If same window was sent <30 min ago, skip."""
         now = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
         now_unix = int(now.timestamp())
-        now_sc = now_unix - sched.SIDECHARGE_EPOCH_OFFSET
+        now_sc = now_unix - sched.EPOCH_OFFSET
         peak_end_sc = sched.get_tou_peak_end_sc(now)
 
         last_state = {

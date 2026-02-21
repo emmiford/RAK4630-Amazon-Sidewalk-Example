@@ -11,7 +11,7 @@
 #include <sidewalk_version.h>
 
 #include <zephyr/logging/log.h>
-LOG_MODULE_REGISTER(sm_main, CONFIG_SIDEWALK_LOG_LEVEL);
+LOG_MODULE_REGISTER(main,  CONFIG_SIDEWALK_LOG_LEVEL);
 
 static void configure_uicr(void)
 {

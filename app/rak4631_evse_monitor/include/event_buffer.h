@@ -23,7 +23,7 @@ extern "C" {
 
 /* 12-byte snapshot — naturally aligned, no packing needed */
 struct event_snapshot {
-	uint32_t timestamp;         /* SideCharge epoch (seconds since 2026-01-01) */
+	uint32_t timestamp;         /* device epoch (seconds since 2026-01-01) */
 	uint16_t pilot_voltage_mv;  /* J1772 pilot voltage */
 	uint16_t current_ma;        /* Current clamp reading */
 	uint8_t  j1772_state;       /* J1772 state code (0-6) */
