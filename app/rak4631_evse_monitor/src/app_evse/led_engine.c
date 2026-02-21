@@ -192,7 +192,7 @@ static bool has_charge_now(void)
 
 static bool has_ac_priority(void)
 {
-	return thermostat_cool_call_get() && !charge_control_is_allowed();
+	return thermostat_inputs_cool_call_get() && !charge_control_is_allowed();
 }
 
 static bool has_charging(void)

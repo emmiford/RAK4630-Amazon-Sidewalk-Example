@@ -2,7 +2,7 @@
 
 Runs on an EventBridge daily schedule. For each active device, queries the previous
 day's telemetry events, computes energy, fault, and availability metrics, and writes
-a summary record to the sidecharge-daily-aggregates table with a 3-year TTL.
+a summary record to the daily-aggregates table with a 3-year TTL.
 
 Supports a 'date' override in the event payload for backfilling:
     {"date": "2026-02-18"}
@@ -10,8 +10,8 @@ Defaults to yesterday (UTC).
 
 Environment variables:
     DYNAMODB_TABLE: Source telemetry events table (default: sidewalk-v1-device_events_v2)
-    DEVICE_REGISTRY_TABLE: Device registry table (default: sidecharge-device-registry)
-    AGGREGATES_TABLE: Destination aggregates table (default: sidecharge-daily-aggregates)
+    DEVICE_REGISTRY_TABLE: Device registry table
+    AGGREGATES_TABLE: Destination aggregates table
     ASSUMED_VOLTAGE_V: Assumed mains voltage for kWh calculation (default: 240)
 """
 
@@ -24,14 +24,14 @@ import boto3
 
 dynamodb = boto3.resource("dynamodb")
 
-events_table_name = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
-registry_table_name = os.environ.get("DEVICE_REGISTRY_TABLE", "sidecharge-device-registry")
-aggregates_table_name = os.environ.get("AGGREGATES_TABLE", "sidecharge-daily-aggregates")
-assumed_voltage_v = int(os.environ.get("ASSUMED_VOLTAGE_V", "240"))
+EVENTS_TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
+REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "device-registry")
+AGGREGATES_TABLE_NAME = os.environ.get("AGGREGATES_TABLE", "daily-aggregates")
+ASSUMED_VOLTAGE_V = int(os.environ.get("ASSUMED_VOLTAGE_V", "240"))
 
-events_table = dynamodb.Table(events_table_name)
-registry_table = dynamodb.Table(registry_table_name)
-aggregates_table = dynamodb.Table(aggregates_table_name)
+events_table = dynamodb.Table(EVENTS_TABLE_NAME)
+registry_table = dynamodb.Table(REGISTRY_TABLE_NAME)
+aggregates_table = dynamodb.Table(AGGREGATES_TABLE_NAME)
 
 # Expected uplinks per day at 15-min heartbeat interval
 EXPECTED_UPLINKS_PER_DAY = 96
@@ -171,11 +171,11 @@ def compute_aggregates(events, day_start_ms, day_end_ms):
         # Fault counts
         if evse.get("fault_sensor", False):
             fault_sensor_count += 1
-        if evse.get("fault_clamp_mismatch", False):
+        if evse.get("fault_clamp", False):
             fault_clamp_count += 1
         if evse.get("fault_interlock", False):
             fault_interlock_count += 1
-        if evse.get("fault_selftest_fail", False):
+        if evse.get("fault_selftest", False):
             selftest_failed = True
 
         # Time-weighted: duration from this event to the next (or to day end)
@@ -189,7 +189,7 @@ def compute_aggregates(events, day_start_ms, day_end_ms):
         is_charging = (pilot_state == "C")
         if is_charging and current_ma > 0:
             current_a = current_ma / 1000.0
-            power_w = current_a * assumed_voltage_v
+            power_w = current_a * ASSUMED_VOLTAGE_V
             duration_h = duration_ms / 3_600_000.0
             total_kwh += power_w * duration_h / 1000.0
 
@@ -266,8 +266,8 @@ def aggregate_device_day(device, date_str):
         The aggregates dict, or None if device has no wireless_device_id.
     """
     device_id = device.get("device_id", "unknown")
-    wireless_id = device.get("wireless_device_id", "")
-    if not wireless_id:
+    wireless_device_id = device.get("wireless_device_id", "")
+    if not wireless_device_id:
         print(f"Skipping {device_id}: no wireless_device_id")
         return None
 
@@ -275,10 +275,10 @@ def aggregate_device_day(device, date_str):
     day_start_ms = int(day_dt.timestamp() * 1000)
     day_end_ms = day_start_ms + 86_400_000
 
-    events = query_device_events(wireless_id, day_start_ms, day_end_ms)
+    events = query_device_events(wireless_device_id, day_start_ms, day_end_ms)
     aggregates = compute_aggregates(events, day_start_ms, day_end_ms)
 
-    write_aggregate(device_id, wireless_id, date_str, aggregates)
+    write_aggregate(device_id, wireless_device_id, date_str, aggregates)
 
     return aggregates
 

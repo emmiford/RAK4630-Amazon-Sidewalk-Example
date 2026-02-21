@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20.0)
 
-project(rak_sid_tests C)
+project(evse_tests C)
 
 # Use host compiler (not ARM cross-compiler)
 enable_testing()

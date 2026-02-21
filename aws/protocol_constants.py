@@ -1,5 +1,5 @@
 """
-Shared protocol constants for SideCharge AWS Lambda functions.
+Shared protocol constants for EVSE monitor AWS Lambda functions.
 
 These must match the corresponding C definitions in the firmware.
 Only constants used by multiple files belong here.
@@ -16,9 +16,14 @@ OTA_SUB_ACK = 0x80
 OTA_SUB_COMPLETE = 0x81
 OTA_SUB_STATUS = 0x82
 
+# --- EVSE wire-format magic bytes (must match evse_payload.h) ---
+
+TELEMETRY_MAGIC = 0xE5
+DIAG_MAGIC = 0xE6
+
 # --- Time sync ---
 
-SIDECHARGE_EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z as Unix timestamp
+EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z as Unix timestamp
 
 
 # --- CRC ---

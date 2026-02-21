@@ -3,8 +3,8 @@
  *
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
-#ifndef SIDEWALK_APP_H
-#define SIDEWALK_APP_H
+#ifndef SIDEWALK_H
+#define SIDEWALK_H
 
 #include <sid_api.h>
 
@@ -37,12 +37,6 @@ typedef struct {
 	size_t data_len;
 } sidewalk_option_t;
 
-typedef struct {
-	uint32_t file_id;
-	size_t file_offset;
-	void *data;
-	size_t data_size;
-} sidewalk_transfer_t;
 
 void sidewalk_start(sidewalk_ctx_t *context);
 
@@ -93,4 +87,4 @@ void sidewalk_event_exit(sidewalk_ctx_t *sid, void *ctx);
 void sidewalk_event_reboot(sidewalk_ctx_t *sid, void *ctx);
 void sidewalk_event_platform_init(sidewalk_ctx_t *sid, void *ctx);
 void sidewalk_event_set_link(sidewalk_ctx_t *sid, void *ctx);
-#endif /* SIDEWALK_APP_H */
+#endif /* SIDEWALK_H */

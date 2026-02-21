@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 /* GPIO pin for the Charge Now button (active-high: 1 = pressed) */
-#define EVSE_PIN_BUTTON     3
+#define PIN_CHARGE_NOW_BUTTON     3
 
 /* LED IDs for blink-code output */
 #define LED_GREEN  0

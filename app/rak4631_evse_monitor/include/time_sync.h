@@ -1,11 +1,11 @@
 /*
  * Time Sync Interface — device wall-clock time via cloud TIME_SYNC downlinks
  *
- * The cloud sends a 0x30 command with a 4-byte SideCharge epoch and a
+ * The cloud sends a 0x30 command with a 4-byte device epoch and a
  * 4-byte ACK watermark.  The device stores the sync point and derives
  * current time as: sync_time + (uptime_now - sync_uptime) / 1000.
  *
- * SideCharge epoch: seconds since 2026-01-01 00:00:00 UTC.
+ * device epoch: seconds since 2026-01-01 00:00:00 UTC.
  */
 
 #ifndef TIME_SYNC_H
@@ -25,8 +25,8 @@ extern "C" {
 /* TIME_SYNC payload: cmd(1) + epoch(4) + watermark(4) = 9 bytes */
 #define TIME_SYNC_PAYLOAD_SIZE  9
 
-/* SideCharge epoch base: 2026-01-01T00:00:00Z as Unix timestamp */
-#define SIDECHARGE_EPOCH_OFFSET  1767225600UL
+/* device epoch base: 2026-01-01T00:00:00Z as Unix timestamp */
+#define EPOCH_OFFSET  1767225600UL
 
 /**
  * Initialize time sync module. Clears all state.
@@ -44,7 +44,7 @@ void time_sync_init(void);
 int time_sync_process_cmd(const uint8_t *data, size_t len);
 
 /**
- * Get the current SideCharge epoch (seconds since 2026-01-01).
+ * Get the current device epoch (seconds since 2026-01-01).
  * Returns 0 if time has not been synced.
  */
 uint32_t time_sync_get_epoch(void);

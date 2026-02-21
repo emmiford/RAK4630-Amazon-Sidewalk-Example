@@ -13,7 +13,7 @@ variable "environment" {
 variable "lambda_function_name" {
   description = "Name of the Lambda function"
   type        = string
-  default     = "evse-decoder"
+  default     = "uplink-decoder"
 }
 
 variable "dynamodb_table_name" {
@@ -67,9 +67,9 @@ variable "ota_bucket_name" {
 }
 
 variable "device_registry_table_name" {
-  description = "DynamoDB table name for the SideCharge device registry"
+  description = "DynamoDB table name for the EVSE Monitor device registry"
   type        = string
-  default     = "sidecharge-device-registry"
+  default     = "device-registry"
 }
 
 variable "alert_email" {
@@ -105,5 +105,5 @@ variable "latest_app_version" {
 variable "aggregates_table_name" {
   description = "DynamoDB table name for daily aggregate summaries (TASK-078)"
   type        = string
-  default     = "sidecharge-daily-aggregates"
+  default     = "daily-aggregates"
 }

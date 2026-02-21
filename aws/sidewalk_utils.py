@@ -9,7 +9,7 @@ _device_id = None
 
 # Device registry table (used for multi-device lookup)
 _dynamodb = boto3.resource("dynamodb")
-_registry_table_name = os.environ.get("DEVICE_REGISTRY_TABLE", "sidecharge-device-registry")
+_registry_table_name = os.environ.get("DEVICE_REGISTRY_TABLE", "device-registry")
 _registry_table = _dynamodb.Table(_registry_table_name)
 
 

@@ -20,13 +20,13 @@ void tearDown(void) {}
 void test_cool_call_high(void)
 {
 	mock_gpio_values[2] = 1;
-	TEST_ASSERT_TRUE(thermostat_cool_call_get());
+	TEST_ASSERT_TRUE(thermostat_inputs_cool_call_get());
 }
 
 void test_cool_call_low(void)
 {
 	mock_gpio_values[2] = 0;
-	TEST_ASSERT_FALSE(thermostat_cool_call_get());
+	TEST_ASSERT_FALSE(thermostat_inputs_cool_call_get());
 }
 
 /* --- Flags byte --- */
@@ -34,13 +34,13 @@ void test_cool_call_low(void)
 void test_flags_cool_only(void)
 {
 	mock_gpio_values[2] = 1;
-	TEST_ASSERT_EQUAL_UINT8(THERMOSTAT_FLAG_COOL, thermostat_flags_get());
+	TEST_ASSERT_EQUAL_UINT8(THERMOSTAT_FLAG_COOL, thermostat_inputs_flags_get());
 }
 
 void test_flags_none(void)
 {
 	mock_gpio_values[2] = 0;
-	TEST_ASSERT_EQUAL_UINT8(0x00, thermostat_flags_get());
+	TEST_ASSERT_EQUAL_UINT8(0x00, thermostat_inputs_flags_get());
 }
 
 /* --- main --- */

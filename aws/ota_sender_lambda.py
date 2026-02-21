@@ -475,9 +475,9 @@ def handle_device_complete(complete_data):
             s3.copy_object(
                 Bucket=src_bucket,
                 CopySource={"Bucket": src_bucket, "Key": src_key},
-                Key="firmware/baseline.bin",
+                Key="ota/baseline.bin",
             )
-            print(f"Saved baseline: s3://{src_bucket}/firmware/baseline.bin")
+            print(f"Saved baseline: s3://{src_bucket}/ota/baseline.bin")
         except Exception as e:
             print(f"Failed to save baseline: {e}")
 

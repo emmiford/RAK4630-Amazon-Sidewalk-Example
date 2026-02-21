@@ -41,8 +41,8 @@ data "archive_file" "lambda_zip" {
 }
 
 # IAM role for Lambda
-resource "aws_iam_role" "evse_decoder_role" {
-  name = "evse-decoder-lambda-role"
+resource "aws_iam_role" "uplink_decoder_role" {
+  name = "uplink-decoder-lambda-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -59,9 +59,9 @@ resource "aws_iam_role" "evse_decoder_role" {
 }
 
 # IAM policy for Lambda to access DynamoDB and CloudWatch
-resource "aws_iam_role_policy" "evse_decoder_policy" {
-  name = "evse-decoder-lambda-policy"
-  role = aws_iam_role.evse_decoder_role.id
+resource "aws_iam_role_policy" "uplink_decoder_policy" {
+  name = "uplink-decoder-lambda-policy"
+  role = aws_iam_role.uplink_decoder_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -118,10 +118,10 @@ resource "aws_iam_role_policy" "evse_decoder_policy" {
 }
 
 # Lambda function
-resource "aws_lambda_function" "evse_decoder" {
+resource "aws_lambda_function" "uplink_decoder" {
   filename         = data.archive_file.lambda_zip.output_path
   function_name    = var.lambda_function_name
-  role             = aws_iam_role.evse_decoder_role.arn
+  role             = aws_iam_role.uplink_decoder_role.arn
   handler          = "decode_evse_lambda.lambda_handler"
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   runtime          = "python3.11"
@@ -144,7 +144,7 @@ resource "aws_lambda_function" "evse_decoder" {
 }
 
 # CloudWatch Log Group for Lambda
-resource "aws_cloudwatch_log_group" "evse_decoder_logs" {
+resource "aws_cloudwatch_log_group" "uplink_decoder_logs" {
   name              = "/aws/lambda/${var.lambda_function_name}"
   retention_in_days = 30
 }
@@ -153,7 +153,7 @@ resource "aws_cloudwatch_log_group" "evse_decoder_logs" {
 resource "aws_lambda_permission" "iot_invoke" {
   statement_id  = "AllowIoTInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.evse_decoder.function_name
+  function_name = aws_lambda_function.uplink_decoder.function_name
   principal     = "iot.amazonaws.com"
 }
 
@@ -165,7 +165,7 @@ resource "aws_iot_topic_rule" "evse_rule" {
   sql_version = "2016-03-23"
 
   lambda {
-    function_arn = aws_lambda_function.evse_decoder.arn
+    function_arn = aws_lambda_function.uplink_decoder.arn
   }
 
   tags = {
@@ -497,7 +497,7 @@ resource "aws_lambda_permission" "decode_invoke_ota" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.ota_sender.function_name
   principal     = "lambda.amazonaws.com"
-  source_arn    = aws_lambda_function.evse_decoder.arn
+  source_arn    = aws_lambda_function.uplink_decoder.arn
 }
 
 # S3 bucket notification → OTA sender Lambda
@@ -600,7 +600,7 @@ resource "aws_cloudwatch_metric_alarm" "ota_retry_not_firing" {
 
 # SNS topic for all operational alerts
 resource "aws_sns_topic" "alerts" {
-  name = "sidecharge-alerts"
+  name = "monitor-alerts"
 
   tags = {
     Project     = "evse-monitor"
@@ -623,12 +623,12 @@ resource "aws_sns_topic_subscription" "alert_email" {
 
 resource "aws_cloudwatch_log_metric_filter" "device_uplink" {
   name           = "device-uplink-count"
-  log_group_name = aws_cloudwatch_log_group.evse_decoder_logs.name
+  log_group_name = aws_cloudwatch_log_group.uplink_decoder_logs.name
   pattern        = "\"Stored decoded EVSE data\""
 
   metric_transformation {
     name          = "DeviceUplinkCount"
-    namespace     = "SideCharge"
+    namespace     = "EVSE Monitor"
     value         = "1"
     default_value = "0"
   }
@@ -637,7 +637,7 @@ resource "aws_cloudwatch_log_metric_filter" "device_uplink" {
 resource "aws_cloudwatch_metric_alarm" "device_offline" {
   alarm_name          = "device-offline"
   alarm_description   = "No device uplink received for 30 min (2x heartbeat). Device may be offline or out of range."
-  namespace           = "SideCharge"
+  namespace           = "EVSE Monitor"
   metric_name         = "DeviceUplinkCount"
   statistic           = "Sum"
   period              = 1800  # 30 minutes (2x 15-min heartbeat)
@@ -661,12 +661,12 @@ resource "aws_cloudwatch_metric_alarm" "device_offline" {
 
 resource "aws_cloudwatch_log_metric_filter" "interlock_activation" {
   name           = "interlock-activation-count"
-  log_group_name = aws_cloudwatch_log_group.evse_decoder_logs.name
+  log_group_name = aws_cloudwatch_log_group.uplink_decoder_logs.name
   pattern        = "{ $.thermostat_cool = true }"
 
   metric_transformation {
     name          = "InterlockActivationCount"
-    namespace     = "SideCharge"
+    namespace     = "EVSE Monitor"
     value         = "1"
     default_value = "0"
   }
@@ -678,12 +678,12 @@ resource "aws_cloudwatch_log_metric_filter" "interlock_activation" {
 
 resource "aws_cloudwatch_log_metric_filter" "divergence_exhausted" {
   name           = "divergence-retries-exhausted"
-  log_group_name = aws_cloudwatch_log_group.evse_decoder_logs.name
+  log_group_name = aws_cloudwatch_log_group.uplink_decoder_logs.name
   pattern        = "\"DIVERGENCE_RETRIES_EXHAUSTED\""
 
   metric_transformation {
     name          = "DivergenceRetriesExhausted"
-    namespace     = "SideCharge"
+    namespace     = "EVSE Monitor"
     value         = "1"
     default_value = "0"
   }
@@ -692,7 +692,7 @@ resource "aws_cloudwatch_log_metric_filter" "divergence_exhausted" {
 resource "aws_cloudwatch_metric_alarm" "divergence_exhausted" {
   alarm_name          = "scheduler-divergence-exhausted"
   alarm_description   = "Device has not acknowledged scheduler command after 3 re-sends. LoRa link may be down."
-  namespace           = "SideCharge"
+  namespace           = "EVSE Monitor"
   metric_name         = "DivergenceRetriesExhausted"
   statistic           = "Sum"
   period              = 3600  # 1 hour

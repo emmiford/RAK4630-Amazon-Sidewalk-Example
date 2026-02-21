@@ -5,8 +5,8 @@ Signs firmware binaries by appending a 64-byte ED25519 signature.
 The device verifies the signature before applying the update.
 
 Key storage:
-    Private key: ~/.sidecharge/ota_signing.key (PEM)
-    Public key:  ~/.sidecharge/ota_signing.pub (PEM)
+    Private key: ~/.evse-monitor/ota_signing.key (PEM)
+    Public key:  ~/.evse-monitor/ota_signing.pub (PEM)
 """
 
 import os
@@ -23,13 +23,13 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 OTA_SIG_SIZE = 64
-KEY_DIR = os.path.expanduser("~/.sidecharge")
+KEY_DIR = os.path.expanduser("~/.evse-monitor")
 PRIVATE_KEY_PATH = os.path.join(KEY_DIR, "ota_signing.key")
 PUBLIC_KEY_PATH = os.path.join(KEY_DIR, "ota_signing.pub")
 
 
 def generate_keypair():
-    """Generate an ED25519 keypair and save to ~/.sidecharge/."""
+    """Generate an ED25519 keypair and save to ~/.evse-monitor/."""
     os.makedirs(KEY_DIR, exist_ok=True)
 
     private_key = Ed25519PrivateKey.generate()
@@ -52,7 +52,7 @@ def generate_keypair():
 
 
 def load_private_key():
-    """Load the ED25519 private key from ~/.sidecharge/."""
+    """Load the ED25519 private key from ~/.evse-monitor/."""
     from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
     with open(PRIVATE_KEY_PATH, "rb") as f:
@@ -60,7 +60,7 @@ def load_private_key():
 
 
 def load_public_key():
-    """Load the ED25519 public key from ~/.sidecharge/."""
+    """Load the ED25519 public key from ~/.evse-monitor/."""
     from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
     with open(PUBLIC_KEY_PATH, "rb") as f:

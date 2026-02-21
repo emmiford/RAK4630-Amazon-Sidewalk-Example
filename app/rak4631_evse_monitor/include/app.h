@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#ifndef SAMPLE_APP_H
-#define SAMPLE_APP_H
+#ifndef APP_H
+#define APP_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -54,4 +54,4 @@ int app_set_timer_interval(uint32_t interval_ms);
  */
 void app_route_message(const uint8_t *data, size_t len);
 
-#endif /* SAMPLE_APP_H */
+#endif /* APP_H */

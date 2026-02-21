@@ -13,8 +13,8 @@
 #include <app_platform.h>
 
 /* GPIO pin indices — must match platform board-level mapping */
-#define EVSE_PIN_CHARGE_BLOCK  0
-#define EVSE_PIN_COOL       2
+#define PIN_CHARGE_BLOCK  0
+#define PIN_COOL       2
 
 /* Continuous monitoring thresholds */
 #define CLAMP_MISMATCH_TIMEOUT_MS  10000
@@ -23,9 +23,6 @@
 #define CHATTER_WINDOW_MS          60000
 #define CHATTER_MAX_TOGGLES        10
 
-/* J1772 state constants (matching evse_sensors.h enum values) */
-#define J1772_C  2   /* J1772_STATE_C */
-#define J1772_UNKNOWN 6  /* J1772_STATE_UNKNOWN */
 
 /* Module state (~85 bytes RAM) */
 static uint8_t fault_flags;
@@ -72,26 +69,26 @@ int selftest_boot(selftest_boot_result_t *result)
 	result->adc_pilot_ok = (platform->adc_read_mv(0) >= 0);
 
 	/* 2. GPIO cool input readable */
-	result->gpio_cool_ok = (platform->gpio_get(EVSE_PIN_COOL) >= 0);
+	result->gpio_cool_ok = (platform->gpio_get(PIN_COOL) >= 0);
 
 	/* 3. Toggle-and-verify on charge block pin:
 	 *    Save current → set 1 → readback → set 0 → readback → restore */
-	int saved = platform->gpio_get(EVSE_PIN_CHARGE_BLOCK);
+	int saved = platform->gpio_get(PIN_CHARGE_BLOCK);
 	bool toggle_ok = true;
 
-	platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
-	if (platform->gpio_get(EVSE_PIN_CHARGE_BLOCK) != 1) {
+	platform->gpio_set(PIN_CHARGE_BLOCK, 1);
+	if (platform->gpio_get(PIN_CHARGE_BLOCK) != 1) {
 		toggle_ok = false;
 	}
 
-	platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
-	if (platform->gpio_get(EVSE_PIN_CHARGE_BLOCK) != 0) {
+	platform->gpio_set(PIN_CHARGE_BLOCK, 0);
+	if (platform->gpio_get(PIN_CHARGE_BLOCK) != 0) {
 		toggle_ok = false;
 	}
 
 	/* Restore original state */
 	if (saved >= 0) {
-		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, saved);
+		platform->gpio_set(PIN_CHARGE_BLOCK, saved);
 	}
 	result->charge_block_ok = toggle_ok;
 
@@ -128,7 +125,7 @@ void selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,
 	bool cool_call = (thermostat_flags & THERMOSTAT_FLAG_COOL) != 0;
 
 	/* --- Clamp mismatch: State C + no current, OR not-C + current --- */
-	bool state_c = (j1772_state == J1772_C);
+	bool state_c = (j1772_state == J1772_STATE_C);
 	bool current_on = (current_ma >= CURRENT_ON_THRESHOLD_MA);
 	bool clamp_bad = (state_c && !current_on) || (!state_c && current_on);
 
@@ -168,7 +165,7 @@ void selftest_continuous_tick(uint8_t j1772_state, uint16_t pilot_mv,
 
 	/* --- Pilot out-of-range: UNKNOWN state (covers ADC failure + out-of-range) --- */
 	(void)pilot_mv;  /* state already encodes pilot validity via evse_sensors */
-	bool pilot_bad = (j1772_state == J1772_UNKNOWN);
+	bool pilot_bad = (j1772_state == J1772_STATE_UNKNOWN);
 
 	if (pilot_bad) {
 		if (pilot_fault_start == 0) {
@@ -243,7 +240,7 @@ int selftest_run_shell(void (*print)(const char *, ...),
 		print("  J1772 read:    FAIL (err=%d)", err);
 		cross_ok = false;
 	} else {
-		print("  J1772 state:   %s (%d mV)", j1772_state_to_string(state), voltage_mv);
+		print("  J1772 state:   %s (%d mV)", evse_j1772_state_to_string(state), voltage_mv);
 	}
 
 	err = evse_current_read(&current_ma);

@@ -13,9 +13,8 @@
 #include <string.h>
 
 /* EVSE payload format constants */
-#define EVSE_MAGIC   0xE5
 #define PAYLOAD_VERSION 0x0A
-#define EVSE_PAYLOAD_SIZE 15
+#define TELEMETRY_PAYLOAD_SIZE 15
 
 /* Control flag bits in flags byte (byte 7), bits 2-3 */
 #define FLAG_CHARGE_ALLOWED  0x04   /* bit 2 */
@@ -95,8 +94,8 @@ int app_tx_send_evse_data(void)
 	uint8_t reason = charge_control_get_last_reason();
 
 	/* Build 15-byte v0x0A payload */
-	uint8_t payload[EVSE_PAYLOAD_SIZE] = {
-		EVSE_MAGIC,
+	uint8_t payload[TELEMETRY_PAYLOAD_SIZE] = {
+		TELEMETRY_MAGIC,
 		PAYLOAD_VERSION,
 		data.j1772_state,
 		data.j1772_mv & 0xFF,
@@ -150,8 +149,8 @@ int app_tx_send_snapshot(const struct event_snapshot *snap)
 		flags |= FLAG_CHARGE_ALLOWED;
 	}
 
-	uint8_t payload[EVSE_PAYLOAD_SIZE] = {
-		EVSE_MAGIC,
+	uint8_t payload[TELEMETRY_PAYLOAD_SIZE] = {
+		TELEMETRY_MAGIC,
 		PAYLOAD_VERSION,
 		snap->j1772_state,
 		snap->pilot_voltage_mv & 0xFF,

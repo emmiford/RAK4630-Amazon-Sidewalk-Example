@@ -1,4 +1,4 @@
-"""Device registry for SideCharge — DynamoDB-backed device management.
+"""Device registry for EVSE monitor — DynamoDB-backed device management.
 
 Generates human-readable SC-XXXXXXXX short IDs from AWS wireless device IDs,
 auto-provisions devices on first uplink, and tracks last-seen timestamps.

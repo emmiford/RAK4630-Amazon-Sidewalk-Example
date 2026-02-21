@@ -457,7 +457,7 @@ variable "device_registry_table_name" {
 
 ### 6.3 IAM Policy Updates for Existing Lambdas
 
-**Decode Lambda** (`evse_decoder_policy`) -- add registry read/write:
+**Decode Lambda** (`uplink_decoder_policy`) -- add registry read/write:
 
 ```hcl
 {

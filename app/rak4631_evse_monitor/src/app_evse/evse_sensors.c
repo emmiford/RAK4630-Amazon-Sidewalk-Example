@@ -106,7 +106,7 @@ int evse_current_read(uint16_t *current_ma)
 	return 0;
 }
 
-const char *j1772_state_to_string(j1772_state_t state)
+const char *evse_j1772_state_to_string(j1772_state_t state)
 {
 	switch (state) {
 	case J1772_STATE_A: return "A (Not connected)";

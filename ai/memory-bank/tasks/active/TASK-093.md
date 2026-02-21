@@ -7,7 +7,7 @@
 **Size**: S (1 point)
 
 ## Description
-The AWS account has 4 stale IoT topic rules and 2 old Lambda functions left over from pre-Terraform manual deployments. They create duplicate and incorrectly-decoded DynamoDB records alongside the Terraform-managed `evse-decoder` Lambda.
+The AWS account has 4 stale IoT topic rules and 2 old Lambda functions left over from pre-Terraform manual deployments. They create duplicate and incorrectly-decoded DynamoDB records alongside the Terraform-managed `uplink-decoder` Lambda.
 
 ### Stale IoT rules
 | Rule | Topic | Target | Issue |
@@ -22,7 +22,7 @@ The AWS account has 4 stale IoT topic rules and 2 old Lambda functions left over
 - `evse-monitor-decode-telemetry` (last modified 2026-02-03)
 
 ### Terraform-managed rule (keep)
-- `evse_sidewalk_rule` → `evse-decoder` — this is the correct pipeline
+- `evse_sidewalk_rule` → `uplink-decoder` — this is the correct pipeline
 
 ### Approach
 1. Disable the 4 stale IoT rules (or delete via AWS console/CLI)
@@ -37,7 +37,7 @@ The AWS account has 4 stale IoT topic rules and 2 old Lambda functions left over
 ## Acceptance Criteria
 - [ ] Stale IoT rules disabled or deleted
 - [ ] Old Lambda functions deleted
-- [ ] Only one DynamoDB record per Sidewalk uplink (from `evse-decoder`)
+- [ ] Only one DynamoDB record per Sidewalk uplink (from `uplink-decoder`)
 - [ ] Verified with live device uplink: single correctly-decoded record
 
 ## Testing Requirements

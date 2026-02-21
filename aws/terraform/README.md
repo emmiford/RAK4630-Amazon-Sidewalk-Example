@@ -39,7 +39,7 @@ Edit `variables.tf` or create a `terraform.tfvars` file:
 ```hcl
 aws_region           = "us-east-1"
 environment          = "dev"
-lambda_function_name = "evse-decoder"
+lambda_function_name = "uplink-decoder"
 dynamodb_table_name  = "sidewalk-v1-device_events_v2"
 ```
 

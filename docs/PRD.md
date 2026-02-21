@@ -696,7 +696,7 @@ The 5-second minimum TX rate limiter prevents the device from flooding the LoRa 
 #### 3.2.1 Payload Format (Bit-Level)
 
 ```
-Byte 0:    0xE5                    Magic byte (EVSE_MAGIC)
+Byte 0:    0xE5                    Magic byte (TELEMETRY_MAGIC)
 Byte 1:    Version                 Payload format version (0x08)
 Byte 2:    J1772 state             Enum: 0=A (disconnected), 1=B (connected/not ready),
                                    2=C (charging), 3=D (charging+ventilation),

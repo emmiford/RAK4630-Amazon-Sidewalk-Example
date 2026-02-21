@@ -22,10 +22,10 @@ import health_digest_lambda as hdl
 @pytest.fixture(autouse=True)
 def reset_module():
     """Reset module-level state between tests."""
-    hdl.heartbeat_interval_s = 900
-    hdl.sns_topic_arn = "arn:aws:sns:us-east-1:123456:test-topic"
-    hdl.auto_diag_enabled = False
-    hdl.latest_app_version = 0
+    hdl.HEARTBEAT_INTERVAL_S = 900
+    hdl.SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:123456:test-topic"
+    hdl.AUTO_DIAG_ENABLED = False
+    hdl.LATEST_APP_VERSION = 0
 
 
 def make_device(device_id, wireless_id="wid-001", last_seen=None,
@@ -117,7 +117,7 @@ class TestCheckDeviceHealth:
     def test_device_at_threshold_boundary(self):
         """Device seen exactly at 2x heartbeat is still online."""
         now = time.time()
-        threshold = hdl.heartbeat_interval_s * hdl.OFFLINE_THRESHOLD_MULTIPLIER
+        threshold = hdl.HEARTBEAT_INTERVAL_S * hdl.OFFLINE_THRESHOLD_MULTIPLIER
         last_seen = time.strftime(
             "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - threshold)
         )
@@ -131,7 +131,7 @@ class TestCheckDeviceHealth:
     def test_device_just_past_threshold(self):
         """Device seen just past 2x heartbeat is offline."""
         now = time.time()
-        threshold = hdl.heartbeat_interval_s * hdl.OFFLINE_THRESHOLD_MULTIPLIER
+        threshold = hdl.HEARTBEAT_INTERVAL_S * hdl.OFFLINE_THRESHOLD_MULTIPLIER
         last_seen = time.strftime(
             "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - threshold - 1)
         )
@@ -251,7 +251,7 @@ class TestIdentifyUnhealthyReasons:
 
     def test_stale_firmware(self):
         """Device with old firmware is unhealthy when LATEST_APP_VERSION set."""
-        hdl.latest_app_version = 5
+        hdl.LATEST_APP_VERSION = 5
         reasons = hdl.identify_unhealthy_reasons(
             online=True, recent_faults=[], app_version=3
         )
@@ -259,7 +259,7 @@ class TestIdentifyUnhealthyReasons:
 
     def test_stale_firmware_skipped_when_zero(self):
         """Stale firmware check skipped when LATEST_APP_VERSION is 0."""
-        hdl.latest_app_version = 0
+        hdl.LATEST_APP_VERSION = 0
         reasons = hdl.identify_unhealthy_reasons(
             online=True, recent_faults=[], app_version=1
         )
@@ -267,7 +267,7 @@ class TestIdentifyUnhealthyReasons:
 
     def test_current_firmware_not_flagged(self):
         """Device at latest version is not flagged."""
-        hdl.latest_app_version = 3
+        hdl.LATEST_APP_VERSION = 3
         reasons = hdl.identify_unhealthy_reasons(
             online=True, recent_faults=[], app_version=3
         )
@@ -275,7 +275,7 @@ class TestIdentifyUnhealthyReasons:
 
     def test_multiple_reasons(self):
         """Device can have multiple unhealthy reasons."""
-        hdl.latest_app_version = 5
+        hdl.LATEST_APP_VERSION = 5
         reasons = hdl.identify_unhealthy_reasons(
             online=False, recent_faults=["fault_sensor"], app_version=2
         )
@@ -587,7 +587,7 @@ class TestGetRecentFaults:
 class TestLambdaHandler:
     def test_no_devices(self):
         """Handler with empty registry returns early."""
-        with patch.object(hdl, "get_all_devices", return_value=[]):
+        with patch.object(hdl, "get_all_active_devices", return_value=[]):
             result = hdl.lambda_handler({}, None)
 
         assert result["statusCode"] == 200
@@ -598,7 +598,7 @@ class TestLambdaHandler:
         last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 60))
         devices = [make_device("SC-001", last_seen=last_seen)]
 
-        with patch.object(hdl, "get_all_devices", return_value=devices), \
+        with patch.object(hdl, "get_all_active_devices", return_value=devices), \
              patch.object(hdl, "get_recent_faults", return_value=[]), \
              patch.object(hdl, "get_recent_diagnostics", return_value=None), \
              patch.object(hdl, "publish_digest") as mock_pub:
@@ -612,12 +612,12 @@ class TestLambdaHandler:
 
     def test_no_sns_topic_skips_publish(self):
         """Handler skips SNS publish when topic ARN is empty."""
-        hdl.sns_topic_arn = ""
+        hdl.SNS_TOPIC_ARN = ""
         now = time.time()
         last_seen = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 60))
         devices = [make_device("SC-001", last_seen=last_seen)]
 
-        with patch.object(hdl, "get_all_devices", return_value=devices), \
+        with patch.object(hdl, "get_all_active_devices", return_value=devices), \
              patch.object(hdl, "get_recent_faults", return_value=[]), \
              patch.object(hdl, "get_recent_diagnostics", return_value=None), \
              patch.object(hdl.sns, "publish") as mock_sns:
@@ -628,14 +628,14 @@ class TestLambdaHandler:
 
     def test_auto_diag_disabled_skips_send(self):
         """When AUTO_DIAG_ENABLED is false, no diagnostic requests sent."""
-        hdl.auto_diag_enabled = False
+        hdl.AUTO_DIAG_ENABLED = False
         now = time.time()
         last_seen = time.strftime(
             "%Y-%m-%dT%H:%M:%SZ", time.gmtime(now - 3600)
         )
         devices = [make_device("SC-001", last_seen=last_seen)]
 
-        with patch.object(hdl, "get_all_devices", return_value=devices), \
+        with patch.object(hdl, "get_all_active_devices", return_value=devices), \
              patch.object(hdl, "get_recent_faults", return_value=[]), \
              patch.object(hdl, "get_recent_diagnostics", return_value=None), \
              patch.object(hdl, "send_sidewalk_msg") as mock_send, \
@@ -647,7 +647,7 @@ class TestLambdaHandler:
 
     def test_auto_diag_enabled_sends_to_unhealthy(self):
         """When AUTO_DIAG_ENABLED is true, sends 0x40 to unhealthy devices."""
-        hdl.auto_diag_enabled = True
+        hdl.AUTO_DIAG_ENABLED = True
         now = time.time()
         # Offline device
         last_seen = time.strftime(
@@ -656,7 +656,7 @@ class TestLambdaHandler:
         devices = [make_device("SC-001", wireless_id="wid-001",
                                last_seen=last_seen)]
 
-        with patch.object(hdl, "get_all_devices", return_value=devices), \
+        with patch.object(hdl, "get_all_active_devices", return_value=devices), \
              patch.object(hdl, "get_recent_faults", return_value=[]), \
              patch.object(hdl, "get_recent_diagnostics", return_value=None), \
              patch.object(hdl, "send_sidewalk_msg") as mock_send, \
@@ -684,7 +684,7 @@ class TestLambdaHandler:
             "event_buffer_pending": 0,
         }
 
-        with patch.object(hdl, "get_all_devices", return_value=devices), \
+        with patch.object(hdl, "get_all_active_devices", return_value=devices), \
              patch.object(hdl, "get_recent_faults", return_value=[]), \
              patch.object(hdl, "get_recent_diagnostics",
                           return_value=diag_data), \

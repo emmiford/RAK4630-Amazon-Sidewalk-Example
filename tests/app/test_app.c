@@ -211,7 +211,7 @@ static void test_thermostat_no_calls(void)
 	mock_gpio_values[2] = 0;  /* cool off */
 	platform = mock_platform_api_get();
 
-	assert(thermostat_flags_get() == 0x00);
+	assert(thermostat_inputs_flags_get() == 0x00);
 }
 
 static void test_thermostat_cool_only(void)
@@ -220,7 +220,7 @@ static void test_thermostat_cool_only(void)
 	mock_gpio_values[2] = 1;  /* cool on */
 	platform = mock_platform_api_get();
 
-	assert(thermostat_flags_get() == 0x02);
+	assert(thermostat_inputs_flags_get() == 0x02);
 }
 
 static void test_thermostat_both_calls(void)
@@ -229,7 +229,7 @@ static void test_thermostat_both_calls(void)
 	mock_gpio_values[2] = 1;
 	platform = mock_platform_api_get();
 
-	assert(thermostat_flags_get() == 0x02);
+	assert(thermostat_inputs_flags_get() == 0x02);
 }
 
 /* ================================================================== */
@@ -339,7 +339,7 @@ static void test_app_tx_sends_12_byte_payload(void)
 	assert(mock_sends[0].len == 15);
 
 	/* Check magic and version bytes */
-	assert(mock_sends[0].data[0] == 0xE5);  /* EVSE_MAGIC */
+	assert(mock_sends[0].data[0] == 0xE5);  /* TELEMETRY_MAGIC */
 	assert(mock_sends[0].data[1] == 0x0A);  /* PAYLOAD_VERSION v0x0A */
 }
 
@@ -867,7 +867,7 @@ static void test_selftest_fault_flags_coexist_with_thermostat(void)
 	/* Set thermostat bits */
 	mock_gpio_values[2] = 1;  /* cool */
 	platform = mock_platform_api_get();
-	uint8_t therm = thermostat_flags_get();  /* 0x02 */
+	uint8_t therm = thermostat_inputs_flags_get();  /* 0x02 */
 
 	/* Cause selftest fault */
 	mock_adc_fail[0] = true;

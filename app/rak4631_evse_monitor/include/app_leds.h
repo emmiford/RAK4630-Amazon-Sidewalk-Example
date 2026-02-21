@@ -16,15 +16,15 @@
 #else
 #define APP_LEDS_MAX 4
 #endif
-#define LED_ACTION_REPONSE_PAYLOAD_SIZE_MAX 32
+#define LED_ACTION_RESPONSE_PAYLOAD_SIZE_MAX 32
 
-enum leds_id_t {
+typedef enum {
 	LED_ID_0 = 0,
 	LED_ID_1 = 1,
 	LED_ID_2 = 2,
 	LED_ID_3 = 3,
 	LED_ID_LAST,
-};
+} leds_id_t;
 
 /**
  * @brief Turns on all LEDs.
@@ -41,14 +41,14 @@ void app_led_turn_off_all(void);
  *
  * @param id - number of LED id to turn on.
  */
-void app_led_turn_on(enum leds_id_t id);
+void app_led_turn_on(leds_id_t id);
 
 /**
  * @brief Turns off LED.
  *
  * @param id - number of LED id to turn off.
  */
-void app_led_turn_off(enum leds_id_t id);
+void app_led_turn_off(leds_id_t id);
 
 /**
  * @brief Get LED state.
@@ -56,7 +56,7 @@ void app_led_turn_off(enum leds_id_t id);
  * @param id - number of LED id to get state.
  * @return LED state. true means on, false means off.
  */
-bool app_led_is_on(enum leds_id_t id);
+bool app_led_is_on(leds_id_t id);
 
 /**
  * @brief Get LED id array's address.

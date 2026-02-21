@@ -6,8 +6,8 @@
  * no knowledge of this structure.
  */
 
-#ifndef __EVSE_PAYLOAD_H
-#define __EVSE_PAYLOAD_H
+#ifndef EVSE_PAYLOAD_H
+#define EVSE_PAYLOAD_H
 
 #include <stdint.h>
 
@@ -15,6 +15,11 @@
 extern "C" {
 #endif
 
+/* Wire-format constants (must match decode_evse_lambda.py / protocol_constants.py) */
+#define TELEMETRY_MAGIC          0xE5
+#define DIAG_MAGIC          0xE6
+
+/* Legacy payload type for sid_demo format */
 #define EVSE_PAYLOAD_TYPE   0x02
 
 #pragma pack(push, 1)
@@ -27,7 +32,6 @@ typedef struct {
 } evse_payload_t;
 #pragma pack(pop)
 
-typedef evse_payload_t sidewalk_payload_t;
 
 evse_payload_t evse_payload_get(void);
 int evse_payload_init(void);
@@ -36,4 +40,4 @@ int evse_payload_init(void);
 }
 #endif
 
-#endif /* __EVSE_PAYLOAD_H */
+#endif /* EVSE_PAYLOAD_H */
