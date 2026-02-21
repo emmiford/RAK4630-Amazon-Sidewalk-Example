@@ -63,7 +63,7 @@ Special: deferred, declined
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 | TASK-104 | not started | — | Evaluate SAADC errata workaround retention | — |
 
-## Completed Tasks (78)
+## Completed Tasks (80)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-105 | Naming consistency audit and cleanup | MERGED DONE | 2026-02-21 | Utz |
