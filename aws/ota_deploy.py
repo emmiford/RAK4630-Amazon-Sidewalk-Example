@@ -9,9 +9,12 @@ print("WARNING: ota_deploy.py is deprecated. Use firmware.py instead.", file=sys
 sys.path.insert(0, os.path.dirname(__file__))
 from ota import (  # noqa: F401
     BUILD_APP_DIR,
+    OTA_BUCKET,
     compute_delta_chunks,
     format_duration,
+    get_s3,
     pyocd_dump,
+    s3_upload,
 )
 from protocol_constants import crc32  # noqa: F401
 

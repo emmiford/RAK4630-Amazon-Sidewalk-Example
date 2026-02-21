@@ -2664,7 +2664,7 @@ static void test_uplink_includes_transition_reason(void)
 	/* v0x09 payload should be 13 bytes with reason at byte 12 */
 	assert(mock_sends[0].len == 15);
 	assert(mock_sends[0].data[0] == 0xE5);  /* magic */
-	assert(mock_sends[0].data[1] == 0x09);  /* version */
+	assert(mock_sends[0].data[1] == 0x0A);  /* PAYLOAD_VERSION */
 	assert(mock_sends[0].data[12] == TRANSITION_REASON_CLOUD_CMD);
 }
 
@@ -2774,7 +2774,7 @@ static void test_send_snapshot_format(void)
 
 	uint8_t *d = mock_sends[0].data;
 	assert(d[0] == 0xE5);  /* magic */
-	assert(d[1] == 0x09);  /* version */
+	assert(d[1] == 0x0A);  /* PAYLOAD_VERSION */
 	assert(d[2] == 2);     /* j1772_state */
 
 	/* pilot_voltage_mv = 3000 = 0x0BB8 LE */
