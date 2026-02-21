@@ -103,7 +103,7 @@ struct platform_api {
 #ifndef PLATFORM_BUILD_VERSION
 #define PLATFORM_BUILD_VERSION  0  /* 0 = untagged dev build */
 #endif
-#define APP_CALLBACK_VERSION    3
+#define APP_CALLBACK_VERSION    4
 
 struct app_callbacks {
     uint32_t magic;
@@ -125,6 +125,9 @@ struct app_callbacks {
     int   (*on_shell_cmd)(const char *cmd, const char *args,
                           void (*print)(const char *fmt, ...),
                           void (*error)(const char *fmt, ...));
+
+    /* Build metadata (added in API v4) */
+    uint8_t build_version;
 };
 
 #ifdef __cplusplus

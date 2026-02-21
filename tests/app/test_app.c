@@ -1120,6 +1120,15 @@ static void test_diag_build_version_byte(void)
 	assert(buf[13] == APP_BUILD_VERSION);
 }
 
+static void test_diag_platform_build_version_byte(void)
+{
+	init_diag();
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+	diag_request_build_response(buf);
+	assert(buf[14] == PLATFORM_BUILD_VERSION);
+}
+
 static void test_diag_rx_dispatches_0x40(void)
 {
 	/* Full integration: app_rx dispatches 0x40 to diag_request */
@@ -3230,6 +3239,7 @@ int main(void)
 	RUN_TEST(test_diag_process_cmd_wrong_type);
 	RUN_TEST(test_diag_process_cmd_null_data);
 	RUN_TEST(test_diag_build_version_byte);
+	RUN_TEST(test_diag_platform_build_version_byte);
 	RUN_TEST(test_diag_rx_dispatches_0x40);
 
 	printf("\nled_engine priority:\n");

@@ -62,7 +62,7 @@ EVSE_PAYLOAD_SIZE_V09 = 13
 
 # Diagnostics payload (TASK-029 Tier 2)
 DIAG_MAGIC = 0xE6
-DIAG_PAYLOAD_SIZE = 14
+DIAG_PAYLOAD_SIZE = 15
 
 # Legacy payload type
 LEGACY_EVSE_TYPE = 0x01
@@ -468,6 +468,8 @@ def decode_diag_payload(raw_bytes):
     last_error = raw_bytes[10]
     state_flags = raw_bytes[11]
     event_buf_pending = raw_bytes[12]
+    app_build_version = raw_bytes[13] if len(raw_bytes) > 13 else 0
+    platform_build_version = raw_bytes[14] if len(raw_bytes) > 14 else 0
 
     # Map error code to name
     error_names = {0: 'none', 1: 'sensor', 2: 'clamp', 3: 'interlock', 4: 'selftest'}
@@ -477,6 +479,8 @@ def decode_diag_payload(raw_bytes):
         'payload_type': 'diagnostics',
         'diag_version': diag_version,
         'app_version': app_version,
+        'app_build_version': app_build_version,
+        'platform_build_version': platform_build_version,
         'uptime_seconds': uptime_s,
         'boot_count': boot_count,
         'last_error_code': last_error,

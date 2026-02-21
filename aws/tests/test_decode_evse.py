@@ -469,8 +469,9 @@ class TestDecodeV08Payload:
 class TestDecodeDiagPayload:
     @staticmethod
     def _make_diag(diag_ver=1, app_ver=3, uptime=120, boot_count=0,
-                   error_code=0, state_flags=0x43, pending=5):
-        """Build a 14-byte diagnostics payload."""
+                   error_code=0, state_flags=0x43, pending=5,
+                   app_build=0, platform_build=0):
+        """Build a 15-byte diagnostics payload."""
         return bytes([
             0xE6, diag_ver,
             app_ver & 0xFF, (app_ver >> 8) & 0xFF,
@@ -480,7 +481,8 @@ class TestDecodeDiagPayload:
             error_code,
             state_flags,
             pending,
-            0x00,
+            app_build,
+            platform_build,
         ])
 
     def test_valid_diag_payload(self):

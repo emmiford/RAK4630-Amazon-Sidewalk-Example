@@ -118,8 +118,13 @@ static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
 	if (app_image_valid()) {
 		const struct app_callbacks *cb = app_get_callbacks();
 		shell_print(sh, "  App image: LOADED");
-		shell_print(sh, "  App build: v%d  (API v%d)",
-			    APP_BUILD_VERSION, cb->version);
+		if (cb->version >= 4) {
+			shell_print(sh, "  Platform: v%d  App: v%d  (API v%d)",
+				    PLATFORM_BUILD_VERSION, cb->build_version, cb->version);
+		} else {
+			shell_print(sh, "  App: API v%d  (build version unavailable, needs API v4+)",
+				    cb->version);
+		}
 	} else {
 		const char *reason = app_get_reject_reason();
 		if (reason) {
