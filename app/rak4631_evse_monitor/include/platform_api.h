@@ -96,7 +96,7 @@ struct platform_api {
  *   APP_CALLBACK_VERSION — ABI version, only changes when function pointer table layout changes
  *   EVSE_VERSION (app_tx.c) — wire protocol format version for uplink payloads
  */
-#define APP_BUILD_VERSION       1
+#define APP_BUILD_VERSION       0  /* 0 = untagged dev build; deploy script sets real version */
 #define APP_CALLBACK_VERSION    3
 
 struct app_callbacks {

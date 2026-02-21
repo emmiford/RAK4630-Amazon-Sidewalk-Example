@@ -4,7 +4,7 @@ OTA Deploy — single CLI for building, uploading, and monitoring firmware OTA u
 
 Usage:
     python aws/ota_deploy.py baseline              # Dump device primary → S3 baseline
-    python aws/ota_deploy.py deploy [--build] [--version N] [--remote] [--force]
+    python aws/ota_deploy.py deploy --version N [--build] [--remote] [--force]
     python aws/ota_deploy.py preview               # Show delta without deploying
     python aws/ota_deploy.py status [--watch [N]]  # Monitor OTA progress
     python aws/ota_deploy.py abort                 # Send OTA_ABORT + clear session
@@ -35,6 +35,7 @@ PYOCD = "/Users/emilyf/sidewalk-env/bin/pyocd"
 BUILD_APP_DIR = "build_app"
 APP_BIN = os.path.join(BUILD_APP_DIR, "app.bin")
 APP_TX_PATH = "rak-sid/app/rak4631_evse_monitor/src/app_evse/app_tx.c"
+PLATFORM_API_PATH = "rak-sid/app/rak4631_evse_monitor/include/platform_api.h"
 
 NRFUTIL_PREFIX = (
     "nrfutil toolchain-manager launch --ncs-version v2.9.1 -- bash -c"
@@ -136,6 +137,37 @@ def patch_version(version):
     return True
 
 
+def get_build_version():
+    """Read APP_BUILD_VERSION from platform_api.h."""
+    with open(PLATFORM_API_PATH, "r") as f:
+        content = f.read()
+    m = re.search(r"#define\s+APP_BUILD_VERSION\s+(\d+)", content)
+    if not m:
+        return None
+    return int(m.group(1))
+
+
+def patch_build_version(version):
+    """Write APP_BUILD_VERSION in platform_api.h."""
+    with open(PLATFORM_API_PATH, "r") as f:
+        content = f.read()
+    new_content = re.sub(
+        r"(#define\s+APP_BUILD_VERSION\s+)\d+(\s*/\*.*?\*/)?",
+        rf"\g<1>{version}  /* 0 = untagged dev build; deploy script sets real version */",
+        content,
+    )
+    if new_content == content:
+        cur = get_build_version()
+        if cur == version:
+            print(f"APP_BUILD_VERSION already {version}, no change needed")
+            return True
+        print(f"WARNING: APP_BUILD_VERSION not found in {PLATFORM_API_PATH}")
+        return False
+    with open(PLATFORM_API_PATH, "w") as f:
+        f.write(new_content)
+    print(f"Patched APP_BUILD_VERSION → {version}")
+    return True
+
 # --- Build helper ---
 
 
@@ -160,6 +192,58 @@ def build_app():
     print(f"Build OK: {bin_path} ({size} bytes)")
     return bin_path
 
+
+
+# --- Git safety helpers ---
+
+
+def git_check_clean():
+    """Ensure working tree is clean. Exit if dirty."""
+    result = subprocess.run(
+        ["git", "diff", "--quiet"], capture_output=True,
+        cwd="/Users/emilyf/sidewalk-projects/rak-sid",
+    )
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"], capture_output=True,
+        cwd="/Users/emilyf/sidewalk-projects/rak-sid",
+    )
+    if result.returncode != 0 or staged.returncode != 0:
+        print("ERROR: Working tree is dirty. Commit or stash changes first.")
+        sys.exit(1)
+
+
+def git_check_tag(version):
+    """Ensure tag app-vN does not already exist."""
+    tag = f"app-v{version}"
+    result = subprocess.run(
+        ["git", "tag", "-l", tag], capture_output=True, text=True,
+        cwd="/Users/emilyf/sidewalk-projects/rak-sid",
+    )
+    if tag in result.stdout.strip().split("\n"):
+        print(f"ERROR: Tag '{tag}' already exists. Choose a different version.")
+        sys.exit(1)
+
+
+def git_commit_and_tag(version):
+    """Commit the version bump and create a git tag."""
+    repo = "/Users/emilyf/sidewalk-projects/rak-sid"
+    tag = f"app-v{version}"
+
+    # Stage the changed file
+    subprocess.run(
+        ["git", "add", PLATFORM_API_PATH], check=True, cwd=repo,
+    )
+    # Commit
+    subprocess.run(
+        ["git", "commit", "-m", f"Release app-v{version}"],
+        check=True, cwd=repo,
+    )
+    # Tag
+    subprocess.run(
+        ["git", "tag", "-a", tag, "-m", f"App firmware build v{version}"],
+        check=True, cwd=repo,
+    )
+    print(f"Committed and tagged: {tag}")
 
 # --- S3 / DynamoDB helpers ---
 
@@ -343,11 +427,22 @@ def cmd_baseline(args):
 
 def cmd_deploy(args):
     """Build, verify baseline, preview delta, upload, and monitor."""
-    # Step 1: Optionally patch version
-    if args.version is not None:
-        patch_version(args.version)
+    # Step 0: Require --version
+    if args.version is None:
+        print("ERROR: --version N is required (build version number, >= 1)")
+        sys.exit(1)
+    if args.version < 1:
+        print("ERROR: --version must be >= 1 (0 is reserved for dev builds)")
+        sys.exit(1)
 
-    # Step 2: Optionally build
+    # Step 1: Git safety checks
+    git_check_clean()
+    git_check_tag(args.version)
+
+    # Step 2: Patch APP_BUILD_VERSION
+    patch_build_version(args.version)
+
+    # Step 3: Build
     abs_bin = os.path.join("/Users/emilyf/sidewalk-projects", APP_BIN)
     if args.build:
         build_app()
@@ -358,10 +453,12 @@ def cmd_deploy(args):
     with open(abs_bin, "rb") as f:
         firmware = f.read()
     fw_crc = crc32(firmware)
-    fw_version = get_source_version() or 0
-    print(f"\nFirmware: {len(firmware)} bytes, CRC32=0x{fw_crc:08x}, version=0x{fw_version:02x}")
+    print(f"\nFirmware: {len(firmware)} bytes, CRC32=0x{fw_crc:08x}, build=v{args.version}")
 
-    # Step 3: Check for existing session
+    # Step 4: Commit version bump and tag
+    git_commit_and_tag(args.version)
+
+    # Step 5: Check for existing session
     session = get_session()
     if session and not args.force:
         print(f"\nWARNING: Active OTA session exists (status: {session.get('status')})")
@@ -371,7 +468,7 @@ def cmd_deploy(args):
         print("Clearing existing session (--force)")
         clear_session()
 
-    # Step 4: Download S3 baseline and verify against device
+    # Step 6: Download S3 baseline and verify against device
     print("\nDownloading S3 baseline...")
     try:
         baseline = s3_download(BASELINE_KEY)
@@ -396,7 +493,7 @@ def cmd_deploy(args):
     else:
         print("Skipping device verification (--remote)")
 
-    # Step 5: Preview delta
+    # Step 7: Preview delta
     changed = compute_delta_chunks(baseline, firmware, CHUNK_DATA_SIZE)
     full_chunks = (len(firmware) + CHUNK_DATA_SIZE - 1) // CHUNK_DATA_SIZE
     est_time = len(changed) * 15  # ~15s per LoRa downlink
@@ -410,7 +507,7 @@ def cmd_deploy(args):
         print("\nNo changes detected — firmware matches baseline.")
         sys.exit(0)
 
-    # Step 6: Sign firmware (default) and upload to S3
+    # Step 8: Sign firmware (default) and upload to S3
     is_signed = False
     upload_data = firmware
     if not args.unsigned:
@@ -430,10 +527,7 @@ def cmd_deploy(args):
     else:
         print("\nSkipping signing (--unsigned)")
 
-    if args.version is not None:
-        s3_key = f"firmware/app-v{args.version}.bin"
-    else:
-        s3_key = f"firmware/app-v{fw_version}.bin"
+    s3_key = f"firmware/app-v{args.version}.bin"
 
     s3_metadata = {}
     if is_signed:
@@ -444,7 +538,7 @@ def cmd_deploy(args):
     suffix = " (signed)" if is_signed else ""
     print(f"Upload complete — Lambda triggered{suffix}")
 
-    # Step 7: Monitor progress
+    # Step 9: Monitor progress
     print("\nMonitoring OTA progress (Ctrl-C to stop)...\n")
     session_seen = False
     try:
@@ -579,7 +673,7 @@ def main():
         "--build", action="store_true", help="Build app before deploying"
     )
     p_deploy.add_argument(
-        "--version", type=int, default=None, help="Patch EVSE_VERSION before build"
+        "--version", type=int, default=None, help="Build version number (required, >= 1). Patches APP_BUILD_VERSION and creates git tag app-vN"
     )
     p_deploy.add_argument(
         "--remote",
