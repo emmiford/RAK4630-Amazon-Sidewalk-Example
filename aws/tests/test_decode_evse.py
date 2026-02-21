@@ -654,6 +654,36 @@ class TestDecodeDiagPayload:
         mock_last_seen.assert_called_once()
         call_args = mock_last_seen.call_args
         assert call_args[1]["app_version"] is None
+    def test_v0a_telemetry_passes_app_build_version(self):
+        """v0x0A EVSE telemetry should update registry with app_build_version."""
+        raw = bytes([0xE5, 0x0A, 0x01, 0xA4, 0x0B, 0x00, 0x00, 0x00,
+                     0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x02])
+        event = {
+            "WirelessDeviceId": "test-device-v0a",
+            "PayloadData": encode_b64(raw),
+            "WirelessMetadata": {
+                "Sidewalk": {
+                    "LinkType": "LORA",
+                    "Rssi": -80,
+                    "Seq": 5,
+                    "Timestamp": "2026-02-21T12:00:00Z",
+                    "SidewalkId": "sid-v0a",
+                }
+            },
+        }
+
+        with patch.object(decode.table, "put_item"), \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch("device_registry.get_or_create_device"), \
+             patch("device_registry.update_last_seen") as mock_last_seen:
+            decode.lambda_handler(event, None)
+
+        mock_last_seen.assert_called_once()
+        call_args = mock_last_seen.call_args
+        assert call_args[1]["app_version"] == 5
+
+
 
 
 # --- Scheduler divergence detection (TASK-071) ---
@@ -1058,6 +1088,90 @@ class TestDecodeV09Payload:
         result = decode.decode_raw_evse_payload(raw)
         assert "transition_reason" not in result
         assert "transition_reason_code" not in result
+
+
+
+# --- v0x0A payload: build version bytes (TASK-101) ---
+
+class TestDecodeV0APayload:
+    def _make_v0a(self, j1772=1, voltage=0, current=0, flags=0,
+                  timestamp=0, reason=0, app_build=0, platform_build=0):
+        """Helper: build a 15-byte v0x0A payload."""
+        return bytes([
+            0xE5, 0x0A, j1772,
+            voltage & 0xFF, (voltage >> 8) & 0xFF,
+            current & 0xFF, (current >> 8) & 0xFF,
+            flags,
+            timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+            (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+            reason,
+            app_build,
+            platform_build,
+        ])
+
+    def test_v0a_basic_decode(self):
+        """15-byte v0x0A payload decodes all fields."""
+        raw = self._make_v0a(j1772=3, voltage=1489, current=15000,
+                             flags=0x06, timestamp=86400, reason=0x01,
+                             app_build=5, platform_build=2)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result is not None
+        assert result["version"] == 0x0A
+        assert result["j1772_state_code"] == 3
+        assert result["pilot_voltage_mv"] == 1489
+        assert result["current_ma"] == 15000
+        assert result["device_timestamp_epoch"] == 86400
+        assert result["transition_reason_code"] == 0x01
+        assert result["transition_reason"] == "cloud_cmd"
+        assert result["app_build_version"] == 5
+        assert result["platform_build_version"] == 2
+
+    def test_v0a_build_versions_zero(self):
+        """Build versions 0 = dev build."""
+        raw = self._make_v0a(app_build=0, platform_build=0)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["app_build_version"] == 0
+        assert result["platform_build_version"] == 0
+
+    def test_v0a_max_build_versions(self):
+        """Build versions can be up to 255."""
+        raw = self._make_v0a(app_build=255, platform_build=255)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["app_build_version"] == 255
+        assert result["platform_build_version"] == 255
+
+    def test_v0a_backward_compat_flags(self):
+        """v0x0A still decodes all v0x09 fields."""
+        raw = self._make_v0a(flags=0x0E, reason=0x03,
+                             app_build=7, platform_build=1)
+        result = decode.decode_raw_evse_payload(raw)
+        assert result["thermostat_cool"] is True
+        assert result["charge_allowed"] is True
+        assert result["charge_now"] is True
+        assert result["transition_reason"] == "charge_now"
+
+    def test_v0a_via_b64(self):
+        """v0x0A through full base64 pipeline."""
+        raw = self._make_v0a(j1772=2, voltage=2234, timestamp=1000,
+                             reason=0x01, app_build=3, platform_build=1)
+        result = decode.decode_payload(encode_b64(raw))
+        assert result["payload_type"] == "evse"
+        assert result["version"] == 0x0A
+        assert result["app_build_version"] == 3
+        assert result["platform_build_version"] == 1
+
+    def test_v09_no_build_versions(self):
+        """v0x09 payloads should NOT include build version fields."""
+        raw = bytes([
+            0xE5, 0x09, 0x01,
+            0x00, 0x00, 0x00, 0x00,
+            0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x00,
+        ])
+        result = decode.decode_raw_evse_payload(raw)
+        assert "app_build_version" not in result
+        assert "platform_build_version" not in result
 
 
 class TestTransitionEventStorage:
