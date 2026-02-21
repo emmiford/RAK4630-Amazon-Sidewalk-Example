@@ -1,7 +1,7 @@
 # SideCharge Technical Design Document
 
 **Status**: Living document — updated as the implementation evolves
-**Last updated**: 2026-02-20
+**Last updated**: 2026-02-21
 
 This is the single authoritative reference for how the SideCharge firmware and cloud
 systems work at the wire format, state machine, and protocol level. For *why* decisions
@@ -179,57 +179,84 @@ Per ADR-001, version mismatch is a **hard stop**:
 
 ### 2.4 Version Numbering Convention
 
-Three independent version numbers track different layers of the system:
+Four independent version numbers track different layers of the system:
 
 | Version | Define | Type | Current | Where Defined | When to Bump |
 |---------|--------|------|---------|---------------|--------------|
-| **Wire protocol** | `EVSE_VERSION` | `uint8_t` | `0x09` | `evse_payload.h` | Only when the uplink/downlink payload byte layout changes |
+| **Wire protocol** | `PAYLOAD_VERSION` | `uint8_t` (hex) | `0x0A` | `evse_payload.h` | Only when the uplink payload byte layout changes |
 | **Platform/app ABI** | `APP_CALLBACK_VERSION` | `uint32_t` | `3` | `platform_api.h` | Only when the function pointer table layout changes (per ADR-001) |
-| **Build/release** | `APP_BUILD_VERSION` | `uint8_t` | `1`+ | `platform_api.h` | Before every OTA deploy |
+| **App build** | `APP_BUILD_VERSION` | `uint8_t` | `1`+ | `app/rak4631_evse_monitor/VERSION` file | Every tagged app release (via `release.py`) |
+| **Platform build** | `PLATFORM_BUILD_VERSION` | `uint8_t` | `1`+ | `app/rak4631_evse_monitor/PLATFORM_VERSION` file | Every platform release (rare, USB-only) |
 
-**`APP_BUILD_VERSION`** is a monotonically increasing integer (1-255) that identifies
-which firmware build is running on the device. It is independent of the other two
-versions — a code fix that changes no wire format and no API table still gets a new
-build version.
+`PAYLOAD_VERSION` (formerly `EVSE_VERSION`) identifies the uplink byte layout schema.
+The decode Lambda uses it to select the correct decoder. It only changes when the
+payload byte layout changes — not for code fixes, new features, or ABI changes.
 
-- **Range**: `uint8_t`, 1-255. Value 0 means "not set" (pre-build-version firmware).
-  At one OTA deploy per week, 255 values covers ~5 years.
-- **Where defined**: `#define APP_BUILD_VERSION N` in `platform_api.h`, alongside
-  `APP_CALLBACK_VERSION`.
-- **When to bump**: The deploy script (`ota_deploy.py --version N`) patches this value
-  before building. Each OTA deploy gets a unique build version.
+**Build versions** (`APP_BUILD_VERSION` and `PLATFORM_BUILD_VERSION`) are monotonically
+increasing integers (1-255) that identify which firmware build is running. They are
+independent of each other and of the other two versions — a code fix that changes no
+wire format and no API table still gets a new build version.
+
+- **Range**: `uint8_t`, 1-255. Value 0 means "dev build" (untagged). At one OTA deploy
+  per week, 255 values covers ~5 years.
+- **Single source of truth**: Plain text files containing just a number:
+  - `app/rak4631_evse_monitor/VERSION` — app build version
+  - `app/rak4631_evse_monitor/PLATFORM_VERSION` — platform build version
+- **CMake integration**: CMake reads these files at build time and passes
+  `-DAPP_BUILD_VERSION=N` / `-DPLATFORM_BUILD_VERSION=N`. `platform_api.h` uses
+  `#ifndef` guards so CMake flags override the default of 0. No regex-patching of
+  C headers from Python scripts.
+- **When to bump**: The release script (`firmware release --version N`) patches the
+  VERSION file, commits, and creates an annotated git tag `app-vN`. Each OTA deploy
+  gets a unique build version.
 - **Where visible**:
-  - `sid status` shell command: `App build: vN (API vN, payload v0xNN)`
+  - `sid status` shell command: `Platform: vN  App: vN  (API vN, payload v0xNN)`
   - Boot log: printed during `discover_app_image()`
+  - Regular EVSE uplink bytes 13-14 (section 3.1): included in every telemetry message
   - Diagnostics response byte 13 (section 3.5): returned in the 0xE6 payload for cloud querying
-- **Not in regular uplinks**: The build version is diagnostics-only. The regular EVSE
-  uplink (section 3.1) stays at 13 bytes. The cloud learns the build version via the 0xE6
-  diagnostics response (triggered on demand or by the health digest).
-- **Cloud usage**: The health digest Lambda (section 8.5) compares the device's reported build
-  version against `LATEST_APP_VERSION` to flag stale firmware. The device registry
+- **Cloud usage**: The health digest Lambda (section 8.5) compares the device’s reported
+  build version against `LATEST_APP_VERSION` to flag stale firmware. The device registry
   stores the latest reported version.
+
+**Platform build version** is a compile-time constant (the platform can only be updated
+via USB, so there is no stale-copy problem). It is bumped rarely — only when the
+platform image changes, which requires a physical programmer.
+
+**App build version** is read at runtime by the platform from the app image header, so
+`sid status` stays accurate after OTA updates without requiring a platform reflash.
+
+#### Git Tagging Convention
+
+Each app release creates an annotated git tag `app-vN` (e.g., `app-v1`, `app-v12`).
+
+- The deploy script refuses dirty working trees and duplicate tags
+- Dev builds (no tag) show `v0` on the shell — immediately obvious they are untagged
+- `git log app-v1..app-v2` shows the exact changes between any two deployed versions
+- Tags are immutable — once a version number is used, it cannot be reused
 
 ---
 
 ## 3. Uplink Protocol
 
-### 3.1 EVSE Payload v0x09 (Current)
+### 3.1 EVSE Payload v0x0A (Current)
 
-13 bytes. Fits within the 19-byte LoRa uplink MTU with 6 bytes spare.
+15 bytes. Fits within the 19-byte LoRa uplink MTU with 4 bytes spare.
 
 ```
-Offset  Size  Field               Type          Description
-------  ----  -----               ----          -----------
-0       1     Magic               uint8         0xE5 (constant)
-1       1     Version             uint8         0x09
-2       1     J1772 state         uint8         Enum 0-6 (see §6.1)
-3-4     2     Pilot voltage       uint16_le     J1772 Cp millivolts (0-3300)
-5-6     2     Current draw        uint16_le     Milliamps (0-30000)
-7       1     Flags               uint8         Bitfield (see §3.2)
-8-11    4     Timestamp           uint32_le     SideCharge epoch (see §7.1)
-                                                0 = not yet synced
-12      1     Transition reason   uint8         Why charge_allowed changed (see §3.2.1)
-                                                0 = no transition this cycle
+Offset  Size  Field                  Type          Description
+------  ----  -----                  ----          -----------
+0       1     Magic                  uint8         0xE5 (constant)
+1       1     PAYLOAD_VERSION        uint8         0x0A
+2       1     J1772 state            uint8         Enum 0-6 (see §6.1)
+3-4     2     Pilot voltage          uint16_le     J1772 Cp millivolts (0-3300)
+5-6     2     Current draw           uint16_le     Milliamps (0-30000)
+7       1     Flags                  uint8         Bitfield (see §3.2)
+8-11    4     Timestamp              uint32_le     SideCharge epoch (see §7.1)
+                                                   0 = not yet synced
+12      1     Transition reason      uint8         Why charge_allowed changed (see §3.2.1)
+                                                   0 = no transition this cycle
+13      1     App build version      uint8         APP_BUILD_VERSION (1-255, 0=dev)
+14      1     Platform build version uint8         PLATFORM_BUILD_VERSION (1-255, 0=dev)
 ```
 
 AC supply voltage is assumed to be 240V for all power calculations. The device does not
@@ -239,13 +266,17 @@ of marginal pilot connections — readings near a threshold boundary (e.g., 2590
 2600 mV A/B boundary) indicate a degraded connection that the enum alone would not reveal.
 See ADR-004 for the rationale.
 
+Bytes 13-14 carry the build versions so the cloud knows exactly which firmware is running
+on every uplink, without requiring a separate diagnostics query. This enables fleet-wide
+version tracking in near-real-time.
+
 Encoding example:
 ```
-E5 09 03 BA 08 D0 07 06 39 A2 04 00 02
-│  │  │  └─────┘ └─────┘ │  └──────────┘ │
-│  │  │  2234 mV 2000 mA │  epoch 304697 │ TRANSITION_REASON_DELAY_WINDOW
-│  │  State C (charging)  Flags: COOL | CHARGE_ALLOWED (bit 0 HEAT=0 in v1.0)
-│  Version 0x09
+E5 0A 03 BA 08 D0 07 06 39 A2 04 00 02 0C 03
+│  │  │  └─────┘ └─────┘ │  └──────────┘ │  │  │
+│  │  │  2234 mV 2000 mA │  epoch 304697 │  │  platform v3
+│  │  State C (charging)  Flags: COOL | CHARGE_ALLOWED  │  app v12
+│  PAYLOAD_VERSION 0x0A                  (bit 0 HEAT=0 in v1.0)  TRANSITION_REASON_DELAY_WINDOW
 Magic 0xE5
 ```
 
@@ -293,10 +324,11 @@ Code  Name                        Meaning
 
 The decode Lambda handles all payload formats, identified by byte 0 and byte 1:
 
-| Format | Magic | Version | Size | Differences from v0x09 |
+| Format | Magic | Version | Size | Differences from v0x0A |
 |--------|-------|---------|------|------------------------|
-| **v0x09** (current) | 0xE5 | 0x09 | 13B | Full format. Adds `transition_reason` at byte 12. CHARGE_NOW flag (bit 3) active. |
-| **v0x08** | 0xE5 | 0x08 | 12B | No transition reason byte. CHARGE_NOW flag reserved (always 0). |
+| **v0x0A** (current) | 0xE5 | 0x0A | 15B | Full format. Adds `app_build_version` (byte 13) and `platform_build_version` (byte 14). |
+| **v0x09** | 0xE5 | 0x09 | 13B | No build version bytes. Otherwise identical to v0x0A. CHARGE_NOW flag (bit 3) active. |
+| **v0x08** | 0xE5 | 0x08 | 12B | No transition reason byte. No build versions. CHARGE_NOW flag reserved (always 0). |
 | **v0x07** | 0xE5 | 0x07 | 12B | Same byte layout as v0x08; HEAT flag (bit 0) was briefly active. Deprecated — heat call reporting returns in v1.1 firmware. |
 | **v0x06** | 0xE5 | 0x06 | 8B | No timestamp (bytes 8-11). Flags byte has thermostat bits only. |
 | **sid_demo legacy** | varies | — | 7B+ | Wrapped in demo protocol headers. Inner payload: type(1)+j1772(1)+voltage(2)+current(2)+therm(1). Offset-scanned. |
@@ -661,7 +693,7 @@ baseline knowledge.
 - After receiving all delta chunks: device validates CRC32 over the **full** staged image
   (delta relies on unchanged chunks matching the baseline already in primary)
 
-**Baseline capture**: `ota_deploy.py baseline` reads the device's primary partition via
+**Baseline capture**: `firmware baseline` (see §10.6) reads the device's primary partition via
 pyOCD, trims trailing 0xFF, and uploads to S3.
 
 ### 5.4 Recovery Metadata
@@ -1139,7 +1171,7 @@ is decoded and stored, and a time-sync downlink is sent if the device clock is s
 **Flow**:
 1. Base64-decode the Sidewalk payload
 2. Check for OTA uplink (cmd type 0x20) → forward async to ota_sender Lambda
-3. Try raw EVSE decode (magic 0xE5) → v0x06, v0x07, v0x08, or v0x09
+3. Try raw EVSE decode (magic 0xE5) → v0x06, v0x07, v0x08, v0x09, or v0x0A
 4. Fall back to legacy sid_demo format
 5. Store decoded telemetry in DynamoDB (`sidewalk-v1-device_events_v2`)
 6. Call `maybe_send_time_sync()` — sends TIME_SYNC if sentinel is >24h old or missing
@@ -1220,7 +1252,7 @@ downlink windows), not compute.
 **Delta OTA:**
 
 Rather than sending the entire firmware image, the Lambda compares the S3 **baseline**
-(captured via `ota_deploy.py baseline`) against the new firmware chunk-by-chunk. Only
+(captured via `firmware baseline`) against the new firmware chunk-by-chunk. Only
 **changed chunks** are sent, each tagged with its absolute index so the device can
 write it to the correct offset in staging flash. This is critical for keeping update
 times practical — a full-image OTA sends all ~276 chunks (~69 minutes), while a
@@ -1510,6 +1542,39 @@ bash rak-sid/app/rak4631_evse_monitor/flash.sh app
 
 4. **pyOCD halt corrupts BLE** — always `pyocd reset` after any halt, don't just resume.
 
+### 10.6 CLI Tools (firmware.py)
+
+The `ota_deploy.py` script has been replaced by a structured CLI with separate modules
+for release management, OTA deployment, and firmware operations:
+
+```
+aws/
+├── firmware.py            # CLI entry point (subcommand routing)
+├── release.py             # version patching, git tagging, build invocation
+├── ota.py                 # S3 upload, OTA session management, monitoring
+├── ota_signing.py         # ED25519 signing (existing)
+├── sidewalk_utils.py      # device ID lookup, send_sidewalk_msg (existing)
+└── protocol_constants.py  # CRC, magic bytes (existing)
+```
+
+**Subcommands:**
+
+| Command | Description |
+|---------|-------------|
+| `firmware release --version N` | Patch VERSION file, commit, tag `app-vN`, build app |
+| `firmware flash [app\|all]` | USB flash via pyocd |
+| `firmware deploy --version N` | OTA upload + monitor (tag must exist) |
+| `firmware baseline` | Capture device state to S3 for delta OTA |
+| `firmware status [--watch]` | OTA progress monitoring |
+| `firmware abort` | Cancel active OTA + clear session |
+| `firmware clear-session` | Clear DynamoDB session only |
+| `firmware keygen [--force]` | Generate ED25519 signing keypair |
+
+The `release` subcommand patches `app/rak4631_evse_monitor/VERSION`, commits the change,
+creates an annotated git tag `app-vN`, and invokes the app build. It refuses dirty
+working trees and duplicate tags. The `deploy` subcommand requires that the tag already
+exists (i.e., `release` must run first).
+
 ---
 
 ## 11. Shell Commands
@@ -1536,7 +1601,7 @@ All shell commands are accessed via USB serial console at 115200 baud.
 
 | Command | Description |
 |---------|-------------|
-| `sid status` | Sidewalk connection state, app image status (includes build version, API version, payload version) |
+| `sid status` | Sidewalk connection state, image status: `Platform: vN  App: vN  (API vN, payload v0xNN)` |
 | `sid ota status` | OTA phase (idle/receiving/validating/applying/complete/error) |
 | `sid ota report` | Send OTA_STATUS uplink |
 | `app sid send` | Trigger manual uplink |
