@@ -1,11 +1,11 @@
 output "lambda_function_arn" {
   description = "ARN of the EVSE decoder Lambda function"
-  value       = aws_lambda_function.evse_decoder.arn
+  value       = aws_lambda_function.uplink_decoder.arn
 }
 
 output "lambda_function_name" {
   description = "Name of the EVSE decoder Lambda function"
-  value       = aws_lambda_function.evse_decoder.function_name
+  value       = aws_lambda_function.uplink_decoder.function_name
 }
 
 output "dynamodb_table_name" {

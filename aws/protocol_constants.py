@@ -18,7 +18,7 @@ OTA_SUB_STATUS = 0x82
 
 # --- EVSE wire-format magic bytes (must match evse_payload.h) ---
 
-EVSE_MAGIC = 0xE5
+TELEMETRY_MAGIC = 0xE5
 DIAG_MAGIC = 0xE6
 
 # --- Time sync ---

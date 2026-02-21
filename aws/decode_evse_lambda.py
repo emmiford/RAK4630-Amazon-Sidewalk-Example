@@ -37,11 +37,11 @@ lambda_client = boto3.client('lambda')
 TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'sidewalk-v1-device_events_v2')
 OTA_LAMBDA_NAME = os.environ.get('OTA_LAMBDA_NAME', 'ota-sender')
 SCHEDULER_LAMBDA_NAME = os.environ.get('SCHEDULER_LAMBDA_NAME', 'charge-scheduler')
-REGISTRY_TABLE_NAME = os.environ.get('DEVICE_REGISTRY_TABLE', 'evse-device-registry')
+REGISTRY_TABLE_NAME = os.environ.get('DEVICE_REGISTRY_TABLE', 'device-registry')
 table = dynamodb.Table(TABLE_NAME)
 registry_table = dynamodb.Table(REGISTRY_TABLE_NAME)
 
-from protocol_constants import OTA_CMD_TYPE, OTA_SUB_ACK, OTA_SUB_COMPLETE, OTA_SUB_STATUS, EPOCH_OFFSET, EVSE_MAGIC, DIAG_MAGIC
+from protocol_constants import OTA_CMD_TYPE, OTA_SUB_ACK, OTA_SUB_COMPLETE, OTA_SUB_STATUS, EPOCH_OFFSET, TELEMETRY_MAGIC, DIAG_MAGIC
 
 # TIME_SYNC constants
 TIME_SYNC_CMD_TYPE = 0x30
@@ -58,10 +58,10 @@ MT = ZoneInfo("America/Denver")
 CHARGE_NOW_DEFAULT_DURATION_S = 14400  # 4 hours fallback when not in TOU peak
 
 # EVSE payload size constants
-EVSE_PAYLOAD_SIZE_V06 = 8
-EVSE_PAYLOAD_SIZE_V07 = 12
-EVSE_PAYLOAD_SIZE_V09 = 13
-EVSE_PAYLOAD_SIZE_V0A = 15
+TELEMETRY_PAYLOAD_SIZE_V06 = 8
+TELEMETRY_PAYLOAD_SIZE_V07 = 12
+TELEMETRY_PAYLOAD_SIZE_V09 = 13
+TELEMETRY_PAYLOAD_SIZE_V0A = 15
 
 # Diagnostics payload size (TASK-029 Tier 2)
 DIAG_PAYLOAD_SIZE = 15
@@ -296,13 +296,13 @@ def decode_raw_evse_payload(raw_bytes):
       Same byte layout as v0x07.
       Bit 0 of flags is reserved (always 0) — heat call removed in v1.0.
     """
-    if len(raw_bytes) < EVSE_PAYLOAD_SIZE_V06:
+    if len(raw_bytes) < TELEMETRY_PAYLOAD_SIZE_V06:
         return None
 
     magic = raw_bytes[0]
     version = raw_bytes[1]
 
-    if magic != EVSE_MAGIC:
+    if magic != TELEMETRY_MAGIC:
         return None
 
     j1772_state = raw_bytes[2]
@@ -342,7 +342,7 @@ def decode_raw_evse_payload(raw_bytes):
         result['thermostat_bits'] = flags_byte & 0x02
 
     # v0x07+: 4-byte timestamp at bytes 8-11
-    if len(raw_bytes) >= EVSE_PAYLOAD_SIZE_V07:
+    if len(raw_bytes) >= TELEMETRY_PAYLOAD_SIZE_V07:
         sc_epoch = int.from_bytes(raw_bytes[8:12], 'little')
         result['device_timestamp_epoch'] = sc_epoch
         if sc_epoch > 0:
@@ -351,13 +351,13 @@ def decode_raw_evse_payload(raw_bytes):
             result['device_timestamp_unix'] = None  # Not yet synced
 
     # v0x09+: transition reason byte at byte 12
-    if len(raw_bytes) >= EVSE_PAYLOAD_SIZE_V09 and version >= 0x09:
+    if len(raw_bytes) >= TELEMETRY_PAYLOAD_SIZE_V09 and version >= 0x09:
         reason_code = raw_bytes[12]
         result['transition_reason_code'] = reason_code
         result['transition_reason'] = TRANSITION_REASONS.get(reason_code, f'unknown_{reason_code}')
 
     # v0x0A+: app and platform build versions at bytes 13-14
-    if len(raw_bytes) >= EVSE_PAYLOAD_SIZE_V0A and version >= 0x0A:
+    if len(raw_bytes) >= TELEMETRY_PAYLOAD_SIZE_V0A and version >= 0x0A:
         result['app_build_version'] = raw_bytes[13]
         result['platform_build_version'] = raw_bytes[14]
 
@@ -370,7 +370,7 @@ def decode_legacy_sid_demo_payload(raw_bytes):
 
     The payload structure:
     - Wrapped in sid_demo format (variable header bytes)
-    - Inner payload is evse_payload_t:
+    - Inner payload is telemetry payload:
       - payload_type: 1 byte (0x01 = EVSE)
       - j1772_state: 1 byte
       - pilot_voltage: 2 bytes (little-endian, mV)

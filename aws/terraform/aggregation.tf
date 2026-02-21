@@ -1,6 +1,6 @@
 # --- Daily Aggregation Lambda (TASK-078) ---
 # Computes per-device daily summaries from raw telemetry.
-# Runs daily at 02:00 UTC via EventBridge, writes to evse-daily-aggregates.
+# Runs daily at 02:00 UTC via EventBridge, writes to daily-aggregates.
 
 # DynamoDB table for daily aggregates (3-year TTL)
 resource "aws_dynamodb_table" "daily_aggregates" {

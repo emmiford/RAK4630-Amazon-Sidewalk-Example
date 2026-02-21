@@ -39,18 +39,18 @@ static void simulate_presses(int count, uint32_t start_ms, uint32_t interval_ms)
 	for (int i = 0; i < count; i++) {
 		/* Button down */
 		mock_uptime_ms = start_ms + (i * interval_ms * 2);
-		mock_gpio_values[EVSE_PIN_BUTTON] = 1;
+		mock_gpio_values[PIN_BUTTON] = 1;
 		selftest_trigger_tick();
 
 		/* If selftest was triggered, release button and stop */
 		if (selftest_trigger_is_running()) {
-			mock_gpio_values[EVSE_PIN_BUTTON] = 0;
+			mock_gpio_values[PIN_BUTTON] = 0;
 			return;
 		}
 
 		/* Button up */
 		mock_uptime_ms = start_ms + (i * interval_ms * 2) + interval_ms;
-		mock_gpio_values[EVSE_PIN_BUTTON] = 0;
+		mock_gpio_values[PIN_BUTTON] = 0;
 		selftest_trigger_tick();
 	}
 }
@@ -135,9 +135,9 @@ void test_button_ignored_while_running(void)
 	TEST_ASSERT_TRUE(selftest_trigger_is_running());
 
 	/* More presses while running — should be ignored (still blinking) */
-	mock_gpio_values[EVSE_PIN_BUTTON] = 1;
+	mock_gpio_values[PIN_BUTTON] = 1;
 	selftest_trigger_tick();
-	mock_gpio_values[EVSE_PIN_BUTTON] = 0;
+	mock_gpio_values[PIN_BUTTON] = 0;
 	selftest_trigger_tick();
 
 	/* Should still be in blinking state (not restarted) */
@@ -288,7 +288,7 @@ void test_returns_to_idle_after_completion(void)
 	TEST_ASSERT_FALSE(selftest_trigger_is_running());
 
 	/* One idle tick with button released to reset edge detection */
-	mock_gpio_values[EVSE_PIN_BUTTON] = 0;
+	mock_gpio_values[PIN_BUTTON] = 0;
 	selftest_trigger_tick();
 
 	/* Can trigger again */

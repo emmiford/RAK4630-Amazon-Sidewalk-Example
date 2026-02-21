@@ -832,7 +832,7 @@ current_ma = (adc_mv × 30000) / 3300
 
 ### 6.3 Charge Control
 
-Controls the EVSE pilot spoof relay via GPIO pin 0 (`EVSE_PIN_CHARGE_BLOCK`):
+Controls the EVSE pilot spoof relay via GPIO pin 0 (`PIN_CHARGE_BLOCK`):
 - GPIO HIGH = charging blocked (~900 ohm load inserted inline on PILOT, spoofing "no vehicle")
 - GPIO LOW = charging allowed (pilot pass-through: PILOT-in connected to PILOT-out)
 

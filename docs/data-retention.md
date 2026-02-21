@@ -61,7 +61,7 @@
 
 | Log Group | Retention | Terraform Resource |
 |-----------|-----------|-------------------|
-| `/aws/lambda/evse-decoder` | **30 days** | `aws_cloudwatch_log_group.evse_decoder_logs` |
+| `/aws/lambda/uplink-decoder` | **30 days** | `aws_cloudwatch_log_group.uplink_decoder_logs` |
 | `/aws/lambda/charge-scheduler` | **30 days** | `aws_cloudwatch_log_group.charge_scheduler_logs` |
 | `/aws/lambda/ota-sender` | **30 days** | `aws_cloudwatch_log_group.ota_sender_logs` |
 | `/aws/lambda/health-digest` | **30 days** | `aws_cloudwatch_log_group.health_digest_logs` |

@@ -12,7 +12,7 @@ Add GPIO support for the W-out (heat call pass-through) relay in the platform la
 ### Work items
 1. **Assign GPIO pin** for W-out relay (pin TBD from PCB design, TASK-095)
 2. **Add pin definition** to device tree overlay (`rak4631_nrf52840.overlay`) and `platform_api.h`
-3. **Add pin enum** (e.g., `EVSE_PIN_HEAT_BLOCK`) to the pin constants
+3. **Add pin enum** (e.g., `PIN_HEAT_BLOCK`) to the pin constants
 4. **Initialize GPIO** in platform init (configure as output, default de-energized = blocked)
 5. **Shell command**: Add `sid relay` or extend `app hvac` to manually toggle W-out relay for testing
 6. **Update hardware interlock logic** if the interlock is partially software-driven: ensure W-out cannot be energized while charge is active

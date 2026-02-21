@@ -25,8 +25,8 @@ import boto3
 dynamodb = boto3.resource("dynamodb")
 
 EVENTS_TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
-REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "evse-device-registry")
-AGGREGATES_TABLE_NAME = os.environ.get("AGGREGATES_TABLE", "evse-daily-aggregates")
+REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "device-registry")
+AGGREGATES_TABLE_NAME = os.environ.get("AGGREGATES_TABLE", "daily-aggregates")
 ASSUMED_VOLTAGE_V = int(os.environ.get("ASSUMED_VOLTAGE_V", "240"))
 
 events_table = dynamodb.Table(EVENTS_TABLE_NAME)

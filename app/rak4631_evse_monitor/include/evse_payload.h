@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 /* Wire-format constants (must match decode_evse_lambda.py / protocol_constants.py) */
-#define EVSE_MAGIC          0xE5
+#define TELEMETRY_MAGIC          0xE5
 #define DIAG_MAGIC          0xE6
 
 /* Legacy payload type for sid_demo format */

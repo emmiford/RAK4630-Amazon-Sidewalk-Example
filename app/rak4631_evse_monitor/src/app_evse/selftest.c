@@ -13,8 +13,8 @@
 #include <app_platform.h>
 
 /* GPIO pin indices — must match platform board-level mapping */
-#define EVSE_PIN_CHARGE_BLOCK  0
-#define EVSE_PIN_COOL       2
+#define PIN_CHARGE_BLOCK  0
+#define PIN_COOL       2
 
 /* Continuous monitoring thresholds */
 #define CLAMP_MISMATCH_TIMEOUT_MS  10000
@@ -69,26 +69,26 @@ int selftest_boot(selftest_boot_result_t *result)
 	result->adc_pilot_ok = (platform->adc_read_mv(0) >= 0);
 
 	/* 2. GPIO cool input readable */
-	result->gpio_cool_ok = (platform->gpio_get(EVSE_PIN_COOL) >= 0);
+	result->gpio_cool_ok = (platform->gpio_get(PIN_COOL) >= 0);
 
 	/* 3. Toggle-and-verify on charge block pin:
 	 *    Save current → set 1 → readback → set 0 → readback → restore */
-	int saved = platform->gpio_get(EVSE_PIN_CHARGE_BLOCK);
+	int saved = platform->gpio_get(PIN_CHARGE_BLOCK);
 	bool toggle_ok = true;
 
-	platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 1);
-	if (platform->gpio_get(EVSE_PIN_CHARGE_BLOCK) != 1) {
+	platform->gpio_set(PIN_CHARGE_BLOCK, 1);
+	if (platform->gpio_get(PIN_CHARGE_BLOCK) != 1) {
 		toggle_ok = false;
 	}
 
-	platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, 0);
-	if (platform->gpio_get(EVSE_PIN_CHARGE_BLOCK) != 0) {
+	platform->gpio_set(PIN_CHARGE_BLOCK, 0);
+	if (platform->gpio_get(PIN_CHARGE_BLOCK) != 0) {
 		toggle_ok = false;
 	}
 
 	/* Restore original state */
 	if (saved >= 0) {
-		platform->gpio_set(EVSE_PIN_CHARGE_BLOCK, saved);
+		platform->gpio_set(PIN_CHARGE_BLOCK, saved);
 	}
 	result->charge_block_ok = toggle_ok;
 

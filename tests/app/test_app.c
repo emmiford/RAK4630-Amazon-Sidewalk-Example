@@ -339,7 +339,7 @@ static void test_app_tx_sends_12_byte_payload(void)
 	assert(mock_sends[0].len == 15);
 
 	/* Check magic and version bytes */
-	assert(mock_sends[0].data[0] == 0xE5);  /* EVSE_MAGIC */
+	assert(mock_sends[0].data[0] == 0xE5);  /* TELEMETRY_MAGIC */
 	assert(mock_sends[0].data[1] == 0x0A);  /* PAYLOAD_VERSION v0x0A */
 }
 

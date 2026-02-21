@@ -134,7 +134,7 @@ static void start_selftest(void)
 static void poll_button(void)
 {
 	/* platform guaranteed non-NULL by selftest_trigger_tick() */
-	bool pressed = (platform->gpio_get(EVSE_PIN_BUTTON) == 1);
+	bool pressed = (platform->gpio_get(PIN_BUTTON) == 1);
 	uint32_t now = platform->uptime_ms();
 
 	/* Rising edge — new press */

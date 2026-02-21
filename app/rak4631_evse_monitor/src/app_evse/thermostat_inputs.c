@@ -8,7 +8,7 @@
 #include <app_platform.h>
 
 /* GPIO pin indices — must match platform board-level mapping */
-#define EVSE_PIN_COOL   2
+#define PIN_COOL   2
 
 int thermostat_inputs_init(void)
 {
@@ -21,7 +21,7 @@ bool thermostat_inputs_cool_call_get(void)
 	if (!platform) {
 		return false;
 	}
-	int val = platform->gpio_get(EVSE_PIN_COOL);
+	int val = platform->gpio_get(PIN_COOL);
 	return (val > 0);
 }
 
