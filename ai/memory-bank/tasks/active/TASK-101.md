@@ -42,11 +42,9 @@ Four version concepts:
 - [x] TASK-101 file and INDEX.md updated
 
 ## Not yet done (post-merge)
-- [ ] Merge both branches to main
 - [ ] Build platform + app firmware
 - [ ] Flash device via USB and verify `sid status` output
 - [ ] Push to origin
-- [ ] Update CLAUDE.md with new CLI commands (`firmware` replacing `ota_deploy.py`)
 
 ## Deliverables
 - `app/rak4631_evse_monitor/VERSION` — app build version (0)
