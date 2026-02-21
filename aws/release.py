@@ -10,8 +10,8 @@ import sys
 
 # --- Paths ---
 REPO_ROOT = "/Users/emilyf/sidewalk-projects/rak-sid"
-VERSION_PATH = os.path.join(REPO_ROOT, "app/rak4631_evse_monitor/VERSION")
-PLATFORM_VERSION_PATH = os.path.join(REPO_ROOT, "app/rak4631_evse_monitor/PLATFORM_VERSION")
+VERSION_PATH = os.path.join(REPO_ROOT, "app/rak4631_evse_monitor/BUILD_VERSION")
+PLATFORM_VERSION_PATH = os.path.join(REPO_ROOT, "app/rak4631_evse_monitor/PLATFORM_BUILD_VERSION")
 PYOCD = "/Users/emilyf/sidewalk-env/bin/pyocd"
 BUILD_APP_DIR = "build_app"
 APP_BIN = os.path.join(BUILD_APP_DIR, "app.bin")
