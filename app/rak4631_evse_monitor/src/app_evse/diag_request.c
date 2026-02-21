@@ -7,6 +7,7 @@
  */
 
 #include <diag_request.h>
+#include <platform_api.h>
 #include <app_platform.h>
 #include <selftest.h>
 #include <charge_control.h>
@@ -98,7 +99,7 @@ int diag_request_build_response(uint8_t *buf)
 	buf[10] = error_code;
 	buf[11] = state_flags;
 	buf[12] = pending;
-	buf[13] = 0x00;  /* reserved */
+	buf[13] = APP_BUILD_VERSION;
 
 	return DIAG_PAYLOAD_SIZE;
 }
@@ -122,8 +123,8 @@ int diag_request_process_cmd(const uint8_t *data, size_t len)
 		return ret;
 	}
 
-	platform->log_inf("DIAG TX: ver=%d, uptime=%us, err=%d, flags=0x%02x, pending=%d",
-		     APP_CALLBACK_VERSION,
+	platform->log_inf("DIAG TX: build=v%d, api=%d, uptime=%us, err=%d, flags=0x%02x, pending=%d",
+		     APP_BUILD_VERSION, APP_CALLBACK_VERSION,
 		     (response[4] | (response[5] << 8) | (response[6] << 16) | (response[7] << 24)),
 		     response[10], response[11], response[12]);
 

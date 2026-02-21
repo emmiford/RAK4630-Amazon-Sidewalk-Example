@@ -116,7 +116,10 @@ static int cmd_sid_status(const struct shell *sh, size_t argc, char **argv)
 	shell_print(sh, "  Ready: %s", ready ? "YES" : "NO");
 	shell_print(sh, "  Link type: %s (0x%x)", link_type_str(link_mask), link_mask);
 	if (app_image_valid()) {
+		const struct app_callbacks *cb = app_get_callbacks();
 		shell_print(sh, "  App image: LOADED");
+		shell_print(sh, "  App build: v%d  (API v%d)",
+			    APP_BUILD_VERSION, cb->version);
 	} else {
 		const char *reason = app_get_reject_reason();
 		if (reason) {

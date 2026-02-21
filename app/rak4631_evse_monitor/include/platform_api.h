@@ -89,6 +89,14 @@ struct platform_api {
 /* ------------------------------------------------------------------ */
 
 #define APP_CALLBACK_MAGIC      0x53415050  /* "SAPP" (Sidewalk App) */
+
+/*
+ * Version concepts (do NOT confuse):
+ *   APP_BUILD_VERSION    — firmware release number, incremented with each OTA deploy
+ *   APP_CALLBACK_VERSION — ABI version, only changes when function pointer table layout changes
+ *   EVSE_VERSION (app_tx.c) — wire protocol format version for uplink payloads
+ */
+#define APP_BUILD_VERSION       1
 #define APP_CALLBACK_VERSION    3
 
 struct app_callbacks {

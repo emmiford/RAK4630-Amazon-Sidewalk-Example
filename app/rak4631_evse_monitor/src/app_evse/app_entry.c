@@ -156,7 +156,8 @@ static int app_init(const struct platform_api *api)
 	drain_cursor = 0;
 	drain_oldest_ts = 0;
 
-	platform->log_inf("App initialized (EVSE monitor v2, poll=%dms)", POLL_INTERVAL_MS);
+	platform->log_inf("App initialized (build v%d, API v%d, poll=%dms)",
+		     APP_BUILD_VERSION, APP_CALLBACK_VERSION, POLL_INTERVAL_MS);
 	return 0;
 }
 
