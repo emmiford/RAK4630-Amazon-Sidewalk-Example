@@ -336,11 +336,11 @@ static void test_app_tx_sends_12_byte_payload(void)
 	int ret = app_tx_send_evse_data();
 	assert(ret == 0);
 	assert(mock_send_count == 1);
-	assert(mock_sends[0].len == 13);
+	assert(mock_sends[0].len == 15);
 
 	/* Check magic and version bytes */
 	assert(mock_sends[0].data[0] == 0xE5);  /* EVSE_MAGIC */
-	assert(mock_sends[0].data[1] == 0x09);  /* EVSE_VERSION v0x09 */
+	assert(mock_sends[0].data[1] == 0x0A);  /* PAYLOAD_VERSION v0x0A */
 }
 
 static void test_app_tx_rate_limits(void)
@@ -1118,6 +1118,15 @@ static void test_diag_build_version_byte(void)
 	uint8_t buf[DIAG_PAYLOAD_SIZE];
 	diag_request_build_response(buf);
 	assert(buf[13] == APP_BUILD_VERSION);
+}
+
+static void test_diag_platform_build_version_byte(void)
+{
+	init_diag();
+
+	uint8_t buf[DIAG_PAYLOAD_SIZE];
+	diag_request_build_response(buf);
+	assert(buf[14] == PLATFORM_BUILD_VERSION);
 }
 
 static void test_diag_rx_dispatches_0x40(void)
@@ -2653,9 +2662,9 @@ static void test_uplink_includes_transition_reason(void)
 	assert(mock_send_count == 1);
 
 	/* v0x09 payload should be 13 bytes with reason at byte 12 */
-	assert(mock_sends[0].len == 13);
+	assert(mock_sends[0].len == 15);
 	assert(mock_sends[0].data[0] == 0xE5);  /* magic */
-	assert(mock_sends[0].data[1] == 0x09);  /* version */
+	assert(mock_sends[0].data[1] == 0x0A);  /* PAYLOAD_VERSION */
 	assert(mock_sends[0].data[12] == TRANSITION_REASON_CLOUD_CMD);
 }
 
@@ -2761,11 +2770,11 @@ static void test_send_snapshot_format(void)
 	int ret = app_tx_send_snapshot(&snap);
 	assert(ret == 1);
 	assert(mock_send_count == 1);
-	assert(mock_sends[0].len == 13);
+	assert(mock_sends[0].len == 15);
 
 	uint8_t *d = mock_sends[0].data;
 	assert(d[0] == 0xE5);  /* magic */
-	assert(d[1] == 0x09);  /* version */
+	assert(d[1] == 0x0A);  /* PAYLOAD_VERSION */
 	assert(d[2] == 2);     /* j1772_state */
 
 	/* pilot_voltage_mv = 3000 = 0x0BB8 LE */
@@ -3230,6 +3239,7 @@ int main(void)
 	RUN_TEST(test_diag_process_cmd_wrong_type);
 	RUN_TEST(test_diag_process_cmd_null_data);
 	RUN_TEST(test_diag_build_version_byte);
+	RUN_TEST(test_diag_platform_build_version_byte);
 	RUN_TEST(test_diag_rx_dispatches_0x40);
 
 	printf("\nled_engine priority:\n");

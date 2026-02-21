@@ -92,12 +92,18 @@ struct platform_api {
 
 /*
  * Version concepts (do NOT confuse):
- *   APP_BUILD_VERSION    — firmware release number, incremented with each OTA deploy
- *   APP_CALLBACK_VERSION — ABI version, only changes when function pointer table layout changes
- *   EVSE_VERSION (app_tx.c) — wire protocol format version for uplink payloads
+ *   APP_BUILD_VERSION      — app firmware release number (from VERSION file)
+ *   PLATFORM_BUILD_VERSION — platform firmware release number (from PLATFORM_VERSION file)
+ *   APP_CALLBACK_VERSION   — ABI version, only changes when function pointer table layout changes
+ *   PAYLOAD_VERSION (app_tx.c) — uplink payload byte layout schema version
  */
-#define APP_BUILD_VERSION       1
-#define APP_CALLBACK_VERSION    3
+#ifndef APP_BUILD_VERSION
+#define APP_BUILD_VERSION       0  /* 0 = untagged dev build; release script sets real version */
+#endif
+#ifndef PLATFORM_BUILD_VERSION
+#define PLATFORM_BUILD_VERSION  0  /* 0 = untagged dev build */
+#endif
+#define APP_CALLBACK_VERSION    4
 
 struct app_callbacks {
     uint32_t magic;
@@ -119,6 +125,9 @@ struct app_callbacks {
     int   (*on_shell_cmd)(const char *cmd, const char *args,
                           void (*print)(const char *fmt, ...),
                           void (*error)(const char *fmt, ...));
+
+    /* Build metadata (added in API v4) */
+    uint8_t build_version;
 };
 
 #ifdef __cplusplus

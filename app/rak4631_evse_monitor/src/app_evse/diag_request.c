@@ -100,6 +100,7 @@ int diag_request_build_response(uint8_t *buf)
 	buf[11] = state_flags;
 	buf[12] = pending;
 	buf[13] = APP_BUILD_VERSION;
+	buf[14] = PLATFORM_BUILD_VERSION;
 
 	return DIAG_PAYLOAD_SIZE;
 }
@@ -123,8 +124,8 @@ int diag_request_process_cmd(const uint8_t *data, size_t len)
 		return ret;
 	}
 
-	platform->log_inf("DIAG TX: build=v%d, api=%d, uptime=%us, err=%d, flags=0x%02x, pending=%d",
-		     APP_BUILD_VERSION, APP_CALLBACK_VERSION,
+	platform->log_inf("DIAG TX: build=v%d/%d, api=%d, uptime=%us, err=%d, flags=0x%02x, pending=%d",
+		     APP_BUILD_VERSION, PLATFORM_BUILD_VERSION, APP_CALLBACK_VERSION,
 		     (response[4] | (response[5] << 8) | (response[6] << 16) | (response[7] << 24)),
 		     response[10], response[11], response[12]);
 

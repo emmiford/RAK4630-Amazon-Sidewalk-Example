@@ -413,4 +413,5 @@ const struct app_callbacks app_cb = {
 	.on_send_error   = app_on_send_error,
 	.on_timer        = app_on_timer,
 	.on_shell_cmd    = app_on_shell_cmd,
+	.build_version   = APP_BUILD_VERSION,
 };

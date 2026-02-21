@@ -1,12 +1,15 @@
 """
 Lambda function to decode EVSE Sidewalk sensor data.
 
-Supports four payload formats:
-1. v0x08 raw format (12 bytes): Magic 0xE5, J1772, voltage, current, flags+control, timestamp
+Supports five payload formats:
+1. v0x0A raw format (15 bytes): Magic 0xE5, J1772, voltage, current, flags+control,
+   timestamp, transition reason, app build version, platform build version
+2. v0x09 raw format (13 bytes): Same as v0x0A without build versions
+3. v0x08 raw format (12 bytes): Same as v0x09 without transition reason
    (bit 0 of flags reserved — no heat flag)
-2. v0x07 raw format (12 bytes): Same layout, includes heat flag in bit 0
-3. v0x06 raw format (8 bytes): Magic 0xE5, J1772, voltage, current, thermostat+faults
-4. Legacy sid_demo format: Wrapped with demo protocol headers
+4. v0x07 raw format (12 bytes): Same layout as v0x08, includes heat flag in bit 0
+5. v0x06 raw format (8 bytes): Magic 0xE5, J1772, voltage, current, thermostat+faults
+6. Legacy sid_demo format: Wrapped with demo protocol headers
 
 Extracts:
 - J1772 pilot state
@@ -59,10 +62,11 @@ EVSE_MAGIC = 0xE5
 EVSE_PAYLOAD_SIZE_V06 = 8
 EVSE_PAYLOAD_SIZE_V07 = 12
 EVSE_PAYLOAD_SIZE_V09 = 13
+EVSE_PAYLOAD_SIZE_V0A = 15
 
 # Diagnostics payload (TASK-029 Tier 2)
 DIAG_MAGIC = 0xE6
-DIAG_PAYLOAD_SIZE = 14
+DIAG_PAYLOAD_SIZE = 15
 
 # Legacy payload type
 LEGACY_EVSE_TYPE = 0x01
@@ -354,6 +358,11 @@ def decode_raw_evse_payload(raw_bytes):
         result['transition_reason_code'] = reason_code
         result['transition_reason'] = TRANSITION_REASONS.get(reason_code, f'unknown_{reason_code}')
 
+    # v0x0A+: app and platform build versions at bytes 13-14
+    if len(raw_bytes) >= EVSE_PAYLOAD_SIZE_V0A and version >= 0x0A:
+        result['app_build_version'] = raw_bytes[13]
+        result['platform_build_version'] = raw_bytes[14]
+
     return result
 
 
@@ -468,6 +477,8 @@ def decode_diag_payload(raw_bytes):
     last_error = raw_bytes[10]
     state_flags = raw_bytes[11]
     event_buf_pending = raw_bytes[12]
+    app_build_version = raw_bytes[13] if len(raw_bytes) > 13 else 0
+    platform_build_version = raw_bytes[14] if len(raw_bytes) > 14 else 0
 
     # Map error code to name
     error_names = {0: 'none', 1: 'sensor', 2: 'clamp', 3: 'interlock', 4: 'selftest'}
@@ -477,6 +488,8 @@ def decode_diag_payload(raw_bytes):
         'payload_type': 'diagnostics',
         'diag_version': diag_version,
         'app_version': app_version,
+        'app_build_version': app_build_version,
+        'platform_build_version': platform_build_version,
         'uptime_seconds': uptime_s,
         'boot_count': boot_count,
         'last_error_code': last_error,
@@ -721,7 +734,10 @@ def lambda_handler(event, context):
         # Update device registry (best-effort, never block event processing)
         try:
             device_registry.get_or_create_device(registry_table, wireless_device_id, sidewalk_id)
+            # Extract app_version from diagnostics/OTA, or app_build_version from v0x0A+ telemetry
             app_ver = decoded.get('app_version') if decoded.get('payload_type') in ('ota', 'diagnostics') else None
+            if app_ver is None and decoded.get('payload_type') == 'evse':
+                app_ver = decoded.get('app_build_version')
             device_registry.update_last_seen(registry_table, wireless_device_id, app_version=app_ver)
         except Exception as e:
             print(f"Device registry update failed (non-fatal): {e}")

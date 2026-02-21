@@ -33,3 +33,13 @@ zephyr_include_directories(
 
 # Place .platform_api section at fixed address 0x7FF00
 zephyr_linker_sources(SECTIONS platform_api.ld)
+
+# Read build versions from VERSION files
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" APP_BUILD_VER)
+string(STRIP "${APP_BUILD_VER}" APP_BUILD_VER)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/PLATFORM_VERSION" PLATFORM_BUILD_VER)
+string(STRIP "${PLATFORM_BUILD_VER}" PLATFORM_BUILD_VER)
+zephyr_compile_definitions(
+    APP_BUILD_VERSION=${APP_BUILD_VER}
+    PLATFORM_BUILD_VERSION=${PLATFORM_BUILD_VER}
+)

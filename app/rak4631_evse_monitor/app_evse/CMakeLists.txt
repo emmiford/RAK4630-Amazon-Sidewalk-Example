@@ -74,6 +74,11 @@ if(DEFINED HEARTBEAT_INTERVAL_MS)
     add_compile_definitions(HEARTBEAT_INTERVAL_MS=${HEARTBEAT_INTERVAL_MS})
 endif()
 
+# Read app build version from VERSION file
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/../VERSION" APP_BUILD_VER)
+string(STRIP "${APP_BUILD_VER}" APP_BUILD_VER)
+add_definitions(-DAPP_BUILD_VERSION=${APP_BUILD_VER})
+
 # Override event filter heartbeat: cmake ... -DEVENT_FILTER_HEARTBEAT_MS=60000
 # Default (300000 / 5 min) lives in the C header (#ifndef guard in event_filter.h).
 if(DEFINED EVENT_FILTER_HEARTBEAT_MS)

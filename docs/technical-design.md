@@ -183,7 +183,7 @@ Four independent version numbers track different layers of the system:
 
 | Version | Define | Type | Current | Where Defined | When to Bump |
 |---------|--------|------|---------|---------------|--------------|
-| **Wire protocol** | `PAYLOAD_VERSION` | `uint8_t` (hex) | `0x0A` | `evse_payload.h` | Only when the uplink payload byte layout changes |
+| **Wire protocol** | `PAYLOAD_VERSION` | `uint8_t` (hex) | `0x0A` | `app_tx.c` | Only when the uplink payload byte layout changes |
 | **Platform/app ABI** | `APP_CALLBACK_VERSION` | `uint32_t` | `3` | `platform_api.h` | Only when the function pointer table layout changes (per ADR-001) |
 | **App build** | `APP_BUILD_VERSION` | `uint8_t` | `1`+ | `app/rak4631_evse_monitor/VERSION` file | Every tagged app release (via `release.py`) |
 | **Platform build** | `PLATFORM_BUILD_VERSION` | `uint8_t` | `1`+ | `app/rak4631_evse_monitor/PLATFORM_VERSION` file | Every platform release (rare, USB-only) |

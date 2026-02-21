@@ -3,6 +3,7 @@
  */
 
 #include <app_tx.h>
+#include <platform_api.h>
 #include <evse_payload.h>
 #include <event_buffer.h>
 #include <charge_control.h>
@@ -13,8 +14,8 @@
 
 /* EVSE payload format constants */
 #define EVSE_MAGIC   0xE5
-#define EVSE_VERSION 0x09
-#define EVSE_PAYLOAD_SIZE 13
+#define PAYLOAD_VERSION 0x0A
+#define EVSE_PAYLOAD_SIZE 15
 
 /* Control flag bits in flags byte (byte 7), bits 2-3 */
 #define FLAG_CHARGE_ALLOWED  0x04   /* bit 2 */
@@ -93,10 +94,10 @@ int app_tx_send_evse_data(void)
 	/* Get transition reason (0 = no transition this cycle) */
 	uint8_t reason = charge_control_get_last_reason();
 
-	/* Build 13-byte v0x09 payload */
+	/* Build 15-byte v0x0A payload */
 	uint8_t payload[EVSE_PAYLOAD_SIZE] = {
 		EVSE_MAGIC,
-		EVSE_VERSION,
+		PAYLOAD_VERSION,
 		data.j1772_state,
 		data.j1772_mv & 0xFF,
 		(data.j1772_mv >> 8) & 0xFF,
@@ -108,18 +109,20 @@ int app_tx_send_evse_data(void)
 		(timestamp >> 16) & 0xFF,
 		(timestamp >> 24) & 0xFF,
 		reason,
+		APP_BUILD_VERSION,       /* byte 13: app build version */
+		PLATFORM_BUILD_VERSION,  /* byte 14: platform build version */
 	};
 
-	platform->log_inf("EVSE TX v%02x: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u, reason=%d",
-		     EVSE_VERSION, data.j1772_state, data.j1772_mv, data.current_ma,
-		     flags, timestamp, reason);
+	platform->log_inf("EVSE TX v%02x: state=%d, pilot=%dmV, current=%dmA, flags=0x%02x, ts=%u, reason=%d, build=v%d/v%d",
+		     PAYLOAD_VERSION, data.j1772_state, data.j1772_mv, data.current_ma,
+		     flags, timestamp, reason, APP_BUILD_VERSION, PLATFORM_BUILD_VERSION);
 
 	last_send_ms = now;
 	return platform->send_msg(payload, sizeof(payload));
 }
 
 /**
- * Send a buffered event snapshot as a v0x09 uplink.
+ * Send a buffered event snapshot as a v0x0A uplink.
  *
  * Returns:  1 = sent successfully
  *           0 = rate-limited (try again later)
@@ -141,7 +144,7 @@ int app_tx_send_snapshot(const struct event_snapshot *snap)
 		return 0;
 	}
 
-	/* Map snapshot fields to v0x09 wire format */
+	/* Map snapshot fields to v0x0A wire format */
 	uint8_t flags = snap->thermostat_flags;
 	if (snap->charge_flags & EVENT_FLAG_CHARGE_ALLOWED) {
 		flags |= FLAG_CHARGE_ALLOWED;
@@ -149,7 +152,7 @@ int app_tx_send_snapshot(const struct event_snapshot *snap)
 
 	uint8_t payload[EVSE_PAYLOAD_SIZE] = {
 		EVSE_MAGIC,
-		EVSE_VERSION,
+		PAYLOAD_VERSION,
 		snap->j1772_state,
 		snap->pilot_voltage_mv & 0xFF,
 		(snap->pilot_voltage_mv >> 8) & 0xFF,
@@ -161,6 +164,8 @@ int app_tx_send_snapshot(const struct event_snapshot *snap)
 		(snap->timestamp >> 16) & 0xFF,
 		(snap->timestamp >> 24) & 0xFF,
 		snap->transition_reason,
+		APP_BUILD_VERSION,       /* byte 13: app build version */
+		PLATFORM_BUILD_VERSION,  /* byte 14: platform build version */
 	};
 
 	platform->log_inf("EVSE TX buffered: state=%d, ts=%u, reason=%d",

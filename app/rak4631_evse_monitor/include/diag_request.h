@@ -24,7 +24,7 @@ extern "C" {
 /* Diagnostics response payload constants */
 #define DIAG_MAGIC    0xE6
 #define DIAG_VERSION  0x01
-#define DIAG_PAYLOAD_SIZE  14
+#define DIAG_PAYLOAD_SIZE  15
 
 /* State flags byte (byte 11) bit definitions */
 #define DIAG_FLAG_SIDEWALK_READY  0x01
