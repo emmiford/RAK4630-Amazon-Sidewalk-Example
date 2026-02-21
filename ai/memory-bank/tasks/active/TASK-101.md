@@ -1,46 +1,60 @@
-# TASK-101: Add APP_BUILD_VERSION to sid status
+# TASK-101: Build Version Tracking and Release Tooling
 
-**Status**: in progress (2026-02-20, Eliel code / Pam+Utz docs)
+**Status**: committed (2026-02-21, Eliel code / Pam+Utz docs)
 **Priority**: P2
 **Owner**: Eliel (code), Pam+Utz (docs)
-**Branch**: `task/101-build-version` (code), `task/101-build-version-docs` (docs)
-**Size**: S (2 points)
+**Branch**: `task/101-build-version-code` (code, 6 commits), `task/101-build-version-docs` (docs, 2 commits)
+**Size**: M (3 points)
 
 ## Description
 
-Add a simple `APP_BUILD_VERSION` (uint8_t, 1-255) to the firmware so that each OTA
-deploy has a unique, queryable build number. This is independent of `EVSE_VERSION`
-(wire format) and `APP_CALLBACK_VERSION` (ABI version).
+Add firmware build version tracking across platform and app images, rename `EVSE_VERSION` → `PAYLOAD_VERSION`, bump uplink to v0x0A (15 bytes) with build versions, restructure CLI from monolithic `ota_deploy.py` to `firmware.py` + `release.py` + `ota.py`.
 
-The build version is:
-- Defined as `#define APP_BUILD_VERSION N` in `platform_api.h`
-- Displayed in `sid status` as `App build: vN (API vN, payload v0xNN)`
-- Printed in the boot log during `discover_app_image()`
-- Returned in diagnostics response byte 13 (0xE6 payload) for cloud querying
-- Incremented by `ota_deploy.py --version N` before each OTA deploy
-- NOT included in the regular 13-byte EVSE uplink (diagnostics-only)
+Four version concepts:
+- `APP_BUILD_VERSION` — app firmware release number (from `VERSION` file, 0=dev)
+- `PLATFORM_BUILD_VERSION` — platform firmware release number (from `PLATFORM_VERSION` file, 0=dev)
+- `APP_CALLBACK_VERSION` — ABI version (bumped 3→4 for `build_version` field in callback struct)
+- `PAYLOAD_VERSION` (was `EVSE_VERSION`) — uplink byte layout schema (bumped 0x09→0x0A)
 
 ## Dependencies
 **Blocked by**: none
 **Blocks**: none
 
-## Acceptance Criteria
-- [ ] `APP_BUILD_VERSION` defined in `platform_api.h` (code branch)
-- [ ] `sid status` displays build version alongside API and payload versions (code branch)
-- [ ] Boot log prints build version (code branch)
-- [ ] Diagnostics response byte 13 carries `APP_BUILD_VERSION` (code branch)
-- [ ] `ota_deploy.py --version N` patches the define before building (code branch)
-- [ ] `docs/technical-design.md` documents the versioning convention (docs branch)
-- [ ] TASK-101 file created and INDEX.md updated (docs branch)
+## Acceptance Criteria — Code branch
+- [x] `VERSION` and `PLATFORM_VERSION` files created (CMake reads them)
+- [x] `#ifndef` guards in `platform_api.h` (CMake overrides defaults)
+- [x] `EVSE_VERSION` renamed to `PAYLOAD_VERSION` across entire codebase
+- [x] Uplink v0x0A: 15 bytes with app + platform build versions (bytes 13-14)
+- [x] `APP_CALLBACK_VERSION` bumped to 4, `build_version` field in `app_callbacks`
+- [x] `sid status` reads app version at runtime (v4 callback), platform at compile-time
+- [x] Diagnostics response expanded to 15 bytes (app + platform build versions)
+- [x] CLI restructure: `firmware.py` + `release.py` + `ota.py`
+- [x] `ota_deploy.py` converted to deprecation wrapper with re-exports
+- [x] Lambda v0x0A decoder with backwards-compatible v0x09 support
+- [x] 15/15 C tests pass
+- [x] 333/333 Python tests pass
 
-## Testing Requirements
-- [ ] Existing unit tests still pass after adding the define
-- [ ] `sid status` output verified on device (manual)
-- [ ] Diagnostics response byte 13 verified via 0x40 request (manual)
+## Acceptance Criteria — Docs branch
+- [x] TDD section 2.4 updated: four-version scheme, VERSION files, git tagging
+- [x] TDD section 3.1 updated: v0x0A payload with build version bytes
+- [x] TDD section 10.6 added: CLI tools (firmware.py subcommands)
+- [x] TDD shell command docs updated: new `sid status` format
+- [x] TASK-101 file and INDEX.md updated
+
+## Not yet done (post-merge)
+- [ ] Merge both branches to main
+- [ ] Build platform + app firmware
+- [ ] Flash device via USB and verify `sid status` output
+- [ ] Push to origin
+- [ ] Update CLAUDE.md with new CLI commands (`firmware` replacing `ota_deploy.py`)
 
 ## Deliverables
-- `platform_api.h` — add `APP_BUILD_VERSION` define
-- `platform_shell.c` or `app.c` — display in `sid status`
-- `app_diag.c` or equivalent — populate byte 13 in diagnostics response
-- `ota_deploy.py` — `--version` flag patches the define
-- `docs/technical-design.md` — document versioning convention (section 2.4)
+- `app/rak4631_evse_monitor/VERSION` — app build version (0)
+- `app/rak4631_evse_monitor/PLATFORM_VERSION` — platform build version (0)
+- `app/rak4631_evse_monitor/include/platform_api.h` — `#ifndef` guards, `PLATFORM_BUILD_VERSION`, ABI v4
+- `app/rak4631_evse_monitor/src/app_evse/app_tx.c` — `PAYLOAD_VERSION` 0x0A, 15-byte payload
+- `app/rak4631_evse_monitor/src/platform_shell.c` — runtime app version in `sid status`
+- `aws/firmware.py` — unified CLI entry point
+- `aws/release.py` — version patching, git tagging, build/flash
+- `aws/ota.py` — S3/DynamoDB, delta OTA, baseline, monitoring
+- `docs/technical-design.md` — versioning convention, v0x0A, CLI docs

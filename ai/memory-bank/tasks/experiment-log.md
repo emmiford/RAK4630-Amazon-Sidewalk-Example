@@ -412,6 +412,163 @@
 
 ---
 
+### EXP-010: RAK19001 Baseboard Pin Mapping Validation — Connector Seating Failure
+
+## Hypothesis
+**Problem Statement**: After switching from RAK19007 to RAK19001 WisBlock Dual IO Base Board, AIN1 (P0.31, pin 22) measured as grounded with a voltmeter. The RAK19001 was chosen to gain access to more analog pins. The question was whether the pin failure was caused by an nRF52840 silicon errata (SAADC analog mux latching), an NFC pin conflict, a bad baseboard, or something mechanical.
+**Hypothesis**: The pilot ADC failure on P0.31 is caused by an nRF52840 SAADC errata that latches analog inputs to ground. Switching to AIN2 (P0.04/IO4) and adding the SAADC disable workaround at boot will restore analog input functionality.
+**Success Metrics**: Successful ADC reading of pilot voltage on the new pin. Successful GPIO output and input on all available IO pins.
+
+## Experimental Design
+**Type**: Systematic hardware bring-up — pin-by-pin validation of the RAK19001 baseboard using GPIO output (LED toggle), GPIO input (button/wire short), and ADC tests.
+**Branch**: `task/ain2-swap` (worktree)
+**Firmware Changes Made**:
+1. ADC input changed from `NRF_SAADC_AIN7` (P0.31) to `NRF_SAADC_AIN2` (P0.04/IO4) in devicetree overlay
+2. Added `#include <hal/nrf_saadc.h>` and `nrf_saadc_disable(NRF_SAADC)` call at start of `platform_adc_init()` as SAADC errata workaround
+3. Added `CONFIG_NFCT_PINS_AS_GPIOS=y` to `prj.conf` (required for IO5/IO6 which share NFC pins)
+4. Various pin swaps for `charge_block` and `cool_call` GPIOs during iterative testing
+
+**Test Methodology**:
+- **GPIO Output**: Configure pin as output, toggle LED via `charge_block` GPIO assignment. Visual confirmation of LED state change.
+- **GPIO Input**: Configure pin as input with pull-up, test with button press and direct wire-short to GND via `cool_call` GPIO assignment. Shell readback of state.
+- **ADC**: Configure SAADC channel, read voltage via `app evse status`. Compare against known applied voltage.
+
+## Results
+
+### GPIO Output (charge_block / LED toggle test)
+
+| Connector Pin | WisBlock Label | nRF52840 GPIO  | Output Result | Pin Row |
+|:-------------:|:--------------:|:--------------:|:-------------:|:-------:|
+| 29            | IO1            | P0.17 (gpio0 17) | **PASS**   | Odd     |
+| 30            | IO2            | P1.02 (gpio1 2)  | **FAIL**   | Even    |
+| 31            | IO3            | P0.21 (gpio0 21) | **PASS**   | Odd     |
+| 32            | IO4            | P0.04 (gpio0 4)  | **FAIL**   | Even    |
+| 37            | IO5            | P0.09 (gpio0 9)  | **PASS**   | Odd     |
+| 38            | IO6            | P0.10 (gpio0 10) | **FAIL**   | Even    |
+| 24            | IO7            | NC               | **FAIL** (expected — not connected) | Even |
+
+### GPIO Input (cool_call / button + wire short test)
+
+| Connector Pin | WisBlock Label | nRF52840 GPIO  | Input Result | Method | Pin Row |
+|:-------------:|:--------------:|:--------------:|:------------:|:------:|:-------:|
+| 31            | IO3            | P0.21 (gpio0 21) | **PASS**  | Button | Odd     |
+| 37            | IO5            | P0.09 (gpio0 9)  | **PASS**  | Wire short to GND | Odd |
+| 30            | IO2            | P1.02 (gpio1 2)  | **FAIL**  | Button | Even    |
+| 32            | IO4            | P0.04 (gpio0 4)  | **FAIL**  | Button | Even    |
+| 38            | IO6            | P0.10 (gpio0 10) | **FAIL**  | Wire short to GND | Even |
+
+**Important discovery**: Initial input tests all appeared to fail (including odd pins). The breakthrough came when IO5 was shorted directly to GND with a wire — `cool=1` appeared immediately. This proved the pin was working and the external button/potentiometer assembly was broken or miswired. Subsequent retesting with wire shorts confirmed the odd/even pattern.
+
+### ADC Test
+
+| Connector Pin | WisBlock Label | nRF52840 Analog  | ADC Result | Pin Row |
+|:-------------:|:--------------:|:----------------:|:----------:|:-------:|
+| 22            | AIN1           | P0.31 / AIN7     | **FAIL** — 0mV, pin grounded | Even |
+| 32            | IO4            | P0.04 / AIN2     | **FAIL** — 0mV, no response to applied voltage | Even |
+
+The SAADC errata workaround (`nrf_saadc_disable(NRF_SAADC)` at boot) was applied but did **not** resolve the ADC failure. Both analog pins tested are on even-numbered connector pins.
+
+### The Pattern
+
+**Every failing pin is on an even-numbered connector position. Every passing pin is on an odd-numbered connector position.**
+
+On the RAK19001's 40-pin board-to-board connector, odd and even pins sit on opposite physical rows. This means one entire row of the connector has no electrical contact.
+
+**Decision**: **ROOT CAUSE IDENTIFIED — Mechanical connector seating failure**
+
+The RAK4631 module is not fully seated in the RAK19001 baseboard's 40-pin board-to-board connector. One row of pins (the even-numbered row) has no electrical contact.
+
+## Theories Investigated and Ruled Out
+
+| # | Theory | Evidence Against |
+|---|--------|-----------------|
+| 1 | **nRF52840 SAADC errata** — analog mux latches pins to ground | Applied `nrf_saadc_disable()` workaround; did not fix. Also, the failure affects digital GPIO pins (IO2, IO4, IO6), not just analog. |
+| 2 | **NFC pin conflict** — IO5/IO6 share NFC pins P0.09/P0.10 | Added `CONFIG_NFCT_PINS_AS_GPIOS=y`; IO5 (odd) worked, IO6 (even) did not. The NFC config was correct but irrelevant to the root cause. |
+| 3 | **Individual dead pins on nRF52840** — silicon defect | The perfect odd/even split across 7 tested pins rules out random pin failure. The failing pins span both gpio0 and gpio1 ports. |
+| 4 | **Bad RAK19001 baseboard traces** — manufacturing defect | A trace defect would not produce a perfect odd/even pattern aligned with connector row geometry. |
+| 5 | **Damaged potentiometer/button** — external wiring fault | Partially true (the button was indeed broken/miswired), but this was a secondary issue. The primary failure was connector seating, proven by wire-short tests bypassing the button. |
+
+## Resolution
+1. Reseat the RAK4631 module firmly in the RAK19001 baseboard, ensuring both rows of the 40-pin connector click into place.
+2. Revert all firmware changes back to original pin assignments:
+   - `charge_block` on IO1/P0.17
+   - `cool_call` on IO2/P1.02
+   - Pilot ADC on AIN7/P0.31
+3. Re-test all even pins (IO2, IO4, IO6, AIN1) to confirm the connector fix.
+
+## Key Insights
+- **Mechanical failures masquerade as electrical/software bugs.** The original symptom ("AIN1 reads 0V") looked exactly like an SAADC errata or pin configuration problem. Hours were spent on firmware workarounds before the physical root cause was identified.
+- **Systematic pin-by-pin testing reveals patterns that point-testing misses.** Testing a single pin (AIN1) gave no information about root cause. Testing seven pins across both connector rows revealed the odd/even pattern that immediately pointed to connector seating.
+- **The "broken button" red herring was costly.** When all input tests initially failed, it looked like a firmware or pull-up configuration issue. The breakthrough of wire-shorting IO5 directly to GND, bypassing the button, was the critical debugging step that separated the button problem from the connector problem.
+- **Board-to-board connectors are fragile.** The RAK WisBlock system uses Hirose DF40C-series connectors with 0.4mm pitch. These require significant, even pressure to seat fully. Partial seating can leave one row of contacts disconnected while the module appears physically attached.
+- **Always validate assumptions on new hardware before writing software workarounds.** The switch from RAK19007 to RAK19001 was assumed to be a drop-in replacement. A 5-minute continuity check on the connector would have caught this before any firmware changes were made.
+
+## Status: CONCLUDED — Root cause identified (mechanical), firmware changes to be reverted
+
+---
+
+### REC-007: Post-Reseat RAK19001 Pin Validation
+
+## Hypothesis
+**Problem Statement**: EXP-010 identified that one row of the RAK4631-to-RAK19001 connector is not making contact. After reseating the module, all even-row pins need validation before resuming normal development.
+**Hypothesis**: Firmly reseating the RAK4631 in the RAK19001 will restore electrical contact on all even-row pins (IO2, IO4, IO6, AIN1).
+
+## Experimental Design
+**Type**: Validation test (confirm fix for EXP-010)
+**Test Plan**:
+1. Reseat RAK4631 module with firm, even pressure until both connector rows click
+2. Before any firmware changes: multimeter continuity check on all even pins (22, 30, 32, 38) between module pad and baseboard test point
+3. Flash original firmware (charge_block=IO1, cool_call=IO2, ADC=AIN7)
+4. Test IO2 GPIO output (LED toggle) — was FAIL in EXP-010
+5. Test IO2 GPIO input (wire short to GND) — was FAIL in EXP-010
+6. Test AIN1/P0.31 ADC (apply known voltage from potentiometer) — was 0mV in EXP-010
+7. Optionally test IO4 and IO6 for completeness
+**Success Metrics**: All previously-failing even pins respond correctly.
+**Duration**: 30 minutes
+
+## Priority: **Critical** — Blocks all further hardware development on RAK19001
+
+---
+
+### REC-008: SAADC Errata Workaround Retention Decision
+
+## Hypothesis
+**Problem Statement**: EXP-010 added `nrf_saadc_disable(NRF_SAADC)` at boot as a workaround for the nRF52840 SAADC errata. The workaround did not fix the issue (root cause was mechanical), but the errata is real and could manifest in other scenarios (warm reboot, long uptime, sleep/wake cycles).
+**Hypothesis**: Keeping the SAADC disable-at-boot workaround as a defensive measure will prevent a potential future SAADC lockup, at negligible code/runtime cost.
+
+## Experimental Design
+**Type**: Risk/benefit analysis + targeted stress test
+**Step 1**: Review the specific nRF52840 SAADC errata (anomaly 86, 87, or related) and determine if the disable-at-boot pattern is the recommended mitigation
+**Step 2**: If applicable, keep the workaround; if not, remove it to avoid cargo-cult code
+**Step 3**: Stress test: rapid ADC enable/disable cycles + sleep/wake transitions, checking for stuck-at-ground readings
+**Metrics**: ADC accuracy after 1000 enable/disable cycles with and without the workaround
+**Duration**: 1 hour
+
+## Priority: Low
+**Rationale**: The workaround is 2 lines of code with zero runtime cost. Low risk to keep, but worth validating that it is actually the correct mitigation for the relevant errata.
+
+---
+
+### REC-009: External Button/Potentiometer Assembly Validation
+
+## Hypothesis
+**Problem Statement**: During EXP-010 input testing, all button-based input tests initially appeared to fail. The button/potentiometer assembly may be miswired, damaged, or require a different pull-up configuration.
+**Hypothesis**: The external button/potentiometer assembly has a wiring fault independent of the RAK19001 connector issue.
+
+## Experimental Design
+**Type**: Component isolation test
+**Step 1**: Multimeter continuity test on the button assembly (press/release)
+**Step 2**: Measure potentiometer resistance range (wiper to each end)
+**Step 3**: Connect button to a known-good IO pin (e.g., IO1/P0.17, confirmed working in EXP-010) and test input
+**Step 4**: Connect potentiometer output to AIN1 after connector reseat, sweep voltage range
+**Metrics**: Button produces clean low/high transitions; potentiometer produces linear 0-3.3V sweep
+**Duration**: 15 minutes
+
+## Priority: Medium
+**Rationale**: The button failure was initially conflated with the connector issue. It needs independent validation to confirm the EVSE simulator hardware is fully functional.
+
+---
+
 ## Appendix: Experiment Evolution Timeline
 
 ```
@@ -428,6 +585,7 @@ e3f97e0    —            EXP-001: Windowed blast mode        REVERTED
 78924b6    —            EXP-001 reverted (delta made it moot)
 7dab212    —            OTA reliability fixes (supporting)  GO
 e88d519    —            EXP-008: Generic platform           GO
+—          2026-02-21   EXP-010: RAK19001 pin validation    MECHANICAL FAILURE
 ```
 
 ## Cross-Reference
@@ -436,9 +594,10 @@ e88d519    —            EXP-008: Generic platform           GO
   - TASK-005 (OTA recovery tests) — validates EXP-004/EXP-007 recovery paths
   - TASK-007 (E2E test plan) — should include REC-005 field conditions
   - TASK-008 (OTA recovery docs) — documents EXP-007/EXP-008 recovery behavior
+  - EXP-010 (RAK19001 pin validation) — informs REC-007 (post-reseat validation), REC-008 (SAADC errata retention), REC-009 (button/pot validation)
 
 ---
 
 **Experiment Tracker**: Oliver
-**Statistical Confidence**: Retrospective analysis — metrics quoted from commit messages and code artifacts. No controlled statistical trials were run; experiments were engineering feature flags with before/after comparisons.
-**Decision Impact**: All GO decisions shipped to production. One REVERT executed cleanly.
+**Statistical Confidence**: Retrospective analysis — metrics quoted from commit messages and code artifacts. No controlled statistical trials were run; experiments were engineering feature flags with before/after comparisons. EXP-010 is a systematic hardware bring-up with deterministic pass/fail criteria (no statistical inference needed).
+**Decision Impact**: All GO decisions shipped to production. One REVERT executed cleanly. One MECHANICAL FAILURE root-caused.
