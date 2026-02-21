@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (22)
+## Open Tasks (23)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -46,6 +46,7 @@ Special: deferred, declined
 | TASK-097 | not started | Eliel | Firmware v1.1 — Heat call input + interlock + uplink HEAT flag | TASK-096 |
 | TASK-098 | not started | Eliel | Cloud v1.1 — Decode HEAT flag in Lambda + DynamoDB | TASK-097 |
 | TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | TASK-100 |
+| TASK-101 | in progress | Eliel+Pam+Utz | Add APP_BUILD_VERSION to sid status | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |

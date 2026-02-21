@@ -1,7 +1,7 @@
 # SideCharge Technical Design Document
 
 **Status**: Living document — updated as the implementation evolves
-**Last updated**: 2026-02-19
+**Last updated**: 2026-02-20
 
 This is the single authoritative reference for how the SideCharge firmware and cloud
 systems work at the wire format, state machine, and protocol level. For *why* decisions
@@ -177,6 +177,38 @@ Per ADR-001, version mismatch is a **hard stop**:
 - API version is bumped **only** when the function pointer table layout changes. App-side
   changes (new payload format, new sensor logic) never require a version bump.
 
+### 2.4 Version Numbering Convention
+
+Three independent version numbers track different layers of the system:
+
+| Version | Define | Type | Current | Where Defined | When to Bump |
+|---------|--------|------|---------|---------------|--------------|
+| **Wire protocol** | `EVSE_VERSION` | `uint8_t` | `0x09` | `evse_payload.h` | Only when the uplink/downlink payload byte layout changes |
+| **Platform/app ABI** | `APP_CALLBACK_VERSION` | `uint32_t` | `3` | `platform_api.h` | Only when the function pointer table layout changes (per ADR-001) |
+| **Build/release** | `APP_BUILD_VERSION` | `uint8_t` | `1`+ | `platform_api.h` | Before every OTA deploy |
+
+**`APP_BUILD_VERSION`** is a monotonically increasing integer (1-255) that identifies
+which firmware build is running on the device. It is independent of the other two
+versions — a code fix that changes no wire format and no API table still gets a new
+build version.
+
+- **Range**: `uint8_t`, 1-255. Value 0 means "not set" (pre-build-version firmware).
+  At one OTA deploy per week, 255 values covers ~5 years.
+- **Where defined**: `#define APP_BUILD_VERSION N` in `platform_api.h`, alongside
+  `APP_CALLBACK_VERSION`.
+- **When to bump**: The deploy script (`ota_deploy.py --version N`) patches this value
+  before building. Each OTA deploy gets a unique build version.
+- **Where visible**:
+  - `sid status` shell command: `App build: vN (API vN, payload v0xNN)`
+  - Boot log: printed during `discover_app_image()`
+  - Diagnostics response byte 13 (section 3.5): returned in the 0xE6 payload for cloud querying
+- **Not in regular uplinks**: The build version is diagnostics-only. The regular EVSE
+  uplink (section 3.1) stays at 13 bytes. The cloud learns the build version via the 0xE6
+  diagnostics response (triggered on demand or by the health digest).
+- **Cloud usage**: The health digest Lambda (section 8.5) compares the device's reported build
+  version against `LATEST_APP_VERSION` to flag stale firmware. The device registry
+  stores the latest reported version.
+
 ---
 
 ## 3. Uplink Protocol
@@ -302,7 +334,7 @@ Offset  Size  Field               Type          Description
 10      1     Last error code     uint8         Highest active fault (see below)
 11      1     State flags         uint8         Live state snapshot (see below)
 12      1     Event buf pending   uint8         Unsent events in ring buffer
-13      1     Reserved            uint8         0x00
+13      1     App build version   uint8         APP_BUILD_VERSION (1-255, 0=not set)
 ```
 
 **Last error code** (byte 10): Returns the highest-priority active fault flag from
@@ -333,9 +365,9 @@ Bit  Mask  Name              Source
 
 Encoding example:
 ```
-E6 01 03 00 A0 86 01 00 00 00 00 43 05 00
+E6 01 03 00 A0 86 01 00 00 00 00 43 05 01
 │  │  └───┘ └──────────┘ └───┘ │  │  │  │
-│  │  v3    100000s (~27h) 0   │  │  5  reserved
+│  │  v3    100000s (~27h) 0   │  │  5  build v1
 │  Diag v1                 no err │ events pending
 Magic 0xE6            flags=0x43: SIDEWALK_READY|CHARGE_ALLOWED|TIME_SYNCED
 ```
@@ -1504,7 +1536,7 @@ All shell commands are accessed via USB serial console at 115200 baud.
 
 | Command | Description |
 |---------|-------------|
-| `sid status` | Sidewalk connection state, app image status |
+| `sid status` | Sidewalk connection state, app image status (includes build version, API version, payload version) |
 | `sid ota status` | OTA phase (idle/receiving/validating/applying/complete/error) |
 | `sid ota report` | Send OTA_STATUS uplink |
 | `app sid send` | Trigger manual uplink |
