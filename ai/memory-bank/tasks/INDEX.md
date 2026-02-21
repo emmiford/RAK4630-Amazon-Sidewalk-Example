@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -46,7 +46,6 @@ Special: deferred, declined
 | TASK-097 | not started | Eliel | Firmware v1.1 — Heat call input + interlock + uplink HEAT flag | TASK-096 |
 | TASK-098 | not started | Eliel | Cloud v1.1 — Decode HEAT flag in Lambda + DynamoDB | TASK-097 |
 | TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | TASK-100 |
-| TASK-101 | committed | Eliel+Pam+Utz | Build version tracking + release tooling | — |
 | TASK-103 | not started | — | Validate external button and potentiometer hardware independently | TASK-102 |
 
 ### P3 — Nice-to-have
@@ -64,9 +63,10 @@ Special: deferred, declined
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 | TASK-104 | not started | — | Evaluate SAADC errata workaround retention | — |
 
-## Completed Tasks (77)
+## Completed Tasks (78)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-101 | Build version tracking + release tooling | MERGED DONE | 2026-02-21 | Eliel+Pam+Utz |
 | TASK-100 | Remap firmware pins to RAK19007 WisBlock connector | MERGED DONE | 2026-02-19 | Eliel |
 | TASK-094 | Merge PRD + TDD inline wiring doc updates | MERGED DONE | 2026-02-19 | Pam+Utz |
 | TASK-065 | AC-priority software interlock + charge_block rename | MERGED DONE | 2026-02-19 | Eliel |
