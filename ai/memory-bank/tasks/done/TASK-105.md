@@ -1,6 +1,6 @@
 # TASK-105: Naming consistency audit and cleanup
 
-**Status**: committed (2026-02-21, Utz)
+**Status**: merged done (2026-02-21, Utz)
 **Priority**: P2
 **Owner**: Utz
 **Branch**: `task/105-naming-consistency`
