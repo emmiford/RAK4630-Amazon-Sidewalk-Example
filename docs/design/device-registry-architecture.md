@@ -207,7 +207,7 @@ For production devices:
 
 - **Timestamps**: All ISO 8601 strings in UTC (e.g., `2026-02-13T18:45:00Z`). The `last_seen_epoch` numeric field exists solely for GSI range queries (DynamoDB cannot do range comparisons on ISO 8601 strings efficiently).
 - **Optional fields**: DynamoDB does not enforce a schema. Fields like `install_lat`, `install_lon`, `meter_number`, `notes` are simply absent until set. No null values -- omit the attribute entirely.
-- **`app_version`**: Integer matching the `EVSE_VERSION` byte in the uplink payload (byte 1). Currently `0x05`. This is the app firmware version, not the platform version.
+- **`app_version`**: Integer matching the `PAYLOAD_VERSION` byte in the uplink payload (byte 1). Currently `0x0A`. This is the payload schema version, not the build version.
 - **`device_id` format**: Always lowercase. `SC-a3f7c021`, never `SC-A3F7C021`. The `derive_device_id()` function enforces this (SHA-256 hexdigest is lowercase by default in Python).
 
 ### 4.3 Relationship to Existing Events Table

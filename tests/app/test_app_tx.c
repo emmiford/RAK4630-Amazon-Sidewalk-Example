@@ -1,5 +1,5 @@
 /*
- * Unit tests for app_tx.c — v0x08 payload formatting and rate-limited sending
+ * Unit tests for app_tx.c — v0x0A payload formatting and rate-limited sending
  */
 
 #include "unity.h"
@@ -36,16 +36,16 @@ void test_send_encodes_magic_0xE5(void)
 	TEST_ASSERT_EQUAL_UINT8(0xE5, mock_last_send_buf[0]);
 }
 
-void test_send_encodes_version_0x09(void)
+void test_send_encodes_version_0x0A(void)
 {
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL_UINT8(0x09, mock_last_send_buf[1]);
+	TEST_ASSERT_EQUAL_UINT8(0x0A, mock_last_send_buf[1]);
 }
 
-void test_send_13_bytes(void)
+void test_send_15_bytes(void)
 {
 	app_tx_send_evse_data();
-	TEST_ASSERT_EQUAL(13, mock_last_send_len);
+	TEST_ASSERT_EQUAL(15, mock_last_send_len);
 }
 
 void test_not_ready_skips(void)
@@ -232,8 +232,8 @@ int main(void)
 
 	/* Payload format */
 	RUN_TEST(test_send_encodes_magic_0xE5);
-	RUN_TEST(test_send_encodes_version_0x09);
-	RUN_TEST(test_send_13_bytes);
+	RUN_TEST(test_send_encodes_version_0x0A);
+	RUN_TEST(test_send_15_bytes);
 	RUN_TEST(test_not_ready_skips);
 
 	/* Rate limiting */

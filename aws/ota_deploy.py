@@ -106,34 +106,34 @@ def pyocd_read_primary():
 
 
 def get_source_version():
-    """Read EVSE_VERSION from app_tx.c."""
+    """Read PAYLOAD_VERSION from app_tx.c."""
     with open(APP_TX_PATH, "r") as f:
         content = f.read()
-    m = re.search(r"#define\s+EVSE_VERSION\s+(0x[0-9a-fA-F]+|\d+)", content)
+    m = re.search(r"#define\s+PAYLOAD_VERSION\s+(0x[0-9a-fA-F]+|\d+)", content)
     if not m:
         return None
     return int(m.group(1), 0)
 
 
 def patch_version(version):
-    """Write EVSE_VERSION in app_tx.c."""
+    """Write PAYLOAD_VERSION in app_tx.c."""
     with open(APP_TX_PATH, "r") as f:
         content = f.read()
     new_content = re.sub(
-        r"(#define\s+EVSE_VERSION\s+)(?:0x[0-9a-fA-F]+|\d+)",
+        r"(#define\s+PAYLOAD_VERSION\s+)(?:0x[0-9a-fA-F]+|\d+)",
         rf"\g<1>0x{version:02x}",
         content,
     )
     if new_content == content:
         cur = get_source_version()
         if cur == version:
-            print(f"EVSE_VERSION already 0x{version:02x}, no change needed")
+            print(f"PAYLOAD_VERSION already 0x{version:02x}, no change needed")
             return True
-        print(f"WARNING: EVSE_VERSION not found in {APP_TX_PATH}")
+        print(f"WARNING: PAYLOAD_VERSION not found in {APP_TX_PATH}")
         return False
     with open(APP_TX_PATH, "w") as f:
         f.write(new_content)
-    print(f"Patched EVSE_VERSION → 0x{version:02x}")
+    print(f"Patched PAYLOAD_VERSION → 0x{version:02x}")
     return True
 
 
