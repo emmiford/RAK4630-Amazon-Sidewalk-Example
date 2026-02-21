@@ -1,4 +1,4 @@
-# SideCharge Task Index
+# Task Index
 
 ## Project
 Embedded IoT EVSE monitor over Amazon Sidewalk (LoRa) with OTA firmware updates.
@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (25)
+## Open Tasks (26)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -41,6 +41,7 @@ Special: deferred, declined
 | TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
 | TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
 | TASK-093 | not started | Eliel | Clean up stale IoT rules and old Lambdas | — |
+| TASK-105 | committed | Utz | Naming consistency audit and cleanup | — |
 | TASK-095 | not started | — | PCB design update — 3 relays, 11 terminals, inline interlock | TASK-100 |
 | TASK-096 | not started | Eliel | Firmware — W-out relay GPIO + platform API update | TASK-095 |
 | TASK-097 | not started | Eliel | Firmware v1.1 — Heat call input + interlock + uplink HEAT flag | TASK-096 |
