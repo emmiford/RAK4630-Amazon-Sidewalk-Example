@@ -719,7 +719,7 @@
         var shortId = id.length > 12 ? id.slice(0, 8) + "..." + id.slice(-4) : id;
         tr.innerHTML =
           "<td>" + escHtml(shortId) + "</td>" +
-          "<td>" + onlineBadge(d.status || d.online) + "</td>" +
+          "<td>" + onlineBadge(d.online) + "</td>" +
           "<td>" + escHtml(state) + "</td>" +
           "<td>" + escHtml(current) + "</td>" +
           "<td>" + escHtml(rssi) + "</td>" +
@@ -780,7 +780,7 @@
     apiFetch(path).then(function(data) {
       // Populate status card
       var dev = data.device || data;
-      qs("#ds-status").innerHTML = onlineBadge(dev.status || dev.online);
+      qs("#ds-status").innerHTML = onlineBadge(dev.online);
       qs("#ds-j1772").textContent = dev.j1772_state || dev.state || "--";
       qs("#ds-current").textContent = (dev.current_ma != null ? dev.current_ma + " mA" : (dev.current != null ? dev.current + " mA" : "--"));
       qs("#ds-voltage").textContent = (dev.voltage != null ? dev.voltage + " V" : "--");
