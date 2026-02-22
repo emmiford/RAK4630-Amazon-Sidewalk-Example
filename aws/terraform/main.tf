@@ -98,6 +98,16 @@ resource "aws_iam_role_policy" "uplink_decoder_policy" {
       {
         Effect = "Allow"
         Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.device_state.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "lambda:InvokeFunction"
         ]
         Resource = [
@@ -134,6 +144,7 @@ resource "aws_lambda_function" "uplink_decoder" {
       OTA_LAMBDA_NAME        = aws_lambda_function.ota_sender.function_name
       SCHEDULER_LAMBDA_NAME  = aws_lambda_function.charge_scheduler.function_name
       DEVICE_REGISTRY_TABLE  = var.device_registry_table_name
+      DEVICE_STATE_TABLE     = var.device_state_table_name
     }
   }
 
@@ -250,6 +261,16 @@ resource "aws_iam_role_policy" "charge_scheduler_policy" {
       {
         Effect = "Allow"
         Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.device_state.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "iotwireless:SendDataToWirelessDevice",
           "iotwireless:ListWirelessDevices"
         ]
@@ -277,6 +298,7 @@ resource "aws_lambda_function" "charge_scheduler" {
       WATTTIME_USERNAME     = var.watttime_username
       WATTTIME_PASSWORD     = var.watttime_password
       MOER_THRESHOLD        = tostring(var.moer_threshold)
+      DEVICE_STATE_TABLE    = var.device_state_table_name
     }
   }
 
@@ -324,7 +346,7 @@ resource "aws_dynamodb_table" "evse_events" {
   name         = var.dynamodb_table_name
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "device_id"
-  range_key    = "timestamp"
+  range_key    = "timestamp_mt"
 
   attribute {
     name = "device_id"
@@ -332,8 +354,20 @@ resource "aws_dynamodb_table" "evse_events" {
   }
 
   attribute {
-    name = "timestamp"
-    type = "N"
+    name = "timestamp_mt"
+    type = "S"
+  }
+
+  attribute {
+    name = "event_type"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "event-type-index"
+    hash_key        = "event_type"
+    range_key       = "timestamp_mt"
+    projection_type = "ALL"
   }
 
   ttl {
@@ -442,6 +476,16 @@ resource "aws_iam_role_policy" "ota_sender_policy" {
       {
         Effect = "Allow"
         Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.device_state.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "iotwireless:SendDataToWirelessDevice",
           "iotwireless:ListWirelessDevices"
         ]
@@ -467,6 +511,7 @@ resource "aws_lambda_function" "ota_sender" {
       DYNAMODB_TABLE        = var.dynamodb_table_name
       OTA_BUCKET            = var.ota_bucket_name
       DEVICE_REGISTRY_TABLE = var.device_registry_table_name
+      DEVICE_STATE_TABLE    = var.device_state_table_name
     }
   }
 
@@ -781,6 +826,14 @@ resource "aws_iam_role_policy" "health_digest_policy" {
       {
         Effect = "Allow"
         Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Scan"
+        ]
+        Resource = aws_dynamodb_table.device_state.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "sns:Publish"
         ]
         Resource = aws_sns_topic.alerts.arn
@@ -815,6 +868,7 @@ resource "aws_lambda_function" "health_digest" {
       HEARTBEAT_INTERVAL_S  = tostring(var.heartbeat_interval_s)
       AUTO_DIAG_ENABLED     = var.auto_diag_enabled
       LATEST_APP_VERSION    = tostring(var.latest_app_version)
+      DEVICE_STATE_TABLE    = var.device_state_table_name
     }
   }
 

@@ -47,3 +47,13 @@ output "ota_bucket_name" {
   description = "Name of the OTA firmware S3 bucket"
   value       = aws_s3_bucket.ota_firmware.id
 }
+
+output "device_state_table_name" {
+  description = "Name of the device state DynamoDB table"
+  value       = aws_dynamodb_table.device_state.name
+}
+
+output "device_state_table_arn" {
+  description = "ARN of the device state DynamoDB table"
+  value       = aws_dynamodb_table.device_state.arn
+}

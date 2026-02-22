@@ -117,6 +117,7 @@ resource "aws_lambda_function" "daily_aggregation" {
       DYNAMODB_TABLE        = var.dynamodb_table_name
       DEVICE_REGISTRY_TABLE = var.device_registry_table_name
       AGGREGATES_TABLE      = var.aggregates_table_name
+      DEVICE_STATE_TABLE    = var.device_state_table_name
     }
   }
 

@@ -19,7 +19,7 @@ variable "lambda_function_name" {
 variable "dynamodb_table_name" {
   description = "Name of the DynamoDB table for EVSE events"
   type        = string
-  default     = "sidewalk-v1-device_events_v2"
+  default     = "evse-events"
 }
 
 variable "iot_destination_name" {
@@ -69,7 +69,7 @@ variable "ota_bucket_name" {
 variable "device_registry_table_name" {
   description = "DynamoDB table name for the EVSE Monitor device registry"
   type        = string
-  default     = "device-registry"
+  default     = "evse-devices"
 }
 
 variable "alert_email" {
@@ -105,5 +105,18 @@ variable "latest_app_version" {
 variable "aggregates_table_name" {
   description = "DynamoDB table name for daily aggregate summaries (TASK-078)"
   type        = string
-  default     = "daily-aggregates"
+  default     = "evse-daily-stats"
+}
+
+variable "device_state_table_name" {
+  description = "DynamoDB table name for per-device mutable state snapshots (ADR-006)"
+  type        = string
+  default     = "evse-device-state"
+}
+
+variable "dashboard_api_key" {
+  description = "API key for dashboard access (x-api-key header)"
+  type        = string
+  sensitive   = true
+  default     = ""
 }
