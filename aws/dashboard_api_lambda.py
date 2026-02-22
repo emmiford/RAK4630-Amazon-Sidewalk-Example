@@ -42,7 +42,7 @@ state_table = dynamodb.Table(STATE_TABLE)
 daily_stats_table = dynamodb.Table(DAILY_STATS_TABLE)
 
 # Time window presets (minutes)
-WINDOW_PRESETS = {"15m": 15, "30m": 30, "1h": 60, "4h": 240, "24h": 1440}
+WINDOW_PRESETS = {"15m": 15, "30m": 30, "1h": 60, "4h": 240, "24h": 1440, "72h": 4320}
 DEFAULT_WINDOW = "1h"
 
 # Heartbeat interval for offline detection
