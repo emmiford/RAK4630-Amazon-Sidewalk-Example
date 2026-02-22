@@ -811,6 +811,8 @@ class TestLogCommandEvent:
             sched.log_command_event("allow", "off_peak", None, False)
         item = mock_tbl.put_item.call_args[1]["Item"]
         assert item["device_id"] == SC_TEST_ID
+        assert item["timestamp_source"] == "cloud"
+        assert "cloud_received_mt" in item
 
     def test_has_timestamp_mt_not_timestamp(self):
         """Sort key should be timestamp_mt (MT string), not timestamp (Unix ms)."""
@@ -858,6 +860,8 @@ class TestLogCommandEvent:
         assert item["reason"] == "tou_peak, moer>70"
         assert item["moer_percent"] == 85
         assert item["tou_peak"] is True
+        assert item["timestamp_source"] == "cloud"
+        assert item["cloud_received_mt"] == item["timestamp_mt"]
 
     def test_moer_none_stored_as_na(self):
         """None moer_percent should be stored as 'N/A'."""
