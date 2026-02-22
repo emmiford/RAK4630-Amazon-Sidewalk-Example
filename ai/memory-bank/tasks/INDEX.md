@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (25)
+## Open Tasks (24)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -61,11 +61,11 @@ Special: deferred, declined
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 | TASK-104 | not started | — | Evaluate SAADC errata workaround retention | — |
-| TASK-108 | not started | Utz | Dashboard event table missing timestamps | — |
 
-## Completed Tasks (83)
+## Completed Tasks (84)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-108 | Dashboard event table missing timestamps + online badge | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-107 | Device timestamp as DynamoDB sort key (ADR-007) | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-093 | Clean up stale IoT rules and old Lambdas | MERGED DONE | 2026-02-22 | Oliver |
 | TASK-106 | EVSE Fleet Dashboard + Table Migration (ADR-006) | MERGED DONE | 2026-02-22 | Eliel |
