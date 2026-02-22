@@ -809,7 +809,7 @@
           var summary = ev.summary || ev.message || buildSummary(ev);
 
           tr.innerHTML =
-            "<td>" + escHtml(formatTime(ev.timestamp || ev.time)) + "</td>" +
+            "<td>" + escHtml(formatTime(ev.timestamp_mt || ev.timestamp || ev.time)) + "</td>" +
             '<td><span class="badge ' + eventBadgeClass(evType) + '">' + escHtml(evType) + "</span></td>" +
             '<td style="font-family:var(--font-sans);white-space:normal;max-width:400px;">' + escHtml(summary) + "</td>" +
             '<td class="anomaly-indicator">' + (isAnomaly ? "!!" : "") + "</td>";
