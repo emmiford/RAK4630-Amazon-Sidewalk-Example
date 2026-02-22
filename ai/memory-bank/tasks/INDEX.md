@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -40,7 +40,6 @@ Special: deferred, declined
 | TASK-086 | not started | Eliel | Terraform: add CMD_AUTH_KEY to scheduler Lambda | — |
 | TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
 | TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
-| TASK-093 | in progress | Oliver | Clean up stale IoT rules and old Lambdas | — |
 | TASK-095 | not started | — | PCB design update — 3 relays, 11 terminals, inline interlock | TASK-100 |
 | TASK-096 | not started | Eliel | Firmware — W-out relay GPIO + platform API update | TASK-095 |
 | TASK-097 | not started | Eliel | Firmware v1.1 — Heat call input + interlock + uplink HEAT flag | TASK-096 |
@@ -64,10 +63,11 @@ Special: deferred, declined
 | TASK-104 | not started | — | Evaluate SAADC errata workaround retention | — |
 | TASK-108 | not started | Utz | Dashboard event table missing timestamps | — |
 
-## Completed Tasks (82)
+## Completed Tasks (83)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-107 | Device timestamp as DynamoDB sort key (ADR-007) | MERGED DONE | 2026-02-22 | Eliel |
+| TASK-093 | Clean up stale IoT rules and old Lambdas | MERGED DONE | 2026-02-22 | Oliver |
 | TASK-106 | EVSE Fleet Dashboard + Table Migration (ADR-006) | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-105 | Naming consistency audit and cleanup | MERGED DONE | 2026-02-21 | Utz |
 | TASK-101 | Build version tracking + release tooling | MERGED DONE | 2026-02-21 | Eliel+Pam+Utz |
