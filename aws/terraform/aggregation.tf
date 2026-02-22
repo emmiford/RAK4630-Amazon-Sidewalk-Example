@@ -39,6 +39,11 @@ data "archive_file" "aggregation_zip" {
     content  = file("${path.module}/../aggregation_lambda.py")
     filename = "aggregation_lambda.py"
   }
+
+  source {
+    content  = file("${path.module}/../protocol_constants.py")
+    filename = "protocol_constants.py"
+  }
 }
 
 # IAM role
