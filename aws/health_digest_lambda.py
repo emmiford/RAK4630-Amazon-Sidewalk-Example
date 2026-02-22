@@ -30,8 +30,8 @@ from sidewalk_utils import send_sidewalk_msg
 dynamodb = boto3.resource("dynamodb")
 sns = boto3.client("sns")
 
-REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "device-registry")
-EVENTS_TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
+REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "evse-devices")
+EVENTS_TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "evse-events")
 SNS_TOPIC_ARN = os.environ.get("SNS_TOPIC_ARN", "")
 HEARTBEAT_INTERVAL_S = int(os.environ.get("HEARTBEAT_INTERVAL_S", "900"))
 AUTO_DIAG_ENABLED = os.environ.get("AUTO_DIAG_ENABLED", "false").lower() == "true"

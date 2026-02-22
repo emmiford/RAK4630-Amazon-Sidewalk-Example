@@ -6,6 +6,8 @@ Only constants used by multiple files belong here.
 """
 
 import binascii
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 # --- OTA protocol (must match ota_update.h) ---
 
@@ -24,6 +26,26 @@ DIAG_MAGIC = 0xE6
 # --- Time sync ---
 
 EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z as Unix timestamp
+
+# --- Timezone ---
+
+MT = ZoneInfo("America/Denver")  # DST-aware Mountain Time
+
+
+def unix_ms_to_mt(unix_ms):
+    """Convert Unix milliseconds to Mountain Time string for DynamoDB SK.
+
+    Format: 'YYYY-MM-DD HH:MM:SS.mmm' (e.g., '2026-02-21 14:30:00.123')
+    Uses America/Denver for DST-aware conversion.
+    """
+    dt = datetime.fromtimestamp(unix_ms / 1000, tz=MT)
+    return dt.strftime("%Y-%m-%d %H:%M:%S") + f".{int(unix_ms) % 1000:03d}"
+
+
+def now_mt():
+    """Return current time as Mountain Time string for DynamoDB SK."""
+    import time
+    return unix_ms_to_mt(int(time.time() * 1000))
 
 
 # --- CRC ---

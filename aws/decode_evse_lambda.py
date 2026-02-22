@@ -34,10 +34,10 @@ import device_registry
 
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
-TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'sidewalk-v1-device_events_v2')
+TABLE_NAME = os.environ.get('DYNAMODB_TABLE', 'evse-events')
 OTA_LAMBDA_NAME = os.environ.get('OTA_LAMBDA_NAME', 'ota-sender')
 SCHEDULER_LAMBDA_NAME = os.environ.get('SCHEDULER_LAMBDA_NAME', 'charge-scheduler')
-REGISTRY_TABLE_NAME = os.environ.get('DEVICE_REGISTRY_TABLE', 'device-registry')
+REGISTRY_TABLE_NAME = os.environ.get('DEVICE_REGISTRY_TABLE', 'evse-devices')
 table = dynamodb.Table(TABLE_NAME)
 registry_table = dynamodb.Table(REGISTRY_TABLE_NAME)
 

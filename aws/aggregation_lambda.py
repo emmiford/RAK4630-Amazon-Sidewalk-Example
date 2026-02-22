@@ -2,14 +2,14 @@
 
 Runs on an EventBridge daily schedule. For each active device, queries the previous
 day's telemetry events, computes energy, fault, and availability metrics, and writes
-a summary record to the daily-aggregates table with a 3-year TTL.
+a summary record to the evse-daily-stats table with a 3-year TTL.
 
 Supports a 'date' override in the event payload for backfilling:
     {"date": "2026-02-18"}
 Defaults to yesterday (UTC).
 
 Environment variables:
-    DYNAMODB_TABLE: Source telemetry events table (default: sidewalk-v1-device_events_v2)
+    DYNAMODB_TABLE: Source telemetry events table (default: evse-events)
     DEVICE_REGISTRY_TABLE: Device registry table
     AGGREGATES_TABLE: Destination aggregates table
     ASSUMED_VOLTAGE_V: Assumed mains voltage for kWh calculation (default: 240)
@@ -24,9 +24,9 @@ import boto3
 
 dynamodb = boto3.resource("dynamodb")
 
-EVENTS_TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
-REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "device-registry")
-AGGREGATES_TABLE_NAME = os.environ.get("AGGREGATES_TABLE", "daily-aggregates")
+EVENTS_TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "evse-events")
+REGISTRY_TABLE_NAME = os.environ.get("DEVICE_REGISTRY_TABLE", "evse-devices")
+AGGREGATES_TABLE_NAME = os.environ.get("AGGREGATES_TABLE", "evse-daily-stats")
 ASSUMED_VOLTAGE_V = int(os.environ.get("ASSUMED_VOLTAGE_V", "240"))
 
 events_table = dynamodb.Table(EVENTS_TABLE_NAME)

@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 
 # --- Constants ---
 DEVICE_ID = "b319d001-6b08-4d88-b4ca-4d2d98a6d43c"
-TABLE_NAME = "sidewalk-v1-device_events_v2"
+TABLE_NAME = "evse-events"
 OTA_BUCKET = "evse-ota-firmware-dev"
 BASELINE_KEY = "ota/baseline.bin"
 CHUNK_DATA_SIZE = 15  # 15B data + 4B header = 19B LoRa MTU

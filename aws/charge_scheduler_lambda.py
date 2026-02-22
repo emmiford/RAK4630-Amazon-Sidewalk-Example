@@ -36,7 +36,7 @@ from sidewalk_utils import get_device_id, send_sidewalk_msg
 dynamodb = boto3.resource("dynamodb")
 
 # --- Environment ---
-TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
+TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "evse-events")
 WATTTIME_USERNAME = os.environ.get("WATTTIME_USERNAME", "")
 WATTTIME_PASSWORD = os.environ.get("WATTTIME_PASSWORD", "")
 MOER_THRESHOLD = int(os.environ.get("MOER_THRESHOLD", "70"))

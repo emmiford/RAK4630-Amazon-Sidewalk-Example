@@ -24,7 +24,7 @@ s3 = boto3.client("s3")
 lambda_client = boto3.client("lambda")
 
 # --- Environment ---
-TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "sidewalk-v1-device_events_v2")
+TABLE_NAME = os.environ.get("DYNAMODB_TABLE", "evse-events")
 OTA_BUCKET = os.environ.get("OTA_BUCKET", "evse-ota-firmware-dev")
 MAX_RETRIES = int(os.environ.get("OTA_MAX_RETRIES", "5"))
 CHUNK_DATA_SIZE = int(os.environ.get("OTA_CHUNK_SIZE", "15"))  # 15B data + 4B header = 19B (full LoRa MTU)
