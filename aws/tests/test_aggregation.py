@@ -14,6 +14,7 @@ if "boto3" not in sys.modules:
     sys.modules["boto3"] = MagicMock()
 
 import aggregation_lambda as agg
+from protocol_constants import unix_ms_to_mt
 
 
 # ================================================================
@@ -52,7 +53,7 @@ def make_event(timestamp_ms, pilot_state="A", current_ma=0,
         evse["fault_selftest"] = True
     return {
         "device_id": "test-wireless-id",
-        "timestamp": timestamp_ms,
+        "timestamp_mt": unix_ms_to_mt(timestamp_ms),
         "event_type": "evse_telemetry",
         "data": {"evse": evse},
     }

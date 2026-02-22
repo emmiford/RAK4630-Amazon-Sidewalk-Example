@@ -82,9 +82,9 @@ class TestDeviceEpoch:
 
 class TestMaybeSendTimeSync:
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_sends_when_no_sentinel(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_sends_when_no_sentinel(self, mock_update, mock_get, mock_send):
         """Should send TIME_SYNC when no sentinel exists."""
         mock_get.return_value = {}  # no Item key
         decode.maybe_send_time_sync("dev-001")
@@ -94,48 +94,48 @@ class TestMaybeSendTimeSync:
         assert payload[0] == 0x30
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_skips_when_recently_synced(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_skips_when_recently_synced(self, mock_update, mock_get, mock_send):
         """Should NOT send TIME_SYNC if sentinel < 24h old."""
         mock_get.return_value = {
-            "Item": {"last_sync_unix": int(time.time()) - 3600}  # 1 hour ago
+            "Item": {"time_sync_last_unix": int(time.time()) - 3600}  # 1 hour ago
         }
         decode.maybe_send_time_sync("dev-001")
         mock_send.assert_not_called()
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_sends_when_sentinel_expired(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_sends_when_sentinel_expired(self, mock_update, mock_get, mock_send):
         """Should send TIME_SYNC if sentinel > 24h old."""
         mock_get.return_value = {
-            "Item": {"last_sync_unix": int(time.time()) - 100000}  # >24h
+            "Item": {"time_sync_last_unix": int(time.time()) - 100000}  # >24h
         }
         decode.maybe_send_time_sync("dev-001")
         mock_send.assert_called_once()
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_updates_sentinel_after_send(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_updates_sentinel_after_send(self, mock_update, mock_get, mock_send):
         """Should write sentinel with current time after sending."""
         mock_get.return_value = {}
         decode.maybe_send_time_sync("dev-001")
 
-        # put_item should be called with sentinel
-        assert mock_put.called
-        sentinel = mock_put.call_args[1]["Item"]
-        assert sentinel["device_id"] == "dev-001"
-        assert sentinel["timestamp"] == -2
-        assert sentinel["event_type"] == "time_sync_state"
-        assert "last_sync_unix" in sentinel
-        assert "last_sync_epoch" in sentinel
+        # update_item should be called with time_sync fields
+        assert mock_update.called
+        call_kwargs = mock_update.call_args[1]
+        assert call_kwargs["Key"] == {"device_id": "dev-001"}
+        assert "time_sync_last_unix" in call_kwargs["UpdateExpression"]
+        assert "time_sync_last_epoch" in call_kwargs["UpdateExpression"]
+        assert ":unix" in call_kwargs["ExpressionAttributeValues"]
+        assert ":epoch" in call_kwargs["ExpressionAttributeValues"]
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_payload_epoch_is_current(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_payload_epoch_is_current(self, mock_update, mock_get, mock_send):
         """Payload epoch should be approximately now - EPOCH_OFFSET."""
         mock_get.return_value = {}
         before = int(time.time()) - decode.EPOCH_OFFSET
@@ -147,7 +147,7 @@ class TestMaybeSendTimeSync:
         assert before <= epoch <= after
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item", side_effect=Exception("DB error"))
+    @patch.object(decode.state_table, "get_item", side_effect=Exception("DB error"))
     def test_sentinel_read_error_still_sends(self, mock_get, mock_send):
         """On sentinel read error, should still attempt to send."""
         decode.maybe_send_time_sync("dev-001")
@@ -156,35 +156,35 @@ class TestMaybeSendTimeSync:
         mock_send.assert_called_once()
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_forces_sync_when_device_timestamp_zero(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_forces_sync_when_device_timestamp_zero(self, mock_update, mock_get, mock_send):
         """Should force TIME_SYNC when device reports timestamp=0 (unsynced)."""
         mock_get.return_value = {
-            "Item": {"last_sync_unix": int(time.time()) - 60}  # 1 min ago
+            "Item": {"time_sync_last_unix": int(time.time()) - 60}  # 1 min ago
         }
         decode.maybe_send_time_sync("dev-001", device_timestamp=0)
         mock_send.assert_called_once()
         assert mock_send.call_args[0][0][0] == 0x30
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_respects_sentinel_when_device_has_timestamp(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_respects_sentinel_when_device_has_timestamp(self, mock_update, mock_get, mock_send):
         """Should respect sentinel TTL when device has a valid timestamp."""
         mock_get.return_value = {
-            "Item": {"last_sync_unix": int(time.time()) - 60}  # 1 min ago
+            "Item": {"time_sync_last_unix": int(time.time()) - 60}  # 1 min ago
         }
         decode.maybe_send_time_sync("dev-001", device_timestamp=4157000)
         mock_send.assert_not_called()
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "get_item")
-    @patch.object(decode.table, "put_item")
-    def test_forces_sync_when_device_timestamp_none(self, mock_put, mock_get, mock_send):
+    @patch.object(decode.state_table, "get_item")
+    @patch.object(decode.state_table, "update_item")
+    def test_forces_sync_when_device_timestamp_none(self, mock_update, mock_get, mock_send):
         """Should use sentinel logic when device_timestamp is None (v0x06)."""
         mock_get.return_value = {
-            "Item": {"last_sync_unix": int(time.time()) - 60}  # 1 min ago
+            "Item": {"time_sync_last_unix": int(time.time()) - 60}  # 1 min ago
         }
         decode.maybe_send_time_sync("dev-001", device_timestamp=None)
         mock_send.assert_not_called()
@@ -194,9 +194,9 @@ class TestMaybeSendTimeSync:
 
 class TestTimeSyncIntegration:
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "put_item")
-    @patch.object(decode.table, "get_item")
-    def test_time_sync_sent_on_evse_uplink(self, mock_get, mock_put, mock_send):
+    @patch.object(decode.state_table, "update_item")
+    @patch.object(decode.state_table, "get_item")
+    def test_time_sync_sent_on_evse_uplink(self, mock_get, mock_update, mock_send):
         """EVSE telemetry should trigger maybe_send_time_sync."""
         mock_get.return_value = {}  # no sentinel
 
@@ -218,9 +218,9 @@ class TestTimeSyncIntegration:
         pytest.fail("No TIME_SYNC payload found in send_sidewalk_msg calls")
 
     @patch("decode_evse_lambda.send_sidewalk_msg")
-    @patch.object(decode.table, "put_item")
-    @patch.object(decode.table, "get_item")
-    def test_no_time_sync_on_ota_uplink(self, mock_get, mock_put, mock_send):
+    @patch.object(decode.state_table, "update_item")
+    @patch.object(decode.state_table, "get_item")
+    def test_no_time_sync_on_ota_uplink(self, mock_get, mock_update, mock_send):
         """OTA uplinks should NOT trigger TIME_SYNC."""
         mock_get.return_value = {}
 

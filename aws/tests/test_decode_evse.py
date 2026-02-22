@@ -209,9 +209,9 @@ class TestLambdaHandler:
         assert result["statusCode"] == 200
         item = self.mock_table.put_item.call_args[1]["Item"]
         assert "ttl" in item
-        # TTL should be ~90 days (7776000s) after the event timestamp
-        expected_ttl = int(item["timestamp"] / 1000) + 7776000
-        assert item["ttl"] == expected_ttl
+        # TTL should be ~90 days (7776000s) from now
+        now_s = int(time.time())
+        assert abs(item["ttl"] - (now_s + 7776000)) < 5
 
     def test_ota_ack_forwarded(self):
         raw = struct.pack("<BBbHH", 0x20, 0x80, 0, 1, 1)
@@ -588,8 +588,8 @@ class TestDecodeDiagPayload:
 
         with patch.object(decode.table, "put_item") as mock_put, \
              patch.object(decode, "maybe_send_time_sync"), \
-             patch("device_registry.get_or_create_device"), \
-             patch("device_registry.update_last_seen"):
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
             decode.lambda_handler(event, None)
 
         mock_put.assert_called_once()
@@ -617,8 +617,8 @@ class TestDecodeDiagPayload:
 
         with patch.object(decode.table, "put_item"), \
              patch.object(decode, "maybe_send_time_sync"), \
-             patch("device_registry.get_or_create_device"), \
-             patch("device_registry.update_last_seen") as mock_last_seen:
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen") as mock_last_seen:
             decode.lambda_handler(event, None)
 
         mock_last_seen.assert_called_once()
@@ -647,8 +647,8 @@ class TestDecodeDiagPayload:
         with patch.object(decode.table, "put_item"), \
              patch.object(decode, "maybe_send_time_sync"), \
              patch.object(decode, "check_scheduler_divergence"), \
-             patch("device_registry.get_or_create_device"), \
-             patch("device_registry.update_last_seen") as mock_last_seen:
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen") as mock_last_seen:
             decode.lambda_handler(event, None)
 
         mock_last_seen.assert_called_once()
@@ -675,8 +675,8 @@ class TestDecodeDiagPayload:
         with patch.object(decode.table, "put_item"), \
              patch.object(decode, "maybe_send_time_sync"), \
              patch.object(decode, "check_scheduler_divergence"), \
-             patch("device_registry.get_or_create_device"), \
-             patch("device_registry.update_last_seen") as mock_last_seen:
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen") as mock_last_seen:
             decode.lambda_handler(event, None)
 
         mock_last_seen.assert_called_once()
@@ -700,48 +700,26 @@ class TestSchedulerDivergence:
             mock_t.time.return_value = self.NOW_UNIX
             yield mock_t
 
-    def _sentinel(self, last_command, sent_unix=None):
-        """Build a scheduler sentinel Item."""
+    def _state_item(self, last_command, sent_unix=None, retry_count=0):
+        """Build a device-state Item with scheduler + divergence fields."""
         item = {
             "device_id": self.DEVICE_ID,
-            "timestamp": 0,
-            "event_type": "charge_scheduler_state",
-            "last_command": last_command,
+            "scheduler_last_command": last_command,
+            "divergence_retry_count": retry_count,
         }
         if sent_unix is not None:
-            item["sent_unix"] = sent_unix
+            item["scheduler_sent_unix"] = sent_unix
         else:
             # Default: sent long enough ago to be outside grace period
-            item["sent_unix"] = self.NOW_UNIX - 300
+            item["scheduler_sent_unix"] = self.NOW_UNIX - 300
         return item
-
-    def _tracker(self, retry_count=0):
-        """Build a divergence tracker Item."""
-        return {
-            "device_id": self.DEVICE_ID,
-            "timestamp": -3,
-            "event_type": "divergence_state",
-            "retry_count": retry_count,
-        }
-
-    def _mock_table_get(self, sentinel=None, tracker=None):
-        """Return a mock for table.get_item that serves sentinel and tracker."""
-        def get_item(Key):
-            ts = Key.get("timestamp")
-            if ts == 0 and sentinel is not None:
-                return {"Item": sentinel}
-            if ts == -3 and tracker is not None:
-                return {"Item": tracker}
-            return {}
-        return get_item
 
     def test_divergence_pause_but_device_allowed(self):
         """Sentinel=delay_window, device charge_allowed=True → re-trigger."""
-        sentinel = self._sentinel("delay_window")
-        tracker = self._tracker(0)
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel, tracker)), \
-             patch.object(decode.table, "put_item") as mock_put, \
+        state = self._state_item("delay_window", retry_count=0)
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
+             patch.object(decode.state_table, "update_item") as mock_update, \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, True)
 
@@ -753,18 +731,17 @@ class TestSchedulerDivergence:
         payload = json.loads(call_kwargs["Payload"])
         assert payload["force_resend"] is True
 
-        # Should write tracker with retry_count=1
-        mock_put.assert_called_once()
-        tracker_item = mock_put.call_args[1]["Item"]
-        assert tracker_item["retry_count"] == 1
-        assert tracker_item["timestamp"] == -3
+        # Should update divergence tracker with incremented retry count
+        mock_update.assert_called_once()
+        update_kwargs = mock_update.call_args[1]
+        assert update_kwargs["Key"] == {"device_id": self.DEVICE_ID}
 
     def test_no_divergence_pause_and_device_paused(self):
         """Sentinel=delay_window, device charge_allowed=False → no action."""
-        sentinel = self._sentinel("delay_window")
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel, self._tracker(0))), \
-             patch.object(decode.table, "put_item"), \
+        state = self._state_item("delay_window", retry_count=0)
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
+             patch.object(decode.state_table, "update_item"), \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, False)
 
@@ -772,11 +749,10 @@ class TestSchedulerDivergence:
 
     def test_divergence_allow_but_device_paused(self):
         """Sentinel=allow, device charge_allowed=False → re-trigger."""
-        sentinel = self._sentinel("allow")
-        tracker = self._tracker(0)
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel, tracker)), \
-             patch.object(decode.table, "put_item"), \
+        state = self._state_item("allow", retry_count=0)
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
+             patch.object(decode.state_table, "update_item"), \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, False)
 
@@ -784,9 +760,9 @@ class TestSchedulerDivergence:
 
     def test_no_divergence_allow_and_device_allowed(self):
         """Sentinel=allow, device charge_allowed=True → no action."""
-        sentinel = self._sentinel("allow")
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel)), \
+        state = self._state_item("allow")
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, True)
 
@@ -794,39 +770,40 @@ class TestSchedulerDivergence:
 
     def test_retry_counter_reaches_max(self):
         """After DIVERGENCE_MAX_RETRIES, no more re-triggers."""
-        sentinel = self._sentinel("delay_window")
-        tracker = self._tracker(decode.DIVERGENCE_MAX_RETRIES)
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel, tracker)), \
-             patch.object(decode.table, "put_item") as mock_put, \
+        state = self._state_item("delay_window",
+                                 retry_count=decode.DIVERGENCE_MAX_RETRIES)
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
+             patch.object(decode.state_table, "update_item") as mock_update, \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, True)
 
         # Should NOT invoke scheduler
         mock_lc.invoke.assert_not_called()
         # Should NOT write tracker (no increment past max)
-        mock_put.assert_not_called()
+        mock_update.assert_not_called()
 
     def test_retry_counter_increments(self):
         """Each divergence detection increments the retry counter."""
-        sentinel = self._sentinel("delay_window")
-        tracker = self._tracker(1)  # Already had 1 retry
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel, tracker)), \
-             patch.object(decode.table, "put_item") as mock_put, \
+        state = self._state_item("delay_window", retry_count=1)
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
+             patch.object(decode.state_table, "update_item") as mock_update, \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, True)
 
         mock_lc.invoke.assert_called_once()
-        tracker_item = mock_put.call_args[1]["Item"]
-        assert tracker_item["retry_count"] == 2
+        # update_item should have been called with incremented retry count
+        mock_update.assert_called_once()
+        update_kwargs = mock_update.call_args[1]
+        assert update_kwargs["ExpressionAttributeValues"][":cnt"] == 2
 
     def test_grace_period_skips_recent_command(self):
         """Skip divergence check if command was sent within grace period."""
-        sentinel = self._sentinel("delay_window",
-                                  sent_unix=self.NOW_UNIX - 30)  # 30s ago
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel)), \
+        state = self._state_item("delay_window",
+                                 sent_unix=self.NOW_UNIX - 30)  # 30s ago
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, True)
 
@@ -834,17 +811,17 @@ class TestSchedulerDivergence:
 
     def test_off_peak_sentinel_skips_check(self):
         """Sentinel=off_peak → no divergence check (no command was sent)."""
-        sentinel = self._sentinel("off_peak")
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel)), \
+        state = self._state_item("off_peak")
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, True)
 
         mock_lc.invoke.assert_not_called()
 
     def test_no_sentinel_skips_check(self):
-        """No scheduler sentinel → no divergence check."""
-        with patch.object(decode.table, "get_item", return_value={}), \
+        """No device state → no divergence check."""
+        with patch.object(decode.state_table, "get_item", return_value={}), \
              patch.object(decode, "lambda_client") as mock_lc:
             decode.check_scheduler_divergence(self.DEVICE_ID, True)
 
@@ -852,20 +829,19 @@ class TestSchedulerDivergence:
 
     def test_divergence_resolved_resets_tracker(self):
         """When divergence resolves, tracker retry_count resets to 0."""
-        sentinel = self._sentinel("delay_window")
-        tracker = self._tracker(2)  # Had 2 retries
-        with patch.object(decode.table, "get_item",
-                          side_effect=self._mock_table_get(sentinel, tracker)), \
-             patch.object(decode.table, "put_item") as mock_put, \
+        state = self._state_item("delay_window", retry_count=2)
+        with patch.object(decode.state_table, "get_item",
+                          return_value={"Item": state}), \
+             patch.object(decode.state_table, "update_item") as mock_update, \
              patch.object(decode, "lambda_client") as mock_lc:
             # Device now matches: charge_allowed=False with delay_window
             decode.check_scheduler_divergence(self.DEVICE_ID, False)
 
         mock_lc.invoke.assert_not_called()
         # Should reset tracker to 0
-        mock_put.assert_called_once()
-        tracker_item = mock_put.call_args[1]["Item"]
-        assert tracker_item["retry_count"] == 0
+        mock_update.assert_called_once()
+        update_kwargs = mock_update.call_args[1]
+        assert update_kwargs["ExpressionAttributeValues"][":zero"] == 0
 
 
 # --- Charge Now override detection (TASK-064 / ADR-003) ---
@@ -885,13 +861,13 @@ class TestChargeNowOverride:
         now_unix = int(now_mt.timestamp())
 
         with patch("decode_evse_lambda.time") as mock_time, \
-             patch.object(decode.table, "update_item") as mock_update:
+             patch.object(decode.state_table, "update_item") as mock_update:
             mock_time.time.return_value = now_unix
             decode.handle_charge_now_override(self.DEVICE_ID)
 
         mock_update.assert_called_once()
         call_kwargs = mock_update.call_args[1]
-        assert call_kwargs["Key"] == {"device_id": self.DEVICE_ID, "timestamp": 0}
+        assert call_kwargs["Key"] == {"device_id": self.DEVICE_ID}
         override_val = call_kwargs["ExpressionAttributeValues"][":val"]
         # Should be 9 PM MT today
         expected_9pm = now_mt.replace(hour=21, minute=0, second=0, microsecond=0)
@@ -904,7 +880,7 @@ class TestChargeNowOverride:
         now_unix = int(now_mt.timestamp())
 
         with patch("decode_evse_lambda.time") as mock_time, \
-             patch.object(decode.table, "update_item") as mock_update:
+             patch.object(decode.state_table, "update_item") as mock_update:
             mock_time.time.return_value = now_unix
             decode.handle_charge_now_override(self.DEVICE_ID)
 
@@ -918,7 +894,7 @@ class TestChargeNowOverride:
         now_unix = int(now_mt.timestamp())
 
         with patch("decode_evse_lambda.time") as mock_time, \
-             patch.object(decode.table, "update_item") as mock_update:
+             patch.object(decode.state_table, "update_item") as mock_update:
             mock_time.time.return_value = now_unix
             decode.handle_charge_now_override(self.DEVICE_ID)
 
@@ -926,11 +902,11 @@ class TestChargeNowOverride:
         assert override_val == now_unix + decode.CHARGE_NOW_DEFAULT_DURATION_S
 
     def test_uses_update_item_not_put(self):
-        """Should use update_item to preserve existing sentinel fields."""
+        """Should use update_item to preserve existing state fields."""
         now_mt = datetime(2026, 2, 16, 18, 0, tzinfo=MT)
         with patch("decode_evse_lambda.time") as mock_time, \
-             patch.object(decode.table, "update_item") as mock_update, \
-             patch.object(decode.table, "put_item") as mock_put:
+             patch.object(decode.state_table, "update_item") as mock_update, \
+             patch.object(decode.state_table, "put_item") as mock_put:
             mock_time.time.return_value = int(now_mt.timestamp())
             decode.handle_charge_now_override(self.DEVICE_ID)
 
@@ -969,25 +945,29 @@ class TestChargeNowInHandler:
         """FLAG_CHARGE_NOW=1 should call handle_charge_now_override."""
         raw = self._make_v08(flags=0x0C)  # charge_allowed + charge_now
         with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
              patch.object(decode, "maybe_send_time_sync"), \
              patch.object(decode, "check_scheduler_divergence"), \
              patch.object(decode, "handle_charge_now_override") as mock_override, \
-             patch("device_registry.get_or_create_device"), \
-             patch("device_registry.update_last_seen"):
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TESTID01") as mock_sc, \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
             mock_table.put_item = MagicMock()
             decode.lambda_handler(self._make_event(raw), None)
 
-        mock_override.assert_called_once_with("test-device")
+        mock_override.assert_called_once_with("SC-TESTID01")
 
     def test_no_charge_now_flag_no_override(self):
         """FLAG_CHARGE_NOW=0 should NOT call handle_charge_now_override."""
         raw = self._make_v08(flags=0x04)  # charge_allowed only, no charge_now
         with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
              patch.object(decode, "maybe_send_time_sync"), \
              patch.object(decode, "check_scheduler_divergence"), \
              patch.object(decode, "handle_charge_now_override") as mock_override, \
-             patch("device_registry.get_or_create_device"), \
-             patch("device_registry.update_last_seen"):
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TESTID01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
             mock_table.put_item = MagicMock()
             decode.lambda_handler(self._make_event(raw), None)
 
@@ -1201,7 +1181,7 @@ class TestTransitionEventStorage:
         assert item["device_timestamp_epoch"] == 86400
 
     def test_transition_timestamp_offset(self):
-        """Transition timestamp is base +1ms to avoid PK collision."""
+        """Transition timestamp_mt is base +1ms to avoid SK collision."""
         decoded = {
             'charge_allowed': True,
             'transition_reason_code': 0x03,
@@ -1212,7 +1192,8 @@ class TestTransitionEventStorage:
             decode.store_transition_event("dev-1", 5000000, decoded)
 
         item = mock_table.put_item.call_args[1]["Item"]
-        assert item["timestamp"] == 5000001
+        # timestamp_mt should be unix_ms_to_mt(5000001) — +1ms offset
+        assert item["timestamp_mt"] == decode.unix_ms_to_mt(5000001)
 
     def test_transition_without_device_timestamp(self):
         """Transition stores correctly even without device-side timestamp."""

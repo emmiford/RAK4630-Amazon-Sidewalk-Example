@@ -622,3 +622,248 @@ class TestChargeNowOptOut:
 
         call_kwargs = mock_write.call_args
         assert call_kwargs[1].get("charge_now_override_until") is None
+
+
+# --- DynamoDB state layer (new schema: ADR-006) ---
+
+SC_TEST_ID = "SC-7C810AC9"  # generate_sc_short_id("test-device-id")
+
+
+class TestGetScId:
+    """_get_sc_id() delegates to device_registry.generate_sc_short_id."""
+
+    def test_returns_sc_id_for_device(self):
+        result = sched._get_sc_id()
+        assert result == SC_TEST_ID
+
+    def test_uses_sidewalk_utils_device_id(self):
+        """Passes get_device_id() result to generate_sc_short_id."""
+        mock_gen = MagicMock(return_value="SC-AAAABBBB")
+        with patch.object(sched, "get_device_id", return_value="other-id"), \
+             patch.object(sched.device_registry, "generate_sc_short_id", mock_gen):
+            result = sched._get_sc_id()
+        mock_gen.assert_called_once_with("other-id")
+        assert result == "SC-AAAABBBB"
+
+
+class TestGetLastState:
+    """get_last_state() reads from state_table with scheduler_* field mapping."""
+
+    def test_reads_from_state_table_with_sc_id(self):
+        """Should call state_table.get_item(Key={"device_id": SC-ID})."""
+        mock_state_tbl = MagicMock()
+        mock_state_tbl.get_item.return_value = {"Item": {
+            "device_id": SC_TEST_ID,
+            "scheduler_last_command": "delay_window",
+            "scheduler_reason": "tou_peak",
+            "scheduler_moer_percent": "N/A",
+            "scheduler_tou_peak": True,
+            "scheduler_window_start_sc": 1000,
+            "scheduler_window_end_sc": 2000,
+            "scheduler_sent_unix": 1700000000,
+            "charge_now_override_until": None,
+        }}
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            result = sched.get_last_state()
+
+        mock_state_tbl.get_item.assert_called_once_with(
+            Key={"device_id": SC_TEST_ID}
+        )
+        assert result["last_command"] == "delay_window"
+        assert result["reason"] == "tou_peak"
+        assert result["moer_percent"] == "N/A"
+        assert result["tou_peak"] is True
+        assert result["window_start_sc"] == 1000
+        assert result["window_end_sc"] == 2000
+        assert result["sent_unix"] == 1700000000
+
+    def test_returns_none_when_item_missing(self):
+        """No item in DynamoDB → returns None."""
+        mock_state_tbl = MagicMock()
+        mock_state_tbl.get_item.return_value = {}
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            result = sched.get_last_state()
+        assert result is None
+
+    def test_returns_none_on_exception(self):
+        """DynamoDB exception → returns None (logged)."""
+        mock_state_tbl = MagicMock()
+        mock_state_tbl.get_item.side_effect = Exception("DynamoDB timeout")
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            result = sched.get_last_state()
+        assert result is None
+
+    def test_maps_charge_now_override(self):
+        """charge_now_override_until field is mapped correctly."""
+        mock_state_tbl = MagicMock()
+        mock_state_tbl.get_item.return_value = {"Item": {
+            "device_id": SC_TEST_ID,
+            "scheduler_last_command": "allow",
+            "charge_now_override_until": 1700003600,
+        }}
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            result = sched.get_last_state()
+        assert result["charge_now_override_until"] == 1700003600
+
+    def test_missing_fields_return_none(self):
+        """Sparse item returns None for missing scheduler_* fields."""
+        mock_state_tbl = MagicMock()
+        mock_state_tbl.get_item.return_value = {"Item": {
+            "device_id": SC_TEST_ID,
+            "scheduler_last_command": "off_peak",
+        }}
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            result = sched.get_last_state()
+        assert result["last_command"] == "off_peak"
+        assert result["reason"] is None
+        assert result["window_start_sc"] is None
+        assert result["window_end_sc"] is None
+        assert result["sent_unix"] is None
+
+
+class TestWriteState:
+    """write_state() uses state_table.update_item with scheduler_* fields."""
+
+    def test_update_item_called_with_sc_id_key(self):
+        """Should call state_table.update_item(Key={"device_id": SC-ID})."""
+        mock_state_tbl = MagicMock()
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            sched.write_state("delay_window", "tou_peak", None, True,
+                              window_start_sc=1000, window_end_sc=2000,
+                              sent_unix=1700000000)
+        mock_state_tbl.update_item.assert_called_once()
+        call_kwargs = mock_state_tbl.update_item.call_args[1]
+        assert call_kwargs["Key"] == {"device_id": SC_TEST_ID}
+
+    def test_update_expression_has_scheduler_prefix(self):
+        """UpdateExpression should use scheduler_* field names."""
+        mock_state_tbl = MagicMock()
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            sched.write_state("allow", "off_peak", 30, False)
+        call_kwargs = mock_state_tbl.update_item.call_args[1]
+        expr = call_kwargs["UpdateExpression"]
+        assert "scheduler_last_command" in expr
+        assert "scheduler_reason" in expr
+        assert "scheduler_moer_percent" in expr
+        assert "scheduler_tou_peak" in expr
+        assert "scheduler_updated_at" in expr
+
+    def test_optional_window_fields_in_expression(self):
+        """Window fields only appear in expression when provided."""
+        mock_state_tbl = MagicMock()
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            sched.write_state("delay_window", "tou_peak", None, True,
+                              window_start_sc=100, window_end_sc=200,
+                              sent_unix=1700000000)
+        call_kwargs = mock_state_tbl.update_item.call_args[1]
+        expr = call_kwargs["UpdateExpression"]
+        assert "scheduler_window_start_sc" in expr
+        assert "scheduler_window_end_sc" in expr
+        assert "scheduler_sent_unix" in expr
+
+    def test_optional_fields_omitted_when_none(self):
+        """Window fields should NOT appear when not provided."""
+        mock_state_tbl = MagicMock()
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            sched.write_state("off_peak", "off_peak", None, False)
+        call_kwargs = mock_state_tbl.update_item.call_args[1]
+        expr = call_kwargs["UpdateExpression"]
+        assert "scheduler_window_start_sc" not in expr
+        assert "scheduler_window_end_sc" not in expr
+        assert "scheduler_sent_unix" not in expr
+
+    def test_charge_now_override_in_expression(self):
+        """charge_now_override_until appears when provided."""
+        mock_state_tbl = MagicMock()
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            sched.write_state("charge_now_optout", "tou_peak", None, True,
+                              charge_now_override_until=1700003600)
+        call_kwargs = mock_state_tbl.update_item.call_args[1]
+        expr = call_kwargs["UpdateExpression"]
+        assert "charge_now_override_until" in expr
+
+    def test_expression_values_contain_command(self):
+        """ExpressionAttributeValues should include :cmd with the command."""
+        mock_state_tbl = MagicMock()
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            sched.write_state("allow", "off_peak", 30, False)
+        call_kwargs = mock_state_tbl.update_item.call_args[1]
+        values = call_kwargs["ExpressionAttributeValues"]
+        assert values[":cmd"] == "allow"
+        assert values[":reason"] == "off_peak"
+
+    def test_does_not_use_put_item(self):
+        """write_state must NOT use put_item (old schema)."""
+        mock_state_tbl = MagicMock()
+        with patch.object(sched, "state_table", mock_state_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID):
+            sched.write_state("allow", "off_peak", None, False)
+        mock_state_tbl.put_item.assert_not_called()
+
+
+class TestLogCommandEvent:
+    """log_command_event() writes to events table with SC-ID and timestamp_mt."""
+
+    def test_put_item_uses_sc_id(self):
+        """device_id should be SC-ID, not wireless device ID."""
+        mock_tbl = MagicMock()
+        with patch.object(sched, "table", mock_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID),              patch("charge_scheduler_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.0
+            sched.log_command_event("allow", "off_peak", None, False)
+        item = mock_tbl.put_item.call_args[1]["Item"]
+        assert item["device_id"] == SC_TEST_ID
+
+    def test_has_timestamp_mt_not_timestamp(self):
+        """Sort key should be timestamp_mt (MT string), not timestamp (Unix ms)."""
+        mock_tbl = MagicMock()
+        with patch.object(sched, "table", mock_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID),              patch("charge_scheduler_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.0
+            sched.log_command_event("delay_window", "tou_peak", 85, True)
+        item = mock_tbl.put_item.call_args[1]["Item"]
+        assert "timestamp_mt" in item
+        assert "timestamp" not in item
+        # timestamp_mt should be a string like "YYYY-MM-DD HH:MM:SS.mmm"
+        assert isinstance(item["timestamp_mt"], str)
+        assert len(item["timestamp_mt"]) == 23  # "2023-11-14 10:13:20.000"
+
+    def test_includes_wireless_device_id(self):
+        """Event should include the original wireless_device_id."""
+        mock_tbl = MagicMock()
+        with patch.object(sched, "table", mock_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID),              patch("charge_scheduler_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.0
+            sched.log_command_event("allow", "off_peak", None, False)
+        item = mock_tbl.put_item.call_args[1]["Item"]
+        assert item["wireless_device_id"] == "test-device-id"
+
+    def test_includes_ttl(self):
+        """Event should include TTL for DynamoDB auto-expiry (90 days)."""
+        mock_tbl = MagicMock()
+        with patch.object(sched, "table", mock_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID),              patch("charge_scheduler_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.0
+            sched.log_command_event("allow", "off_peak", None, False)
+        item = mock_tbl.put_item.call_args[1]["Item"]
+        assert "ttl" in item
+        # TTL should be ~90 days (7776000s) after the event
+        expected_ttl = 1700000000 + 7776000
+        assert item["ttl"] == expected_ttl
+
+    def test_includes_event_fields(self):
+        """Event should include command, reason, moer, tou fields."""
+        mock_tbl = MagicMock()
+        with patch.object(sched, "table", mock_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID),              patch("charge_scheduler_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.0
+            sched.log_command_event("delay_window", "tou_peak, moer>70", 85, True)
+        item = mock_tbl.put_item.call_args[1]["Item"]
+        assert item["event_type"] == "charge_scheduler_command"
+        assert item["command"] == "delay_window"
+        assert item["reason"] == "tou_peak, moer>70"
+        assert item["moer_percent"] == 85
+        assert item["tou_peak"] is True
+
+    def test_moer_none_stored_as_na(self):
+        """None moer_percent should be stored as 'N/A'."""
+        mock_tbl = MagicMock()
+        with patch.object(sched, "table", mock_tbl),              patch.object(sched, "_get_sc_id", return_value=SC_TEST_ID),              patch("charge_scheduler_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.0
+            sched.log_command_event("allow", "off_peak", None, False)
+        item = mock_tbl.put_item.call_args[1]["Item"]
+        assert item["moer_percent"] == "N/A"

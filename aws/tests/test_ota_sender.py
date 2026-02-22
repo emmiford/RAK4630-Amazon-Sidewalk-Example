@@ -16,8 +16,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # --- Module-level mocking ---
-# ota_sender_lambda.py imports boto3 and sidewalk_utils at module level.
-# We mock them before import so the module initializes cleanly.
+# ota_sender_lambda.py imports boto3, sidewalk_utils, device_registry, and
+# protocol_constants at module level. We mock them before import so the module
+# initializes cleanly.
 
 mock_sidewalk_utils = MagicMock()
 mock_sidewalk_utils.get_device_id.return_value = "test-device-id"
@@ -26,10 +27,25 @@ mock_sidewalk_utils.send_sidewalk_msg = MagicMock()
 sys.modules["sidewalk_utils"] = mock_sidewalk_utils
 sys.modules["boto3"] = MagicMock()
 
+# Mock device_registry — _get_sc_id() calls generate_sc_short_id(device_id)
+mock_device_registry = MagicMock()
+mock_device_registry.generate_sc_short_id.return_value = "SC-TEST1234"
+sys.modules["device_registry"] = mock_device_registry
+
+# Mock protocol_constants — provides OTA_CMD_TYPE, crc32, unix_ms_to_mt
+mock_protocol_constants = MagicMock()
+mock_protocol_constants.OTA_CMD_TYPE = 0x20
+mock_protocol_constants.crc32 = lambda data: __import__("binascii").crc32(data) & 0xFFFFFFFF
+mock_protocol_constants.unix_ms_to_mt.side_effect = lambda ms: int(ms / 1000)  # simplified for tests
+sys.modules["protocol_constants"] = mock_protocol_constants
+
 # Add aws/ to path so we can import the Lambda module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import ota_sender_lambda as ota  # noqa: E402
+
+# Expected SC-ID returned by _get_sc_id() via mock
+SC_ID = "SC-TEST1234"
 
 # --- Test fixtures ---
 
@@ -87,6 +103,9 @@ def reset_mocks():
     mock_sidewalk_utils.send_sidewalk_msg.reset_mock()
     ota._firmware_cache.clear()
     ota._firmware_cache["test-bucket/firmware/app-v2.bin"] = FIRMWARE
+    # Reset DynamoDB table mocks (state_table and events table)
+    ota.state_table.reset_mock()
+    ota.table.reset_mock()
     yield
 
 
@@ -589,3 +608,212 @@ class TestBuildOtaChunk:
         msg = ota.build_ota_chunk(42, data)
 
         assert msg[4:] == data
+
+
+# --- Session management: get_session / write_session / clear_session / log_ota_event ---
+# These test the actual DynamoDB interaction code (ADR-006 migration).
+
+class TestGetSession:
+    """get_session() reads from state_table using SC-ID PK, strips ota_ prefix."""
+
+    def test_returns_session_with_ota_prefix_stripped(self):
+        mock_state = MagicMock()
+        mock_state.get_item.return_value = {
+            "Item": {
+                "device_id": SC_ID,
+                "ota_status": "sending",
+                "ota_s3_bucket": "test-bucket",
+                "ota_s3_key": "firmware/app-v2.bin",
+                "ota_fw_size": 60,
+                "ota_next_chunk": 2,
+                "ota_retries": 0,
+                "ota_updated_at": 1000,
+            }
+        }
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            session = ota.get_session()
+
+        mock_state.get_item.assert_called_once_with(Key={"device_id": SC_ID})
+        assert session["status"] == "sending"
+        assert session["s3_bucket"] == "test-bucket"
+        assert session["s3_key"] == "firmware/app-v2.bin"
+        assert session["fw_size"] == 60
+        assert session["next_chunk"] == 2
+        assert session["retries"] == 0
+        assert session["updated_at"] == 1000
+        assert session["device_id"] == SC_ID
+
+    def test_returns_none_when_no_item(self):
+        mock_state = MagicMock()
+        mock_state.get_item.return_value = {}
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            session = ota.get_session()
+        assert session is None
+
+    def test_returns_none_when_no_ota_status(self):
+        """Item exists but has no ota_status field — no active OTA session."""
+        mock_state = MagicMock()
+        mock_state.get_item.return_value = {
+            "Item": {"device_id": SC_ID, "firmware_version": 5}
+        }
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            session = ota.get_session()
+        assert session is None
+
+    def test_returns_none_on_exception(self):
+        mock_state = MagicMock()
+        mock_state.get_item.side_effect = Exception("DynamoDB error")
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            session = ota.get_session()
+        assert session is None
+
+
+class TestWriteSession:
+    """write_session() writes to state_table with ota_ prefixed fields."""
+
+    def test_writes_with_ota_prefix(self):
+        mock_state = MagicMock()
+        session_data = {"status": "sending", "next_chunk": 3, "retries": 1}
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            ota.write_session(session_data)
+
+        mock_state.update_item.assert_called_once()
+        call_kwargs = mock_state.update_item.call_args[1]
+        assert call_kwargs["Key"] == {"device_id": SC_ID}
+        update_expr = call_kwargs["UpdateExpression"]
+        assert "ota_status" in update_expr
+        assert "ota_next_chunk" in update_expr
+        assert "ota_retries" in update_expr
+        assert "ota_updated_at" in update_expr
+
+    def test_filters_out_device_id(self):
+        """device_id should not appear in the SET expression (it is the PK)."""
+        mock_state = MagicMock()
+        session_data = {"device_id": SC_ID, "status": "sending"}
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            ota.write_session(session_data)
+
+        call_kwargs = mock_state.update_item.call_args[1]
+        update_expr = call_kwargs["UpdateExpression"]
+        assert "device_id" not in update_expr.replace("ota_updated_at", "").\
+            replace("ota_status", "")
+
+    def test_does_not_double_prefix_ota_fields(self):
+        """Fields already starting with ota_ should not get double-prefixed."""
+        mock_state = MagicMock()
+        session_data = {"ota_delta_cursor": 5}
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            ota.write_session(session_data)
+
+        call_kwargs = mock_state.update_item.call_args[1]
+        update_expr = call_kwargs["UpdateExpression"]
+        assert "ota_delta_cursor" in update_expr
+        assert "ota_ota_delta_cursor" not in update_expr
+
+
+class TestClearSession:
+    """clear_session() removes all ota_* fields from device-state."""
+
+    def test_removes_ota_fields(self):
+        mock_state = MagicMock()
+        mock_state.get_item.return_value = {
+            "Item": {
+                "device_id": SC_ID,
+                "firmware_version": 5,
+                "ota_status": "sending",
+                "ota_s3_bucket": "test-bucket",
+                "ota_next_chunk": 2,
+                "ota_updated_at": 1000,
+            }
+        }
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            ota.clear_session()
+
+        mock_state.get_item.assert_called_once_with(Key={"device_id": SC_ID})
+        mock_state.update_item.assert_called_once()
+        call_kwargs = mock_state.update_item.call_args[1]
+        assert call_kwargs["Key"] == {"device_id": SC_ID}
+        remove_expr = call_kwargs["UpdateExpression"]
+        assert remove_expr.startswith("REMOVE ")
+        assert "ota_status" in remove_expr
+        assert "ota_s3_bucket" in remove_expr
+        assert "ota_next_chunk" in remove_expr
+        assert "ota_updated_at" in remove_expr
+        assert "firmware_version" not in remove_expr
+        assert "device_id" not in remove_expr
+
+    def test_no_ota_fields_skips_update(self):
+        """If there are no ota_* fields, update_item should not be called."""
+        mock_state = MagicMock()
+        mock_state.get_item.return_value = {
+            "Item": {"device_id": SC_ID, "firmware_version": 5}
+        }
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            ota.clear_session()
+
+        mock_state.get_item.assert_called_once()
+        mock_state.update_item.assert_not_called()
+
+    def test_empty_item_skips_update(self):
+        """If get_item returns no Item, update_item should not be called."""
+        mock_state = MagicMock()
+        mock_state.get_item.return_value = {}
+
+        with patch.object(ota, "state_table", mock_state), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID):
+            ota.clear_session()
+
+        mock_state.update_item.assert_not_called()
+
+
+class TestLogOtaEvent:
+    """log_ota_event() writes to events table with SC-ID PK and timestamp_mt SK."""
+
+    def test_writes_event_with_sc_id_pk(self):
+        mock_tbl = MagicMock()
+        with patch.object(ota, "table", mock_tbl), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID), \
+             patch("ota_sender_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.123
+            ota.log_ota_event("ota_start", {"fw_size": 60, "version": 2})
+
+        mock_tbl.put_item.assert_called_once()
+        call_kwargs = mock_tbl.put_item.call_args[1]
+        item = call_kwargs["Item"]
+        assert item["device_id"] == SC_ID
+        assert "timestamp_mt" in item
+        assert item["wireless_device_id"] == "test-device-id"
+        assert "ttl" in item
+        assert item["event_type"] == "ota_start"
+        assert item["fw_size"] == 60
+        assert item["version"] == 2
+
+    def test_ttl_is_90_days_from_event(self):
+        mock_tbl = MagicMock()
+        with patch.object(ota, "table", mock_tbl), \
+             patch.object(ota, "_get_sc_id", return_value=SC_ID), \
+             patch("ota_sender_lambda.time") as mock_time:
+            mock_time.time.return_value = 1700000000.0
+            ota.log_ota_event("ota_complete", {})
+
+        item = mock_tbl.put_item.call_args[1]["Item"]
+        expected_ttl = 1700000000 + 7776000
+        assert item["ttl"] == expected_ttl
