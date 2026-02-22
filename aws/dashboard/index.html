@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EVSE Fleet Dashboard</title>
+<style>
+  :root {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-card: #1f2b47;
+    --bg-table-row: #1c2940;
+    --bg-table-hover: #253555;
+    --bg-input: #0f1626;
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a8b8;
+    --text-muted: #6b7280;
+    --border: #2a3a55;
+    --accent: #4a9eff;
+    --accent-hover: #3a8eef;
+    --green: #34d399;
+    --red: #f87171;
+    --orange: #fb923c;
+    --yellow: #fbbf24;
+    --purple: #a78bfa;
+    --blue: #60a5fa;
+    --cyan: #22d3ee;
+    --font-mono: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --radius: 6px;
+    --shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+  }
+
+  /* Auth Overlay */
+  #auth-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  #auth-overlay.hidden { display: none; }
+  .auth-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px;
+    width: 400px;
+    max-width: 90vw;
+    text-align: center;
+  }
+  .auth-box h2 { margin-bottom: 8px; font-size: 1.25rem; }
+  .auth-box p { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 20px; }
+  .auth-box input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    margin-bottom: 16px;
+  }
+  .auth-box input:focus { outline: none; border-color: var(--accent); }
+  .auth-box button {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .auth-box button:hover { background: var(--accent-hover); }
+  .auth-box .auth-extra {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .auth-box .auth-extra input {
+    width: 100%;
+    margin-top: 6px;
+    margin-bottom: 0;
+  }
+
+  /* Header */
+  header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 {
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  header h1 span { color: var(--accent); }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-actions button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  .header-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  #refresh-indicator {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+  }
+
+  /* Main */
+  main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* Summary Bar */
+  .summary-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    box-shadow: var(--shadow);
+  }
+  .summary-card .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .summary-card .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+  }
+  .summary-card .value.online { color: var(--green); }
+  .summary-card .value.charging { color: var(--blue); }
+  .summary-card .value.fault { color: var(--red); }
+
+  /* Tables */
+  .table-wrap {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    box-shadow: var(--shadow);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(42,58,85,0.5);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    white-space: nowrap;
+  }
+  tr:hover td { background: var(--bg-table-hover); }
+  .device-table tr { cursor: pointer; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .badge-online { background: rgba(52,211,153,0.15); color: var(--green); }
+  .badge-offline { background: rgba(248,113,113,0.15); color: var(--red); }
+  .badge-telemetry { background: rgba(96,165,250,0.15); color: var(--blue); }
+  .badge-diagnostics { background: rgba(52,211,153,0.15); color: var(--green); }
+  .badge-scheduler { background: rgba(251,146,60,0.15); color: var(--orange); }
+  .badge-ota { background: rgba(167,139,250,0.15); color: var(--purple); }
+  .badge-interlock { background: rgba(248,113,113,0.15); color: var(--red); }
+  .badge-unknown { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+
+  .anomaly-row td { background: rgba(251,191,36,0.08) !important; }
+  .anomaly-indicator {
+    color: var(--yellow);
+    font-weight: 700;
+    font-size: 0.875rem;
+  }
+
+  /* Detail View */
+  .detail-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .back-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .detail-device-id {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .status-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    box-shadow: var(--shadow);
+  }
+  .status-item .label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+  .status-item .value {
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  /* Controls */
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .btn-group {
+    display: flex;
+    gap: 0;
+  }
+  .btn-group button {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+  }
+  .btn-group button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+  .btn-group button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+  .btn-group button:not(:first-child) { border-left: none; }
+  .btn-group button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .btn-group button:hover:not(.active) { background: var(--bg-table-hover); }
+
+  .filter-select {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    cursor: pointer;
+  }
+  .filter-select:focus { outline: none; border-color: var(--accent); }
+
+  .section-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin: 24px 0 10px 0;
+  }
+
+  /* Spinner / Error */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-muted);
+    gap: 10px;
+  }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: rgba(248,113,113,0.1);
+    border: 1px solid rgba(248,113,113,0.3);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    color: var(--red);
+    font-size: 0.8125rem;
+    margin: 12px 0;
+  }
+
+  .hidden { display: none !important; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    main { padding: 12px; }
+    header { padding: 10px 12px; }
+    .summary-bar { grid-template-columns: repeat(2, 1fr); }
+    .status-card { grid-template-columns: repeat(2, 1fr); }
+    td, th { padding: 6px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth Overlay -->
+<div id="auth-overlay" class="hidden">
+  <div class="auth-box">
+    <h2>API Key Required</h2>
+    <p>Enter your API key to access the fleet dashboard.</p>
+    <input type="password" id="auth-key-input" placeholder="x-api-key" autocomplete="off">
+    <button id="auth-submit-btn">Connect</button>
+    <div class="auth-extra">
+      <label>API Base URL (optional)</label>
+      <input type="text" id="auth-base-input" placeholder="https://api.example.com/v1">
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <h1><span>EVSE</span> Fleet Dashboard</h1>
+  <div class="header-actions">
+    <span id="refresh-indicator"></span>
+    <button id="btn-refresh" title="Refresh now">Refresh</button>
+    <button id="btn-logout" title="Clear API key">Logout</button>
+  </div>
+</header>
+
+<!-- Main Content -->
+<main>
+  <!-- Fleet View -->
+  <div id="view-fleet">
+    <div class="summary-bar" id="summary-bar">
+      <div class="summary-card">
+        <div class="label">Total Devices</div>
+        <div class="value" id="stat-total">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Online</div>
+        <div class="value online" id="stat-online">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Charging</div>
+        <div class="value charging" id="stat-charging">--</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Faults</div>
+        <div class="value fault" id="stat-faults">--</div>
+      </div>
+    </div>
+
+    <div id="fleet-content">
+      <div class="loading" id="fleet-loading">
+        <div class="spinner"></div>
+        <span>Loading devices...</span>
+      </div>
+      <div id="fleet-error" class="error-box hidden"></div>
+      <div class="table-wrap hidden" id="fleet-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Device ID</th>
+              <th>Status</th>
+              <th>J1772 State</th>
+              <th>Current (mA)</th>
+              <th>RSSI</th>
+              <th>Last Seen</th>
+            </tr>
+          </thead>
+          <tbody id="fleet-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Device Detail View -->
+  <div id="view-detail" class="hidden">
+    <div class="detail-header">
+      <button class="back-btn" id="btn-back">&#8592; Fleet</button>
+      <span class="detail-device-id" id="detail-device-id"></span>
+    </div>
+
+    <div class="status-card" id="detail-status-card">
+      <div class="status-item">
+        <div class="label">Status</div>
+        <div class="value" id="ds-status">--</div>
+      </div>
+      <div class="status-item">
+        <div class="label">J1772 State</div>
+        <div class="value" id="ds-j1772">--</div>
+      </div>
+      <div class="status-item">
+        <div class="label">Current</div>
+        <div class="value" id="ds-current">--</div>
+      </div>
+      <div class="status-item">
+        <div class="label">Voltage</div>
+        <div class="value" id="ds-voltage">--</div>
+      </div>
+      <div class="status-item">
+        <div class="label">Charge Allowed</div>
+        <div class="value" id="ds-charge-allowed">--</div>
+      </div>
+      <div class="status-item">
+        <div class="label">RSSI</div>
+        <div class="value" id="ds-rssi">--</div>
+      </div>
+      <div class="status-item">
+        <div class="label">Link Type</div>
+        <div class="value" id="ds-link">--</div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <div class="btn-group" id="time-window-btns">
+        <button data-window="15m">15m</button>
+        <button data-window="30m">30m</button>
+        <button data-window="1h" class="active">1h</button>
+        <button data-window="4h">4h</button>
+        <button data-window="24h">24h</button>
+      </div>
+      <select class="filter-select" id="event-type-filter">
+        <option value="">All Events</option>
+        <option value="evse_telemetry">evse_telemetry</option>
+        <option value="device_diagnostics">device_diagnostics</option>
+        <option value="scheduler_command">scheduler_command</option>
+        <option value="ota_start">ota_start</option>
+        <option value="interlock_transition">interlock_transition</option>
+      </select>
+    </div>
+
+    <div class="section-title">Event Timeline</div>
+    <div id="events-content">
+      <div class="loading" id="events-loading">
+        <div class="spinner"></div>
+        <span>Loading events...</span>
+      </div>
+      <div id="events-error" class="error-box hidden"></div>
+      <div class="table-wrap hidden" id="events-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Type</th>
+              <th>Summary</th>
+              <th>Anomaly</th>
+            </tr>
+          </thead>
+          <tbody id="events-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-title">Daily Statistics (Last 30 Days)</div>
+    <div id="daily-content">
+      <div class="loading" id="daily-loading">
+        <div class="spinner"></div>
+        <span>Loading daily stats...</span>
+      </div>
+      <div id="daily-error" class="error-box hidden"></div>
+      <div class="table-wrap hidden" id="daily-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>kWh</th>
+              <th>Sessions</th>
+              <th>Avail %</th>
+              <th>Peak mA</th>
+              <th>Faults</th>
+            </tr>
+          </thead>
+          <tbody id="daily-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function() {
+  "use strict";
+
+  // Configuration
+  var API_BASE = localStorage.getItem("api_base") || "";
+  var REFRESH_INTERVAL_MS = 60000;
+
+  // State
+  var currentView = "fleet";
+  var currentDeviceId = null;
+  var currentWindow = "1h";
+  var currentEventType = "";
+  var refreshTimer = null;
+
+  // DOM helpers
+  function qs(sel) { return document.querySelector(sel); }
+  function qsa(sel) { return document.querySelectorAll(sel); }
+
+  // DOM refs
+  var authOverlay   = qs("#auth-overlay");
+  var authKeyInput  = qs("#auth-key-input");
+  var authBaseInput = qs("#auth-base-input");
+  var authSubmitBtn = qs("#auth-submit-btn");
+  var btnRefresh    = qs("#btn-refresh");
+  var btnLogout     = qs("#btn-logout");
+  var btnBack       = qs("#btn-back");
+  var refreshInd    = qs("#refresh-indicator");
+  var viewFleet     = qs("#view-fleet");
+  var viewDetail    = qs("#view-detail");
+
+  // Auth
+  function getApiKey() {
+    return localStorage.getItem("api_key") || "";
+  }
+
+  function checkAuth() {
+    if (!getApiKey()) {
+      authOverlay.classList.remove("hidden");
+      return false;
+    }
+    authOverlay.classList.add("hidden");
+    return true;
+  }
+
+  authSubmitBtn.addEventListener("click", function() {
+    var key = authKeyInput.value.trim();
+    if (!key) return;
+    localStorage.setItem("api_key", key);
+    var base = authBaseInput.value.trim();
+    if (base) {
+      localStorage.setItem("api_base", base);
+    }
+    authOverlay.classList.add("hidden");
+    loadFleet();
+    startAutoRefresh();
+  });
+
+  authKeyInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") authSubmitBtn.click();
+  });
+
+  btnLogout.addEventListener("click", function() {
+    localStorage.removeItem("api_key");
+    localStorage.removeItem("api_base");
+    stopAutoRefresh();
+    authOverlay.classList.remove("hidden");
+  });
+
+  // API Fetch
+  function apiFetch(path) {
+    var base = localStorage.getItem("api_base") || "";
+    var url = base + path;
+    return fetch(url, {
+      headers: {
+        "x-api-key": getApiKey(),
+        "Accept": "application/json"
+      }
+    }).then(function(res) {
+      if (!res.ok) {
+        return res.text().then(function(text) {
+          throw new Error("HTTP " + res.status + ": " + (text || res.statusText));
+        });
+      }
+      return res.json();
+    });
+  }
+
+  // Utility
+  function formatTime(ts) {
+    if (!ts) return "--";
+    var d = new Date(typeof ts === "number" ? ts * 1000 : ts);
+    if (isNaN(d.getTime())) return String(ts);
+    return d.toLocaleString("en-US", {
+      month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour12: false
+    });
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return "--";
+    var d = new Date(typeof ts === "number" ? ts * 1000 : ts);
+    if (isNaN(d.getTime())) return String(ts);
+    var sec = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (sec < 0) return "just now";
+    if (sec < 60) return sec + "s ago";
+    if (sec < 3600) return Math.floor(sec / 60) + "m ago";
+    if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+    return Math.floor(sec / 86400) + "d ago";
+  }
+
+  function escHtml(s) {
+    if (s == null) return "";
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function eventBadgeClass(type) {
+    if (!type) return "badge-unknown";
+    if (type.indexOf("telemetry") !== -1) return "badge-telemetry";
+    if (type.indexOf("diagnostics") !== -1) return "badge-diagnostics";
+    if (type.indexOf("scheduler") !== -1) return "badge-scheduler";
+    if (type.indexOf("ota") !== -1) return "badge-ota";
+    if (type.indexOf("interlock") !== -1) return "badge-interlock";
+    return "badge-unknown";
+  }
+
+  function onlineBadge(status) {
+    var isOnline = status === "online" || status === true;
+    if (isOnline) {
+      return '<span class="badge badge-online">ONLINE</span>';
+    }
+    return '<span class="badge badge-offline">OFFLINE</span>';
+  }
+
+  function showEl(el) { el.classList.remove("hidden"); }
+  function hideEl(el) { el.classList.add("hidden"); }
+
+  // Fleet View
+  function loadFleet() {
+    if (!checkAuth()) return;
+
+    var loading = qs("#fleet-loading");
+    var errorEl = qs("#fleet-error");
+    var tableWrap = qs("#fleet-table-wrap");
+
+    showEl(loading); hideEl(errorEl); hideEl(tableWrap);
+
+    apiFetch("/devices").then(function(data) {
+      var devices = data.devices || [];
+      hideEl(loading);
+      showEl(tableWrap);
+
+      // Summary stats
+      var online = 0, charging = 0, faults = 0;
+      devices.forEach(function(d) {
+        if (d.status === "online" || d.online === true) online++;
+        var st = (d.j1772_state || d.state || "").toUpperCase();
+        if (st === "C" || st === "STATE_C" || st === "CHARGING") charging++;
+        if (d.fault || d.faulted || st === "FAULT") faults++;
+      });
+      qs("#stat-total").textContent = data.count != null ? data.count : devices.length;
+      qs("#stat-online").textContent = online;
+      qs("#stat-charging").textContent = charging;
+      qs("#stat-faults").textContent = faults;
+
+      // Table
+      var tbody = qs("#fleet-tbody");
+      tbody.innerHTML = "";
+      devices.forEach(function(d) {
+        var id = d.device_id || d.id || "unknown";
+        var state = d.j1772_state || d.state || "--";
+        var current = d.current_ma != null ? d.current_ma : (d.current != null ? d.current : "--");
+        var rssi = d.rssi != null ? d.rssi + " dBm" : "--";
+        var lastSeen = d.last_seen || d.timestamp || d.updated_at;
+
+        var tr = document.createElement("tr");
+        tr.className = "device-table";
+        var shortId = id.length > 12 ? id.slice(0, 8) + "..." + id.slice(-4) : id;
+        tr.innerHTML =
+          "<td>" + escHtml(shortId) + "</td>" +
+          "<td>" + onlineBadge(d.status || d.online) + "</td>" +
+          "<td>" + escHtml(state) + "</td>" +
+          "<td>" + escHtml(current) + "</td>" +
+          "<td>" + escHtml(rssi) + "</td>" +
+          '<td title="' + escHtml(lastSeen) + '">' + timeAgo(lastSeen) + "</td>";
+        tr.addEventListener("click", (function(deviceId) {
+          return function() { openDevice(deviceId); };
+        })(id));
+        tbody.appendChild(tr);
+      });
+
+      updateRefreshIndicator();
+    }).catch(function(err) {
+      hideEl(loading);
+      showEl(errorEl);
+      errorEl.textContent = "Failed to load devices: " + err.message;
+    });
+  }
+
+  function updateRefreshIndicator() {
+    refreshInd.textContent = "Updated " + new Date().toLocaleTimeString("en-US", { hour12: false });
+  }
+
+  // Device Detail
+  function openDevice(id) {
+    currentDeviceId = id;
+    currentView = "detail";
+    hideEl(viewFleet);
+    showEl(viewDetail);
+    qs("#detail-device-id").textContent = id;
+    loadDeviceDetail();
+    loadDailyStats();
+  }
+
+  function backToFleet() {
+    currentView = "fleet";
+    currentDeviceId = null;
+    hideEl(viewDetail);
+    showEl(viewFleet);
+    loadFleet();
+  }
+
+  btnBack.addEventListener("click", backToFleet);
+
+  function loadDeviceDetail() {
+    if (!currentDeviceId) return;
+
+    var loading = qs("#events-loading");
+    var errorEl = qs("#events-error");
+    var tableWrap = qs("#events-table-wrap");
+
+    showEl(loading); hideEl(errorEl); hideEl(tableWrap);
+
+    var path = "/devices/" + encodeURIComponent(currentDeviceId) + "?window=" + currentWindow;
+    if (currentEventType) {
+      path += "&event_type=" + encodeURIComponent(currentEventType);
+    }
+
+    apiFetch(path).then(function(data) {
+      // Populate status card
+      var dev = data.device || data;
+      qs("#ds-status").innerHTML = onlineBadge(dev.status || dev.online);
+      qs("#ds-j1772").textContent = dev.j1772_state || dev.state || "--";
+      qs("#ds-current").textContent = (dev.current_ma != null ? dev.current_ma + " mA" : (dev.current != null ? dev.current + " mA" : "--"));
+      qs("#ds-voltage").textContent = (dev.voltage != null ? dev.voltage + " V" : "--");
+      qs("#ds-charge-allowed").textContent = dev.charge_allowed != null ? (dev.charge_allowed ? "Yes" : "No") : "--";
+      qs("#ds-rssi").textContent = dev.rssi != null ? dev.rssi + " dBm" : "--";
+      qs("#ds-link").textContent = dev.link_type || dev.link || "--";
+
+      // Events table
+      var events = data.events || [];
+      hideEl(loading);
+      showEl(tableWrap);
+
+      var tbody = qs("#events-tbody");
+      tbody.innerHTML = "";
+
+      if (events.length === 0) {
+        var tr = document.createElement("tr");
+        tr.innerHTML = '<td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">No events in selected window</td>';
+        tbody.appendChild(tr);
+      } else {
+        events.forEach(function(ev) {
+          var tr = document.createElement("tr");
+          var isAnomaly = ev.anomaly || ev.is_anomaly || false;
+          if (isAnomaly) tr.className = "anomaly-row";
+
+          var evType = ev.event_type || ev.type || "unknown";
+          var summary = ev.summary || ev.message || buildSummary(ev);
+
+          tr.innerHTML =
+            "<td>" + escHtml(formatTime(ev.timestamp || ev.time)) + "</td>" +
+            '<td><span class="badge ' + eventBadgeClass(evType) + '">' + escHtml(evType) + "</span></td>" +
+            '<td style="font-family:var(--font-sans);white-space:normal;max-width:400px;">' + escHtml(summary) + "</td>" +
+            '<td class="anomaly-indicator">' + (isAnomaly ? "!!" : "") + "</td>";
+          tbody.appendChild(tr);
+        });
+      }
+
+      updateRefreshIndicator();
+    }).catch(function(err) {
+      hideEl(loading);
+      showEl(errorEl);
+      errorEl.textContent = "Failed to load device: " + err.message;
+    });
+  }
+
+  function buildSummary(ev) {
+    var parts = [];
+    if (ev.j1772_state) parts.push("J1772:" + ev.j1772_state);
+    if (ev.current_ma != null) parts.push(ev.current_ma + "mA");
+    if (ev.voltage != null) parts.push(ev.voltage + "V");
+    if (ev.rssi != null) parts.push("RSSI:" + ev.rssi);
+    if (parts.length > 0) return parts.join(", ");
+    return JSON.stringify(ev).slice(0, 80);
+  }
+
+  // Daily Stats
+  function loadDailyStats() {
+    if (!currentDeviceId) return;
+
+    var loading = qs("#daily-loading");
+    var errorEl = qs("#daily-error");
+    var tableWrap = qs("#daily-table-wrap");
+
+    showEl(loading); hideEl(errorEl); hideEl(tableWrap);
+
+    apiFetch("/devices/" + encodeURIComponent(currentDeviceId) + "/daily?days=30").then(function(data) {
+      var days = data.days || data.daily || [];
+
+      hideEl(loading);
+      showEl(tableWrap);
+
+      var tbody = qs("#daily-tbody");
+      tbody.innerHTML = "";
+
+      if (days.length === 0) {
+        var tr = document.createElement("tr");
+        tr.innerHTML = '<td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">No daily data available</td>';
+        tbody.appendChild(tr);
+      } else {
+        days.forEach(function(d) {
+          var tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + escHtml(d.date) + "</td>" +
+            "<td>" + (d.kwh != null ? d.kwh.toFixed(2) : "--") + "</td>" +
+            "<td>" + (d.sessions != null ? d.sessions : "--") + "</td>" +
+            "<td>" + (d.availability_pct != null ? d.availability_pct.toFixed(1) + "%" : "--") + "</td>" +
+            "<td>" + (d.peak_current_ma != null ? d.peak_current_ma : "--") + "</td>" +
+            "<td>" + (d.faults != null ? d.faults : "--") + "</td>";
+          tbody.appendChild(tr);
+        });
+      }
+    }).catch(function(err) {
+      hideEl(loading);
+      showEl(errorEl);
+      errorEl.textContent = "Failed to load daily stats: " + err.message;
+    });
+  }
+
+  // Time Window Buttons
+  qsa("#time-window-btns button").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      qsa("#time-window-btns button").forEach(function(b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      currentWindow = btn.dataset.window;
+      loadDeviceDetail();
+    });
+  });
+
+  // Event Type Filter
+  qs("#event-type-filter").addEventListener("change", function(e) {
+    currentEventType = e.target.value;
+    loadDeviceDetail();
+  });
+
+  // Refresh
+  btnRefresh.addEventListener("click", function() {
+    if (currentView === "fleet") {
+      loadFleet();
+    } else {
+      loadDeviceDetail();
+      loadDailyStats();
+    }
+  });
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    refreshTimer = setInterval(function() {
+      if (currentView === "fleet") {
+        loadFleet();
+      } else {
+        loadDeviceDetail();
+      }
+    }, REFRESH_INTERVAL_MS);
+  }
+
+  function stopAutoRefresh() {
+    if (refreshTimer) {
+      clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+  }
+
+  // Init
+  function init() {
+    if (checkAuth()) {
+      loadFleet();
+      startAutoRefresh();
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
