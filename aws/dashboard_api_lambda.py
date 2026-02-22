@@ -370,6 +370,11 @@ def route_request(event):
 
 def lambda_handler(event, context):
     """Dashboard API entry point."""
+    # CORS preflight must bypass auth (browsers send OPTIONS without API key)
+    method = event.get("requestContext", {}).get("http", {}).get("method", "")
+    if method == "OPTIONS":
+        return json_response(200, {})
+
     auth_error = check_auth(event)
     if auth_error:
         return auth_error
