@@ -96,6 +96,26 @@ J1772_STATES = {
 }
 
 
+def compute_event_timestamp_ms(decoded, cloud_timestamp_ms):
+    """Return (effective_ms, source) for the event's DynamoDB sort key.
+
+    EVSE telemetry with a valid device timestamp uses device time (converted
+    to Unix ms) plus the sub-second fraction from cloud time for uniqueness.
+    Everything else falls back to cloud receive time.
+    """
+    if decoded.get('payload_type') == 'evse':
+        device_ts_unix = decoded.get('device_timestamp_unix')
+        device_ts_epoch = decoded.get('device_timestamp_epoch')
+        if device_ts_unix and device_ts_epoch and device_ts_epoch > 0:
+            cloud_ms_fraction = cloud_timestamp_ms % 1000
+            effective_ms = device_ts_unix * 1000 + cloud_ms_fraction
+            return effective_ms, 'device'
+        # Pre-sync (ts=0) or v0x06 without timestamp fields
+        return cloud_timestamp_ms, 'cloud_presync'
+    # Non-EVSE: OTA, diagnostics, scheduler commands
+    return cloud_timestamp_ms, 'cloud'
+
+
 def _build_time_sync_bytes(sc_epoch, watermark):
     """Build a 9-byte TIME_SYNC downlink payload.
 
@@ -558,7 +578,8 @@ def decode_payload(raw_payload_b64):
         }
 
 
-def store_transition_event(device_id, timestamp_ms, decoded):
+def store_transition_event(device_id, effective_ms, cloud_received_mt,
+                           timestamp_source, decoded):
     """Store an interlock transition event in DynamoDB (TASK-069).
 
     Written when the device reports a non-zero transition_reason, indicating
@@ -570,12 +591,14 @@ def store_transition_event(device_id, timestamp_ms, decoded):
 
     item = {
         'device_id': device_id,
-        'timestamp_mt': unix_ms_to_mt(timestamp_ms + 1),  # +1ms to avoid SK collision with telemetry
-        'ttl': int(timestamp_ms / 1000) + 7776000,  # 90-day retention
+        'timestamp_mt': unix_ms_to_mt(effective_ms + 1),  # +1ms to avoid SK collision with telemetry
+        'ttl': int(time.time()) + 7776000,  # 90-day retention from now
         'event_type': 'interlock_transition',
         'charge_allowed': charge_allowed,
         'transition_reason': reason,
         'transition_reason_code': reason_code,
+        'cloud_received_mt': cloud_received_mt,
+        'timestamp_source': timestamp_source,
     }
 
     # Include device-side timestamp if available
@@ -613,10 +636,12 @@ def lambda_handler(event, context):
         # Resolve SC-ID for use as PK across all tables
         sc_id = device_registry.generate_sc_short_id(wireless_device_id)
 
-        # Create DynamoDB item with SC-ID PK and Mountain Time SK
-        timestamp_ms = event.get('timestamp_override_ms') or int(time.time() * 1000)
-        timestamp_mt_str = unix_ms_to_mt(timestamp_ms)
-        ttl_seconds = int(timestamp_ms / 1000) + 7776000  # 90-day retention
+        # Compute timestamps: device time as SK when available, cloud time as fallback
+        cloud_timestamp_ms = event.get('timestamp_override_ms') or int(time.time() * 1000)
+        cloud_received_mt = unix_ms_to_mt(cloud_timestamp_ms)
+        effective_ms, timestamp_source = compute_event_timestamp_ms(decoded, cloud_timestamp_ms)
+        timestamp_mt_str = unix_ms_to_mt(effective_ms)
+        ttl_seconds = int(cloud_timestamp_ms / 1000) + 7776000  # 90-day retention (cloud time)
 
         item = {
             'device_id': sc_id,
@@ -632,6 +657,8 @@ def lambda_handler(event, context):
             'sidewalk_id': sidewalk_id,
             'timestamp_str': timestamp_str,
             'raw_payload': payload_data,
+            'cloud_received_mt': cloud_received_mt,
+            'timestamp_source': timestamp_source,
         }
 
         # Add decoded sensor data
@@ -714,7 +741,8 @@ def lambda_handler(event, context):
             if reason_code != 0:
                 try:
                     store_transition_event(
-                        sc_id, timestamp_ms, decoded)
+                        sc_id, effective_ms, cloud_received_mt,
+                        timestamp_source, decoded)
                 except Exception as e:
                     print(f"Transition event error: {e}")
         else:
@@ -730,7 +758,7 @@ def lambda_handler(event, context):
         if decoded.get('payload_type') == 'evse':
             try:
                 state_update = {
-                    ':seen': timestamp_mt_str,
+                    ':seen': cloud_received_mt,
                     ':wid': wireless_device_id,
                     ':j1772': decoded.get('j1772_state', 'UNKNOWN'),
                     ':pv': decoded.get('pilot_voltage_mv', 0),

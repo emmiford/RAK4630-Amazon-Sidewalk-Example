@@ -229,9 +229,10 @@ def log_command_event(command, reason, moer_percent, tou_peak):
     """Log each actual command sent with a real timestamp for audit."""
     now_iso = datetime.now(MT).isoformat()
     timestamp_ms = int(time.time() * 1000)
+    timestamp_mt = unix_ms_to_mt(timestamp_ms)
     item = {
         "device_id": _get_sc_id(),
-        "timestamp_mt": unix_ms_to_mt(timestamp_ms),
+        "timestamp_mt": timestamp_mt,
         "wireless_device_id": get_device_id(),
         "ttl": int(timestamp_ms / 1000) + 7776000,
         "event_type": "charge_scheduler_command",
@@ -240,6 +241,8 @@ def log_command_event(command, reason, moer_percent, tou_peak):
         "moer_percent": moer_percent if moer_percent is not None else "N/A",
         "tou_peak": tou_peak,
         "sent_at": now_iso,
+        "cloud_received_mt": timestamp_mt,
+        "timestamp_source": "cloud",
     }
     item = json.loads(json.dumps(item, default=str), parse_float=Decimal)
     table.put_item(Item=item)

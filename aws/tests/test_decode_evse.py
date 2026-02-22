@@ -1168,7 +1168,8 @@ class TestTransitionEventStorage:
         }
         with patch.object(decode, "table") as mock_table:
             mock_table.put_item = MagicMock()
-            decode.store_transition_event("test-device", 1000000, decoded)
+            decode.store_transition_event("test-device", 1000000,
+                                          "2026-01-01 00:00:00.000", "device", decoded)
 
         mock_table.put_item.assert_called_once()
         item = mock_table.put_item.call_args[1]["Item"]
@@ -1179,6 +1180,8 @@ class TestTransitionEventStorage:
         assert item["transition_reason_code"] == 1
         assert item["device_timestamp_unix"] == 1767312000
         assert item["device_timestamp_epoch"] == 86400
+        assert item["cloud_received_mt"] == "2026-01-01 00:00:00.000"
+        assert item["timestamp_source"] == "device"
 
     def test_transition_timestamp_offset(self):
         """Transition timestamp_mt is base +1ms to avoid SK collision."""
@@ -1189,7 +1192,8 @@ class TestTransitionEventStorage:
         }
         with patch.object(decode, "table") as mock_table:
             mock_table.put_item = MagicMock()
-            decode.store_transition_event("dev-1", 5000000, decoded)
+            decode.store_transition_event("dev-1", 5000000,
+                                          "2026-01-01 00:00:00.000", "device", decoded)
 
         item = mock_table.put_item.call_args[1]["Item"]
         # timestamp_mt should be unix_ms_to_mt(5000001) — +1ms offset
@@ -1204,8 +1208,217 @@ class TestTransitionEventStorage:
         }
         with patch.object(decode, "table") as mock_table:
             mock_table.put_item = MagicMock()
-            decode.store_transition_event("dev-1", 5000000, decoded)
+            decode.store_transition_event("dev-1", 5000000,
+                                          "2026-02-22 12:00:00.000", "cloud_presync", decoded)
 
         item = mock_table.put_item.call_args[1]["Item"]
         assert "device_timestamp_unix" not in item
         assert "device_timestamp_epoch" not in item
+        assert item["cloud_received_mt"] == "2026-02-22 12:00:00.000"
+        assert item["timestamp_source"] == "cloud_presync"
+
+
+# --- compute_event_timestamp_ms (ADR-007) ---
+
+class TestComputeEventTimestampMs:
+    """Tests for compute_event_timestamp_ms() — device vs cloud SK selection."""
+
+    def test_evse_with_valid_device_timestamp(self):
+        """EVSE payload with device_timestamp_epoch > 0 → device source."""
+        decoded = {
+            'payload_type': 'evse',
+            'device_timestamp_epoch': 86400,
+            'device_timestamp_unix': 86400 + decode.EPOCH_OFFSET,
+        }
+        cloud_ms = 1708425600789  # cloud has 789ms fraction
+        effective_ms, source = decode.compute_event_timestamp_ms(decoded, cloud_ms)
+        expected_ms = (86400 + decode.EPOCH_OFFSET) * 1000 + 789
+        assert effective_ms == expected_ms
+        assert source == 'device'
+
+    def test_evse_with_zero_timestamp(self):
+        """EVSE payload with device_timestamp_epoch=0 → cloud_presync."""
+        decoded = {
+            'payload_type': 'evse',
+            'device_timestamp_epoch': 0,
+            'device_timestamp_unix': None,
+        }
+        cloud_ms = 1708425600000
+        effective_ms, source = decode.compute_event_timestamp_ms(decoded, cloud_ms)
+        assert effective_ms == cloud_ms
+        assert source == 'cloud_presync'
+
+    def test_evse_v06_no_timestamp_fields(self):
+        """v0x06 payload without device_timestamp_epoch → cloud_presync."""
+        decoded = {
+            'payload_type': 'evse',
+        }
+        cloud_ms = 1708425600000
+        effective_ms, source = decode.compute_event_timestamp_ms(decoded, cloud_ms)
+        assert effective_ms == cloud_ms
+        assert source == 'cloud_presync'
+
+    def test_ota_payload_uses_cloud(self):
+        """OTA payload → cloud source."""
+        decoded = {'payload_type': 'ota', 'ota_type': 'ack'}
+        cloud_ms = 1708425600000
+        effective_ms, source = decode.compute_event_timestamp_ms(decoded, cloud_ms)
+        assert effective_ms == cloud_ms
+        assert source == 'cloud'
+
+    def test_diagnostics_payload_uses_cloud(self):
+        """Diagnostics payload → cloud source."""
+        decoded = {'payload_type': 'diagnostics'}
+        cloud_ms = 1708425600000
+        effective_ms, source = decode.compute_event_timestamp_ms(decoded, cloud_ms)
+        assert effective_ms == cloud_ms
+        assert source == 'cloud'
+
+    def test_two_events_same_device_second_different_cloud_fraction(self):
+        """Two events with same device-second but different cloud ms → different effective_ms."""
+        decoded = {
+            'payload_type': 'evse',
+            'device_timestamp_epoch': 86400,
+            'device_timestamp_unix': 86400 + decode.EPOCH_OFFSET,
+        }
+        eff1, _ = decode.compute_event_timestamp_ms(decoded, 1708425600123)
+        eff2, _ = decode.compute_event_timestamp_ms(decoded, 1708425600456)
+        assert eff1 != eff2
+        # Both should have the same second-part but different ms
+        assert eff1 // 1000 == eff2 // 1000
+        assert eff1 % 1000 == 123
+        assert eff2 % 1000 == 456
+
+
+# --- Handler integration: timestamp_source and cloud_received_mt (ADR-007) ---
+
+class TestHandlerTimestampSource:
+    """Verify lambda_handler stores timestamp_source and cloud_received_mt."""
+
+    def _make_event(self, raw_bytes, ts_override_ms=None):
+        event = {
+            "WirelessDeviceId": "test-device",
+            "PayloadData": encode_b64(raw_bytes),
+            "WirelessMetadata": {
+                "Sidewalk": {
+                    "LinkType": "LoRa", "Rssi": -80, "Seq": 42,
+                    "Timestamp": "2026-02-22T00:00:00Z",
+                    "SidewalkId": "sid-123",
+                }
+            },
+        }
+        if ts_override_ms is not None:
+            event["timestamp_override_ms"] = ts_override_ms
+        return event
+
+    def _make_v08(self, flags=0, timestamp=0):
+        return bytes([
+            0xE5, 0x08, 0x01,
+            0xA4, 0x0B,  # 2980 mV
+            0x00, 0x00,
+            flags,
+            timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+            (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+        ])
+
+    def test_evse_with_device_ts_has_device_source(self):
+        """EVSE telemetry with valid device timestamp → timestamp_source='device'."""
+        raw = self._make_v08(timestamp=86400)  # 1 day in device epoch
+        cloud_ms = 1708425600500
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw, ts_override_ms=cloud_ms), None)
+
+        item = mock_table.put_item.call_args[1]["Item"]
+        assert item["timestamp_source"] == "device"
+        assert "cloud_received_mt" in item
+        # SK should be based on device time, not cloud time
+        expected_device_mt = decode.unix_ms_to_mt((86400 + decode.EPOCH_OFFSET) * 1000 + 500)
+        assert item["timestamp_mt"] == expected_device_mt
+
+    def test_evse_presync_has_cloud_presync_source(self):
+        """EVSE telemetry with timestamp=0 → timestamp_source='cloud_presync'."""
+        raw = self._make_v08(timestamp=0)
+        cloud_ms = 1708425600000
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw, ts_override_ms=cloud_ms), None)
+
+        item = mock_table.put_item.call_args[1]["Item"]
+        assert item["timestamp_source"] == "cloud_presync"
+        assert item["timestamp_mt"] == decode.unix_ms_to_mt(cloud_ms)
+
+    def test_ota_has_cloud_source(self):
+        """OTA uplink → timestamp_source='cloud'."""
+        raw = struct.pack("<BBbHH", 0x20, 0x80, 0, 1, 1)
+        cloud_ms = 1708425600000
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "lambda_client"), \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw, ts_override_ms=cloud_ms), None)
+
+        item = mock_table.put_item.call_args[1]["Item"]
+        assert item["timestamp_source"] == "cloud"
+        assert item["cloud_received_mt"] == decode.unix_ms_to_mt(cloud_ms)
+
+    def test_buffered_event_gets_device_time_sk(self):
+        """Buffered event: device ts 1 hour ago, cloud ts now → SK uses device time."""
+        device_epoch = 3600  # 1 hour after device epoch start
+        device_unix = device_epoch + decode.EPOCH_OFFSET
+        # Cloud time is 1 hour later (event was buffered)
+        cloud_ms = (device_unix + 3600) * 1000 + 123
+
+        raw = self._make_v08(timestamp=device_epoch)
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw, ts_override_ms=cloud_ms), None)
+
+        item = mock_table.put_item.call_args[1]["Item"]
+        assert item["timestamp_source"] == "device"
+        # SK should be device time, NOT cloud time
+        expected_device_mt = decode.unix_ms_to_mt(device_unix * 1000 + 123)
+        expected_cloud_mt = decode.unix_ms_to_mt(cloud_ms)
+        assert item["timestamp_mt"] == expected_device_mt
+        assert item["timestamp_mt"] != expected_cloud_mt
+        # cloud_received_mt should be cloud time
+        assert item["cloud_received_mt"] == expected_cloud_mt
+
+    def test_last_seen_uses_cloud_received_mt(self):
+        """Device-state last_seen should use cloud_received_mt, not device time."""
+        raw = self._make_v08(timestamp=86400)
+        cloud_ms = 1708425600500
+        cloud_received_mt = decode.unix_ms_to_mt(cloud_ms)
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table") as mock_state, \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw, ts_override_ms=cloud_ms), None)
+
+        # last_seen in state_table should be cloud_received_mt
+        state_call = mock_state.update_item.call_args[1]
+        assert state_call["ExpressionAttributeValues"][":seen"] == cloud_received_mt
