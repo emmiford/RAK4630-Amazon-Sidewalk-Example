@@ -1,9 +1,9 @@
 # TASK-093: Clean up stale IoT rules and old Lambdas
 
-**Status**: not started
+**Status**: in progress
 **Priority**: P2
-**Owner**: Eliel
-**Branch**: —
+**Owner**: Oliver
+**Branch**: (done via CLI, no branch needed)
 **Size**: S (1 point)
 
 ## Description
@@ -35,8 +35,10 @@ The AWS account has 4 stale IoT topic rules and 2 old Lambda functions left over
 **Blocks**: none
 
 ## Acceptance Criteria
-- [ ] Stale IoT rules disabled or deleted
-- [ ] Old Lambda functions deleted
+- [x] Old Lambda functions deleted (7 total: 5 sidewalk-v1 + decode-evse-sidewalk + evse-monitor-decode-telemetry)
+- [x] 2 stale IoT rules deleted (sidewalk_evse_decoded, evse_sidewalk_telemetry)
+- [ ] 2 remaining stale IoT rules: `sidewalk_evse_to_dynamodb`, `sidewalk_v1_sidewalk_events_to_dynamodb_v2`
+- [ ] `sidewalk_debug_log` — evaluate keep/delete
 - [ ] Only one DynamoDB record per Sidewalk uplink (from `uplink-decoder`)
 - [ ] Verified with live device uplink: single correctly-decoded record
 
