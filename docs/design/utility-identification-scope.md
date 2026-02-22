@@ -75,7 +75,7 @@ Rationale:
 - **Cons**: Someone must enter the TOU data. For v1.0 with 1-2 utilities, this is manual (we type in the peak hours from the utility's tariff book).
 - **Schema** (proposed):
   ```
-  Table: sidecharge-tou-schedules
+  Table: evse-tou-schedules
   PK: utility_id (String, e.g. "xcel_co")
   SK: rate_plan (String, e.g. "re_tou")
 
@@ -100,7 +100,7 @@ Rationale:
 
 **Option (b): DynamoDB table, manually populated for the first 1-2 utilities.**
 
-- Add a `sidecharge-tou-schedules` DynamoDB table via Terraform.
+- Add a `evse-tou-schedules` DynamoDB table via Terraform.
 - Seed it with Xcel Colorado RE-TOU data (peak: weekdays 5-9 PM MT, year-round).
 - The scheduler Lambda reads the device's `utility_id` + `rate_plan` from the device registry, then reads the TOU schedule from this table.
 - When we add the 11th utility, consider a batch import script that reads USURDB data and writes to DynamoDB. That is a future task, not v1.0.
@@ -128,7 +128,7 @@ The US has ~66 balancing authorities. The mapping from utility to BA is mostly s
 
 **Static lookup in the TOU schedule DynamoDB table.**
 
-Add a `watttime_region` field to the `sidecharge-tou-schedules` table:
+Add a `watttime_region` field to the `evse-tou-schedules` table:
 
 ```
 xcel_co / re_tou:
@@ -164,7 +164,7 @@ EventBridge (rate: 5 min)
       2. For each device:
          a. Read device config: utility_id, rate_plan from registry
          b. Read TOU schedule: peak hours, timezone, watttime_region
-            from sidecharge-tou-schedules table (cache per utility)
+            from evse-tou-schedules table (cache per utility)
          c. Evaluate TOU: is_tou_peak(now, schedule)
          d. Evaluate MOER: get_moer_percent(watttime_region)
             (cache per region -- same BA for multiple devices)
@@ -180,7 +180,7 @@ EventBridge (rate: 5 min)
 
 2. **Add device iteration**: Replace `get_device_id()` (single device) with a query to the device registry for all `status="active"` devices.
 
-3. **Add config lookup**: New function `get_device_schedule(device)` that reads the device's `utility_id` and `rate_plan`, then fetches the TOU config from `sidecharge-tou-schedules`.
+3. **Add config lookup**: New function `get_device_schedule(device)` that reads the device's `utility_id` and `rate_plan`, then fetches the TOU config from `evse-tou-schedules`.
 
 4. **Parameterize TOU check**: `is_tou_peak(now_utc, schedule)` takes a schedule dict with `timezone`, `peak_weekdays`, `peak_start_hour`, `peak_end_hour`, `peak_months`.
 
@@ -194,7 +194,7 @@ EventBridge (rate: 5 min)
 
 ### IAM changes
 
-The scheduler Lambda needs read access to the device registry table (`sidecharge-device-registry`) and the TOU schedules table (`sidecharge-tou-schedules`). Add to Terraform.
+The scheduler Lambda needs read access to the device registry table (`evse-devices`) and the TOU schedules table (`evse-tou-schedules`). Add to Terraform.
 
 ### Scaling concern
 
@@ -210,7 +210,7 @@ The first 10 installations are all in Colorado Springs on Xcel Energy (PSCO regi
 
 | Item | Description | Effort |
 |------|-------------|--------|
-| **TOU schedules DynamoDB table** | `sidecharge-tou-schedules`, Terraform-managed. Seed with Xcel CO RE-TOU data. | S |
+| **TOU schedules DynamoDB table** | `evse-tou-schedules`, Terraform-managed. Seed with Xcel CO RE-TOU data. | S |
 | **Device registry `utility_id` + `rate_plan` fields** | Add to device registry schema (TASK-036 dependency). Default: `xcel_co` / `re_tou`. | S |
 | **Scheduler reads per-device config** | Replace hardcoded TOU/MOER with lookup from registry + TOU table. Iterate over active devices. | M |
 | **Per-device downlink routing** | `send_charge_command(device_id, ...)` instead of `get_device_id()` singleton. | S |

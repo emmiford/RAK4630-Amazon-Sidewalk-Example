@@ -1005,7 +1005,7 @@ Reference schedules for the top 5 US residential EV utility markets:
 
 **v1.0**: No per-device config. Hardcoded Xcel Colorado in the Lambda. One utility, one schedule.
 
-**v1.1**: TOU schedule table in DynamoDB (`sidecharge-tou-schedules`), keyed by `schedule_id`. Device registry (TASK-036) gains a `schedule_id` field that maps each device to its TOU schedule. The charge scheduler Lambda reads the device's `schedule_id` from the registry and loads the corresponding schedule. Devices without a `schedule_id` fall back to Xcel Colorado (backward-compatible default).
+**v1.1**: TOU schedule table in DynamoDB (`evse-tou-schedules`), keyed by `schedule_id`. Device registry (TASK-036) gains a `schedule_id` field that maps each device to its TOU schedule. The charge scheduler Lambda reads the device's `schedule_id` from the registry and loads the corresponding schedule. Devices without a `schedule_id` fall back to Xcel Colorado (backward-compatible default).
 
 **v1.1+ (optional)**: OpenEI API integration — on commissioning, automatically look up the utility from the install address and assign the default TOU schedule for that utility. Installer confirms or overrides.
 
@@ -1054,7 +1054,7 @@ Every SideCharge device needs a persistent identity in the cloud — who owns it
 
 2. **Installation enrichment (commissioning)**: During physical installation, the electrician provides customer and site information — owner name/email, install address, meter number. This data enables utility identification (section 4.5), customer support lookup, and fleet management. Until this step is completed, the device works but lacks the context needed for per-utility TOU scheduling.
 
-**DynamoDB Table**: `sidecharge-device-registry`
+**DynamoDB Table**: `evse-devices`
 
 | Field | Type | Set by | Description |
 |-------|------|--------|-------------|

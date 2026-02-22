@@ -150,7 +150,7 @@ cd aws/terraform && terraform apply
 - **decode Lambda**: Parses Sidewalk uplinks → DynamoDB
 - **charge scheduler Lambda**: TOU + WattTime demand response → charge control downlinks (EventBridge, every 5 min)
 - **OTA sender Lambda**: S3-triggered firmware chunk delivery with EventBridge retry
-- **DynamoDB**: Device events and state (`sidewalk-v1-device_events_v2`)
+- **DynamoDB**: Device events and state (`evse-events`)
 - **S3**: Firmware binaries (`evse-ota-firmware-dev`)
 
 ## Project Structure

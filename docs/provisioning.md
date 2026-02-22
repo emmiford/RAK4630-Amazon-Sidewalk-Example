@@ -196,7 +196,7 @@ If `sid mfg` shows keys as MISSING, the MFG partition was not flashed correctly 
 ```shell
 # Check for uplinks in DynamoDB
 aws dynamodb query \
-  --table-name sidewalk-v1-device_events_v2 \
+  --table-name evse-events \
   --key-condition-expression "device_id = :d" \
   --expression-attribute-values '{":d": {"S": "<device-id>"}}'  \
   --scan-index-forward --limit 5

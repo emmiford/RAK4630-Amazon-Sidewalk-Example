@@ -10,7 +10,7 @@
 
 ## 1. DynamoDB Table Design
 
-### 1.1 Primary Table: `sidecharge-device-registry`
+### 1.1 Primary Table: `evse-devices`
 
 **Billing**: PAY_PER_REQUEST (on-demand). At 1--10 devices this costs fractions of a cent. Scales to 1000+ without provisioned capacity planning.
 
@@ -44,7 +44,7 @@ The partition key is `device_id` (the short ID), not `sidewalk_id`. Reasons:
 2. The Sidewalk UUID is a lookup path, not the primary identity. A GSI on `sidewalk_id` handles that.
 3. The short ID is deterministically derived from the Sidewalk UUID, so there is a provable 1:1 mapping -- no ambiguity.
 
-**No sort key**. This is a registry, not a time series. Each device has exactly one record. The events table (`sidewalk-v1-device_events_v2`) already handles time-series telemetry with `device_id` + `timestamp`.
+**No sort key**. This is a registry, not a time series. Each device has exactly one record. The events table (`evse-events`) already handles time-series telemetry with `device_id` + `timestamp`.
 
 ### 1.2 Global Secondary Indexes (GSIs)
 
@@ -212,7 +212,7 @@ For production devices:
 
 ### 4.3 Relationship to Existing Events Table
 
-The device registry (`sidecharge-device-registry`) and the events table (`sidewalk-v1-device_events_v2`) are separate tables with different purposes:
+The device registry (`evse-devices`) and the events table (`evse-events`) are separate tables with different purposes:
 
 | | Registry Table | Events Table |
 |-|----------------|--------------|
@@ -451,7 +451,7 @@ Add to `aws/terraform/variables.tf`:
 variable "device_registry_table_name" {
   description = "Name of the DynamoDB table for device registry"
   type        = string
-  default     = "sidecharge-device-registry"
+  default     = "evse-devices"
 }
 ```
 
@@ -536,7 +536,7 @@ The decode Lambda is the integration point. It receives every uplink and is the 
 **New module-level setup** (add near top of file):
 
 ```python
-registry_table_name = os.environ.get('REGISTRY_TABLE', 'sidecharge-device-registry')
+registry_table_name = os.environ.get('REGISTRY_TABLE', 'evse-devices')
 registry_table = dynamodb.Table(registry_table_name)
 ```
 
@@ -697,7 +697,7 @@ The scheduler currently hardcodes a single device via `sidewalk_utils.get_device
 ```python
 def get_active_devices():
     """Query registry for all active devices."""
-    registry = dynamodb.Table(os.environ.get('REGISTRY_TABLE', 'sidecharge-device-registry'))
+    registry = dynamodb.Table(os.environ.get('REGISTRY_TABLE', 'evse-devices'))
     resp = registry.query(
         IndexName='status-last-seen-index',
         KeyConditionExpression='#st = :active',
@@ -783,7 +783,7 @@ DELETE /devices/{device_id}        # Decommission (sets status=returned)
 GET    /health                     # Fleet health summary
 ```
 
-Authentication: API key for MVP, Cognito for production (installer accounts). The API Lambda reads/writes the same `sidecharge-device-registry` table.
+Authentication: API key for MVP, Cognito for production (installer accounts). The API Lambda reads/writes the same `evse-devices` table.
 
 ### 8.3 Why Not an Installer App in v1.0
 

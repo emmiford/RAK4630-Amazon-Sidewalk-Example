@@ -1173,7 +1173,7 @@ is decoded and stored, and a time-sync downlink is sent if the device clock is s
 2. Check for OTA uplink (cmd type 0x20) → forward async to ota_sender Lambda
 3. Try raw EVSE decode (magic 0xE5) → v0x06, v0x07, v0x08, v0x09, or v0x0A
 4. Fall back to legacy sid_demo format
-5. Store decoded telemetry in DynamoDB (`sidewalk-v1-device_events_v2`)
+5. Store decoded telemetry in DynamoDB (`evse-events`)
 6. Call `maybe_send_time_sync()` — sends TIME_SYNC if sentinel is >24h old or missing
 7. Check `FLAG_CHARGE_NOW` in uplink — if set, write `charge_now_override_until`
    to the scheduler sentinel (`timestamp=0`) with the end of the current peak
@@ -1279,7 +1279,7 @@ delta info. See §5.7 for the full list of session state fields.
 
 ### 8.4 DynamoDB Schema
 
-**Table**: `sidewalk-v1-device_events_v2`
+**Table**: `evse-events`
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -1328,8 +1328,8 @@ and publishes a digest email via SNS.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEVICE_REGISTRY_TABLE` | `sidecharge-device-registry` | DynamoDB table for device registry |
-| `DYNAMODB_TABLE` | `sidewalk-v1-device_events_v2` | DynamoDB table for EVSE events |
+| `DEVICE_REGISTRY_TABLE` | `evse-devices` | DynamoDB table for device registry |
+| `DYNAMODB_TABLE` | `evse-events` | DynamoDB table for EVSE events |
 | `SNS_TOPIC_ARN` | (empty) | SNS topic ARN for alert delivery |
 | `HEARTBEAT_INTERVAL_S` | `900` | Device heartbeat interval in seconds |
 | `AUTO_DIAG_ENABLED` | `false` | Enable auto-diagnostics queries to unhealthy devices |
@@ -1349,7 +1349,7 @@ All AWS infrastructure is managed via Terraform (`aws/terraform/`). Never use
 Components:
 - IoT Wireless (Sidewalk destination + rule)
 - 4 Lambda functions (decode, scheduler, OTA sender, health digest)
-- DynamoDB tables (`sidewalk-v1-device_events_v2`, `sidecharge-device-registry`)
+- DynamoDB tables (`evse-events`, `evse-devices`)
 - S3 bucket (`evse-ota-firmware-dev`) for firmware binaries and baselines
 - EventBridge rules (scheduler schedule, OTA retry timer, daily health digest)
 - SNS topic for health digest email alerts

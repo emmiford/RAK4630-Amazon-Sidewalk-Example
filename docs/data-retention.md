@@ -9,7 +9,7 @@
 
 ## 1. Data Retention Rules
 
-### 1.1 Telemetry Events (`sidewalk-v1-device_events_v2`)
+### 1.1 Telemetry Events (`evse-events`)
 
 | Rule | Value | Mechanism |
 |------|-------|-----------|
@@ -20,7 +20,7 @@
 
 **How TTL works**: The decode Lambda sets a `ttl` attribute (Unix epoch seconds) on every DynamoDB item equal to the event timestamp plus 90 days (7,776,000 seconds). DynamoDB's built-in TTL process automatically deletes expired items. No manual cleanup required.
 
-### 1.2 Daily Aggregates (`sidecharge-daily-aggregates` — TASK-078)
+### 1.2 Daily Aggregates (`evse-daily-stats` — TASK-078)
 
 | Rule | Value | Mechanism |
 |------|-------|-----------|
@@ -48,7 +48,7 @@
 
 **Implementation**: `aws/aggregation_lambda.py` (TASK-078, deployed 2026-02-19).
 
-### 1.3 Device Registry (`sidecharge-device-registry` — TASK-036)
+### 1.3 Device Registry (`evse-devices` — TASK-036)
 
 | Rule | Value | Mechanism |
 |------|-------|-----------|

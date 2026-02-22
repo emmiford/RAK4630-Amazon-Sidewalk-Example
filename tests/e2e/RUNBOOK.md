@@ -11,7 +11,7 @@ Prerequisites: flashed device, Sidewalk gateway powered, AWS credentials configu
 - [ ] Run `app sid send`
 - [ ] Check DynamoDB:
   ```
-  aws dynamodb query --table-name sidewalk-v1-device_events_v2 \
+  aws dynamodb query --table-name evse-events \
     --key-condition-expression "device_id = :d AND #ts > :t" \
     --expression-attribute-names '{"#ts":"timestamp"}' \
     --expression-attribute-values '{":d":{"S":"b319d001-6b08-4d88-b4ca-4d2d98a6d43c"},":t":{"N":"0"}}' \
@@ -62,7 +62,7 @@ Prerequisites: flashed device, Sidewalk gateway powered, AWS credentials configu
 - [ ] Run `app sid send` to force an uplink
 - [ ] Query DynamoDB for latest event:
   ```
-  aws dynamodb query --table-name sidewalk-v1-device_events_v2 \
+  aws dynamodb query --table-name evse-events \
     --key-condition-expression "device_id = :d AND #ts > :t" \
     --expression-attribute-names '{"#ts":"timestamp"}' \
     --expression-attribute-values '{":d":{"S":"b319d001-6b08-4d88-b4ca-4d2d98a6d43c"},":t":{"N":"0"}}' \
