@@ -54,9 +54,12 @@ CHARGE_CONTROL_CMD = 0x10
 DELAY_WINDOW_SUBTYPE = 0x02
 MOER_WINDOW_DURATION_S = 1800   # 30-minute MOER pause windows
 HEARTBEAT_RESEND_S = 1800       # Re-send window if last send >30 min ago
-from protocol_constants import EPOCH_OFFSET
+import device_registry
+from protocol_constants import EPOCH_OFFSET, unix_ms_to_mt
 
 table = dynamodb.Table(TABLE_NAME)
+DEVICE_STATE_TABLE = os.environ.get('DEVICE_STATE_TABLE', 'evse-device-state')
+state_table = dynamodb.Table(DEVICE_STATE_TABLE)
 
 
 # --- WattTime API ---
@@ -153,11 +156,29 @@ def get_tou_peak_end_sc(now_mt):
 
 # --- DynamoDB State ---
 
+def _get_sc_id():
+    """Get SC-ID for the target device."""
+    return device_registry.generate_sc_short_id(get_device_id())
+
+
 def get_last_state():
-    """Read the last-sent command state (sentinel key with timestamp=0)."""
+    """Read scheduler state from device-state table."""
     try:
-        resp = table.get_item(Key={"device_id": get_device_id(), "timestamp": 0})
-        return resp.get("Item")
+        resp = state_table.get_item(Key={"device_id": _get_sc_id()})
+        item = resp.get("Item")
+        if not item:
+            return None
+        # Map device-state fields to scheduler sentinel format for compatibility
+        return {
+            "last_command": item.get("scheduler_last_command"),
+            "reason": item.get("scheduler_reason"),
+            "moer_percent": item.get("scheduler_moer_percent"),
+            "tou_peak": item.get("scheduler_tou_peak"),
+            "window_start_sc": item.get("scheduler_window_start_sc"),
+            "window_end_sc": item.get("scheduler_window_end_sc"),
+            "sent_unix": item.get("scheduler_sent_unix"),
+            "charge_now_override_until": item.get("charge_now_override_until"),
+        }
     except Exception as e:
         print(f"DynamoDB: get_last_state failed: {e}")
         return None
@@ -166,36 +187,53 @@ def get_last_state():
 def write_state(command, reason, moer_percent, tou_peak,
                 window_start_sc=None, window_end_sc=None, sent_unix=None,
                 charge_now_override_until=None):
-    """Write the current scheduler state to the sentinel key."""
+    """Write scheduler state to device-state table."""
     now_iso = datetime.now(MT).isoformat()
-    item = {
-        "device_id": get_device_id(),
-        "timestamp": 0,
-        "event_type": "charge_scheduler_state",
-        "last_command": command,
-        "reason": reason,
-        "moer_percent": moer_percent if moer_percent is not None else "N/A",
-        "tou_peak": tou_peak,
-        "updated_at": now_iso,
+    update_expr_parts = [
+        "scheduler_last_command = :cmd",
+        "scheduler_reason = :reason",
+        "scheduler_moer_percent = :moer",
+        "scheduler_tou_peak = :tou",
+        "scheduler_updated_at = :ts",
+    ]
+    expr_values = {
+        ":cmd": command,
+        ":reason": reason,
+        ":moer": str(moer_percent) if moer_percent is not None else "N/A",
+        ":tou": tou_peak,
+        ":ts": now_iso,
     }
     if window_start_sc is not None:
-        item["window_start_sc"] = window_start_sc
+        update_expr_parts.append("scheduler_window_start_sc = :ws")
+        expr_values[":ws"] = window_start_sc
     if window_end_sc is not None:
-        item["window_end_sc"] = window_end_sc
+        update_expr_parts.append("scheduler_window_end_sc = :we")
+        expr_values[":we"] = window_end_sc
     if sent_unix is not None:
-        item["sent_unix"] = sent_unix
+        update_expr_parts.append("scheduler_sent_unix = :su")
+        expr_values[":su"] = sent_unix
     if charge_now_override_until is not None:
-        item["charge_now_override_until"] = charge_now_override_until
-    item = json.loads(json.dumps(item, default=str), parse_float=Decimal)
-    table.put_item(Item=item)
+        update_expr_parts.append("charge_now_override_until = :cno")
+        expr_values[":cno"] = charge_now_override_until
+
+    update_expr = "SET " + ", ".join(update_expr_parts)
+    expr_values = json.loads(json.dumps(expr_values, default=str), parse_float=Decimal)
+    state_table.update_item(
+        Key={"device_id": _get_sc_id()},
+        UpdateExpression=update_expr,
+        ExpressionAttributeValues=expr_values,
+    )
 
 
 def log_command_event(command, reason, moer_percent, tou_peak):
     """Log each actual command sent with a real timestamp for audit."""
     now_iso = datetime.now(MT).isoformat()
+    timestamp_ms = int(time.time() * 1000)
     item = {
-        "device_id": get_device_id(),
-        "timestamp": int(time.time() * 1000),
+        "device_id": _get_sc_id(),
+        "timestamp_mt": unix_ms_to_mt(timestamp_ms),
+        "wireless_device_id": get_device_id(),
+        "ttl": int(timestamp_ms / 1000) + 7776000,
         "event_type": "charge_scheduler_command",
         "command": command,
         "reason": reason,

@@ -21,6 +21,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import boto3
+from protocol_constants import unix_ms_to_mt
 
 dynamodb = boto3.resource("dynamodb")
 
@@ -67,24 +68,28 @@ def get_all_active_devices():
 
 # --- Telemetry query ---
 
-def query_device_events(wireless_device_id, start_ms, end_ms):
+def query_device_events(device_id, start_ms, end_ms):
     """Query evse_telemetry events for a device in a time range.
 
-    Returns list of DynamoDB items sorted by timestamp ascending.
+    Uses SC-ID as PK and Mountain Time string range for SK.
+    Returns list of DynamoDB items sorted by timestamp_mt ascending.
     """
+    start_mt = unix_ms_to_mt(start_ms)
+    end_mt = unix_ms_to_mt(end_ms)
+
     events = []
     query_kwargs = {
         "KeyConditionExpression": "#did = :did AND #ts BETWEEN :start AND :end",
         "FilterExpression": "#et = :telemetry",
         "ExpressionAttributeNames": {
             "#did": "device_id",
-            "#ts": "timestamp",
+            "#ts": "timestamp_mt",
             "#et": "event_type",
         },
         "ExpressionAttributeValues": {
-            ":did": wireless_device_id,
-            ":start": start_ms,
-            ":end": end_ms,
+            ":did": device_id,
+            ":start": start_mt,
+            ":end": end_mt,
             ":telemetry": "evse_telemetry",
         },
         "ScanIndexForward": True,
@@ -136,7 +141,17 @@ def compute_aggregates(events, day_start_ms, day_end_ms):
     availability_pct = min(event_count / EXPECTED_UPLINKS_PER_DAY * 100, 100.0)
 
     # --- Longest gap (including midnight boundaries) ---
-    timestamps_ms = [int(e["timestamp"]) for e in events]
+    # Parse MT timestamp strings to ms for gap calculation
+    from datetime import datetime as _dt
+    from zoneinfo import ZoneInfo as _ZI
+    _mt = _ZI("America/Denver")
+    def _mt_to_ms(mt_str):
+        """Parse 'YYYY-MM-DD HH:MM:SS.mmm' MT string to Unix ms."""
+        main, ms_part = mt_str.rsplit(".", 1)
+        dt = _dt.strptime(main, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_mt)
+        return int(dt.timestamp() * 1000) + int(ms_part)
+
+    timestamps_ms = [_mt_to_ms(e["timestamp_mt"]) for e in events]
     gaps = []
     gaps.append(timestamps_ms[0] - day_start_ms)
     for i in range(1, len(timestamps_ms)):
@@ -158,7 +173,7 @@ def compute_aggregates(events, day_start_ms, day_end_ms):
 
     for i, event in enumerate(events):
         evse = event.get("data", {}).get("evse", {})
-        ts = int(event["timestamp"])
+        ts = timestamps_ms[i]
 
         current_ma = int(evse.get("current_draw_ma", 0) or 0)
         pilot_state = evse.get("pilot_state", "A")
@@ -180,7 +195,7 @@ def compute_aggregates(events, day_start_ms, day_end_ms):
 
         # Time-weighted: duration from this event to the next (or to day end)
         if i < len(events) - 1:
-            next_ts = int(events[i + 1]["timestamp"])
+            next_ts = timestamps_ms[i + 1]
         else:
             next_ts = day_end_ms
         duration_ms = next_ts - ts
@@ -275,7 +290,7 @@ def aggregate_device_day(device, date_str):
     day_start_ms = int(day_dt.timestamp() * 1000)
     day_end_ms = day_start_ms + 86_400_000
 
-    events = query_device_events(wireless_device_id, day_start_ms, day_end_ms)
+    events = query_device_events(device_id, day_start_ms, day_end_ms)
     aggregates = compute_aggregates(events, day_start_ms, day_end_ms)
 
     write_aggregate(device_id, wireless_device_id, date_str, aggregates)

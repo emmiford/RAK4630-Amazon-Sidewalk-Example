@@ -26,6 +26,7 @@ import time
 import boto3
 
 from sidewalk_utils import send_sidewalk_msg
+from protocol_constants import unix_ms_to_mt
 
 dynamodb = boto3.resource("dynamodb")
 sns = boto3.client("sns")
@@ -105,8 +106,7 @@ def check_device_health(device, now_unix):
 
     # Query recent fault events (last 24h)
     recent_faults = []
-    if wireless_id:
-        recent_faults = get_recent_faults(wireless_id, now_unix)
+    recent_faults = get_recent_faults(device_id, now_unix)
 
     # Determine unhealthy reasons
     unhealthy_reasons = identify_unhealthy_reasons(
@@ -140,21 +140,22 @@ def identify_unhealthy_reasons(online, recent_faults, app_version):
     return reasons
 
 
-def get_recent_faults(wireless_device_id, now_unix):
+def get_recent_faults(device_id, now_unix):
     """Query DynamoDB for fault events in the last 24 hours.
 
+    Uses SC-ID as PK and MT timestamp string range for SK.
     Returns list of fault type strings (e.g., ['fault_sensor', 'fault_interlock']).
     """
     faults_seen = set()
-    cutoff_ms = int((now_unix - 86400) * 1000)
+    cutoff_mt = unix_ms_to_mt(int((now_unix - 86400) * 1000))
 
     try:
         resp = events_table.query(
             KeyConditionExpression="#did = :did AND #ts > :cutoff",
-            ExpressionAttributeNames={"#did": "device_id", "#ts": "timestamp"},
+            ExpressionAttributeNames={"#did": "device_id", "#ts": "timestamp_mt"},
             ExpressionAttributeValues={
-                ":did": wireless_device_id,
-                ":cutoff": cutoff_ms,
+                ":did": device_id,
+                ":cutoff": cutoff_mt,
             },
             ScanIndexForward=False,
             Limit=100,
@@ -169,7 +170,7 @@ def get_recent_faults(wireless_device_id, now_unix):
                     faults_seen.add(fault_key)
 
     except Exception as e:
-        print(f"Fault query failed for {wireless_device_id}: {e}")
+        print(f"Fault query failed for {device_id}: {e}")
 
     return sorted(faults_seen)
 
@@ -201,21 +202,22 @@ def send_diagnostic_requests(health_list):
     return queried
 
 
-def get_recent_diagnostics(wireless_device_id, now_unix):
+def get_recent_diagnostics(device_id, now_unix):
     """Query DynamoDB for diagnostics responses in the last 24 hours.
 
+    Uses SC-ID as PK and MT timestamp string range for SK.
     Returns the most recent diagnostics dict, or None.
     """
-    cutoff_ms = int((now_unix - 86400) * 1000)
+    cutoff_mt = unix_ms_to_mt(int((now_unix - 86400) * 1000))
 
     try:
         resp = events_table.query(
             KeyConditionExpression="#did = :did AND #ts > :cutoff",
             FilterExpression="event_type = :dtype",
-            ExpressionAttributeNames={"#did": "device_id", "#ts": "timestamp"},
+            ExpressionAttributeNames={"#did": "device_id", "#ts": "timestamp_mt"},
             ExpressionAttributeValues={
-                ":did": wireless_device_id,
-                ":cutoff": cutoff_ms,
+                ":did": device_id,
+                ":cutoff": cutoff_mt,
                 ":dtype": "device_diagnostics",
             },
             ScanIndexForward=False,
@@ -227,7 +229,7 @@ def get_recent_diagnostics(wireless_device_id, now_unix):
             return items[0].get("data", {}).get("diagnostics")
 
     except Exception as e:
-        print(f"Diagnostics query failed for {wireless_device_id}: {e}")
+        print(f"Diagnostics query failed for {device_id}: {e}")
 
     return None
 
@@ -371,10 +373,7 @@ def lambda_handler(event, context):
     # Collect diagnostics responses from the last 24h
     diag_responses = {}
     for device in health_list:
-        wireless_id = device.get("wireless_device_id", "")
-        if not wireless_id:
-            continue
-        diag = get_recent_diagnostics(wireless_id, now_unix)
+        diag = get_recent_diagnostics(device["device_id"], now_unix)
         if diag:
             diag_responses[device["device_id"]] = diag
 

@@ -40,8 +40,10 @@ SCHEDULER_LAMBDA_NAME = os.environ.get('SCHEDULER_LAMBDA_NAME', 'charge-schedule
 REGISTRY_TABLE_NAME = os.environ.get('DEVICE_REGISTRY_TABLE', 'evse-devices')
 table = dynamodb.Table(TABLE_NAME)
 registry_table = dynamodb.Table(REGISTRY_TABLE_NAME)
+DEVICE_STATE_TABLE = os.environ.get('DEVICE_STATE_TABLE', 'evse-device-state')
+state_table = dynamodb.Table(DEVICE_STATE_TABLE)
 
-from protocol_constants import OTA_CMD_TYPE, OTA_SUB_ACK, OTA_SUB_COMPLETE, OTA_SUB_STATUS, EPOCH_OFFSET, TELEMETRY_MAGIC, DIAG_MAGIC
+from protocol_constants import OTA_CMD_TYPE, OTA_SUB_ACK, OTA_SUB_COMPLETE, OTA_SUB_STATUS, EPOCH_OFFSET, TELEMETRY_MAGIC, DIAG_MAGIC, unix_ms_to_mt
 
 # TIME_SYNC constants
 TIME_SYNC_CMD_TYPE = 0x30
@@ -113,22 +115,19 @@ def _build_time_sync_bytes(sc_epoch, watermark):
 
 
 def maybe_send_time_sync(device_id, device_timestamp=None):
-    """Send TIME_SYNC if no sentinel exists, sentinel is >24h old,
+    """Send TIME_SYNC if device-state has no sync record, record is >24h old,
     or device reports timestamp=0 (lost sync after reboot/reflash)."""
     device_needs_sync = device_timestamp is not None and device_timestamp == 0
     if not device_needs_sync:
         try:
-            resp = table.get_item(Key={
-                'device_id': device_id,
-                'timestamp': -2,
-            })
+            resp = state_table.get_item(Key={'device_id': device_id})
             item = resp.get('Item')
             if item:
-                last_sync = item.get('last_sync_unix', 0)
+                last_sync = int(item.get('time_sync_last_unix', 0))
                 if (int(time.time()) - last_sync) < TIME_SYNC_INTERVAL_S:
                     return  # Recently synced, skip
         except Exception as e:
-            print(f"TIME_SYNC sentinel read error: {e}")
+            print(f"TIME_SYNC state read error: {e}")
     else:
         print("Device reports ts=0 (unsynced), forcing TIME_SYNC")
 
@@ -140,45 +139,43 @@ def maybe_send_time_sync(device_id, device_timestamp=None):
     send_sidewalk_msg(payload)
     print(f"Sent TIME_SYNC: epoch={sc_epoch}, watermark={watermark}")
 
-    # Write sentinel
-    table.put_item(Item={
-        'device_id': device_id,
-        'timestamp': -2,
-        'event_type': 'time_sync_state',
-        'last_sync_unix': now_unix,
-        'last_sync_epoch': sc_epoch,
-    })
+    # Update device-state with sync info
+    state_table.update_item(
+        Key={'device_id': device_id},
+        UpdateExpression='SET time_sync_last_unix = :unix, time_sync_last_epoch = :epoch',
+        ExpressionAttributeValues={':unix': now_unix, ':epoch': sc_epoch},
+    )
 
 
 def check_scheduler_divergence(device_id, charge_allowed):
-    """Compare device's charge_allowed against scheduler sentinel.
+    """Compare device's charge_allowed against scheduler state in device-state table.
 
-    If the sentinel's last_command disagrees with the device state,
-    re-invoke the scheduler to re-send. A separate divergence tracker
-    (timestamp=-3) caps retries at DIVERGENCE_MAX_RETRIES.
+    If the scheduler's last_command disagrees with the device state,
+    re-invoke the scheduler to re-send. Divergence retry count is tracked
+    in the same device-state item.
     """
     now_unix = int(time.time())
 
-    # Read scheduler sentinel (timestamp=0)
+    # Read device state (contains scheduler + divergence fields)
     try:
-        resp = table.get_item(Key={'device_id': device_id, 'timestamp': 0})
+        resp = state_table.get_item(Key={'device_id': device_id})
     except Exception as e:
-        print(f"Divergence check: sentinel read error: {e}")
+        print(f"Divergence check: state read error: {e}")
         return
-    sentinel = resp.get('Item')
-    if not sentinel:
-        return  # No scheduler state yet
+    state = resp.get('Item')
+    if not state:
+        return  # No device state yet
 
-    last_command = sentinel.get('last_command')
+    last_command = state.get('scheduler_last_command')
     if last_command not in ('delay_window', 'allow'):
         return  # Only check when cloud explicitly sent a command
 
     # Grace period: skip if command was sent very recently
-    sent_unix = int(sentinel.get('sent_unix', 0))
+    sent_unix = int(state.get('scheduler_sent_unix', 0))
     if sent_unix and (now_unix - sent_unix) < DIVERGENCE_GRACE_S:
         return
 
-    # Determine expected device state from sentinel
+    # Determine expected device state from scheduler
     # delay_window → device should have charge_allowed=False
     # allow → device should have charge_allowed=True
     expected_allowed = (last_command == 'allow')
@@ -186,49 +183,44 @@ def check_scheduler_divergence(device_id, charge_allowed):
     if charge_allowed == expected_allowed:
         # No divergence — reset tracker if it was active
         try:
-            resp = table.get_item(Key={'device_id': device_id, 'timestamp': -3})
-            tracker = resp.get('Item')
-            if tracker and int(tracker.get('retry_count', 0)) > 0:
-                table.put_item(Item={
-                    'device_id': device_id,
-                    'timestamp': -3,
-                    'event_type': 'divergence_state',
-                    'retry_count': 0,
-                })
+            retry_count = int(state.get('divergence_retry_count', 0))
+            if retry_count > 0:
+                state_table.update_item(
+                    Key={'device_id': device_id},
+                    UpdateExpression='SET divergence_retry_count = :zero',
+                    ExpressionAttributeValues={':zero': 0},
+                )
                 print("Divergence resolved, tracker reset")
         except Exception as e:
             print(f"Divergence tracker reset error: {e}")
         return
 
     # Divergence detected
-    print(f"DIVERGENCE: sentinel={last_command}, device charge_allowed={charge_allowed}")
+    print(f"DIVERGENCE: scheduler={last_command}, device charge_allowed={charge_allowed}")
 
-    # Read divergence tracker
-    try:
-        resp = table.get_item(Key={'device_id': device_id, 'timestamp': -3})
-        tracker = resp.get('Item')
-        retry_count = int(tracker.get('retry_count', 0)) if tracker else 0
-    except Exception as e:
-        print(f"Divergence tracker read error: {e}")
-        retry_count = 0
+    retry_count = int(state.get('divergence_retry_count', 0))
 
     if retry_count >= DIVERGENCE_MAX_RETRIES:
         print(f"DIVERGENCE_RETRIES_EXHAUSTED: {retry_count} retries, "
-              f"sentinel={last_command}, device={charge_allowed}")
+              f"scheduler={last_command}, device={charge_allowed}")
         return
 
     # Increment tracker and re-invoke scheduler
     retry_count += 1
     try:
-        table.put_item(Item={
-            'device_id': device_id,
-            'timestamp': -3,
-            'event_type': 'divergence_state',
-            'retry_count': retry_count,
-            'last_divergence_unix': now_unix,
-            'sentinel_command': last_command,
-            'device_charge_allowed': charge_allowed,
-        })
+        state_table.update_item(
+            Key={'device_id': device_id},
+            UpdateExpression='SET divergence_retry_count = :cnt, '
+                           'divergence_last_unix = :ts, '
+                           'divergence_scheduler_cmd = :cmd, '
+                           'divergence_device_allowed = :dev',
+            ExpressionAttributeValues={
+                ':cnt': retry_count,
+                ':ts': now_unix,
+                ':cmd': last_command,
+                ':dev': charge_allowed,
+            },
+        )
     except Exception as e:
         print(f"Divergence tracker write error: {e}")
         return
@@ -247,31 +239,31 @@ def check_scheduler_divergence(device_id, charge_allowed):
 
 
 def handle_charge_now_override(device_id):
-    """Write charge_now_override_until to scheduler sentinel (ADR-003).
+    """Write charge_now_override_until to device-state table (ADR-003).
 
     Called when FLAG_CHARGE_NOW=1 in an uplink. Sets the override to the
     end of the current TOU peak window (9 PM MT for Xcel Colorado), or
     now + 4 hours if no peak window is active.
     """
     now_unix = int(time.time())
-    now_mt = datetime.fromtimestamp(now_unix, MT)
+    now_mt_dt = datetime.fromtimestamp(now_unix, MT)
 
     # If currently in TOU peak (weekdays 5-9 PM MT), override until 9 PM
-    if now_mt.weekday() < 5 and 17 <= now_mt.hour < 21:
-        peak_end = now_mt.replace(hour=21, minute=0, second=0, microsecond=0)
+    if now_mt_dt.weekday() < 5 and 17 <= now_mt_dt.hour < 21:
+        peak_end = now_mt_dt.replace(hour=21, minute=0, second=0, microsecond=0)
         override_until = int(peak_end.timestamp())
     else:
         override_until = now_unix + CHARGE_NOW_DEFAULT_DURATION_S
 
-    # Update sentinel — uses update_item to avoid overwriting scheduler fields
-    table.update_item(
-        Key={'device_id': device_id, 'timestamp': 0},
+    # Update device-state — uses update_item to avoid overwriting scheduler fields
+    state_table.update_item(
+        Key={'device_id': device_id},
         UpdateExpression='SET charge_now_override_until = :val',
         ExpressionAttributeValues={':val': override_until},
     )
-    override_mt = datetime.fromtimestamp(override_until, MT)
+    override_mt_dt = datetime.fromtimestamp(override_until, MT)
     print(f"Charge Now opt-out: set override_until={override_until} "
-          f"({override_mt.isoformat()})")
+          f"({override_mt_dt.isoformat()})")
 
 
 def decode_raw_evse_payload(raw_bytes):
@@ -578,7 +570,7 @@ def store_transition_event(device_id, timestamp_ms, decoded):
 
     item = {
         'device_id': device_id,
-        'timestamp': timestamp_ms + 1,  # +1ms to avoid PK collision with telemetry
+        'timestamp_mt': unix_ms_to_mt(timestamp_ms + 1),  # +1ms to avoid SK collision with telemetry
         'ttl': int(timestamp_ms / 1000) + 7776000,  # 90-day retention
         'event_type': 'interlock_transition',
         'charge_allowed': charge_allowed,
@@ -618,17 +610,22 @@ def lambda_handler(event, context):
         # Decode the sensor payload
         decoded = decode_payload(payload_data)
 
-        # Create DynamoDB item
+        # Resolve SC-ID for use as PK across all tables
+        sc_id = device_registry.generate_sc_short_id(wireless_device_id)
+
+        # Create DynamoDB item with SC-ID PK and Mountain Time SK
         timestamp_ms = int(time.time() * 1000)
+        timestamp_mt_str = unix_ms_to_mt(timestamp_ms)
         ttl_seconds = int(timestamp_ms / 1000) + 7776000  # 90-day retention
 
         item = {
-            'device_id': wireless_device_id,
-            'timestamp': timestamp_ms,
+            'device_id': sc_id,
+            'timestamp_mt': timestamp_mt_str,
+            'wireless_device_id': wireless_device_id,
             'ttl': ttl_seconds,
             'event_type': 'evse_telemetry',
             'device_type': 'evse',
-            'schema_version': '2.1',
+            'schema_version': '3.0',
             'link_type': link_type,
             'rssi': rssi,
             'seq': seq,
@@ -653,7 +650,7 @@ def lambda_handler(event, context):
                         InvocationType='Event',  # async
                         Payload=json.dumps({'ota_event': ota_event}),
                     )
-                    print(f"Forwarded OTA {ota_type} to {ota_lambda_name}")
+                    print(f"Forwarded OTA {ota_type} to {OTA_LAMBDA_NAME}")
                 except Exception as e:
                     print(f"Failed to invoke OTA Lambda: {e}")
 
@@ -694,21 +691,21 @@ def lambda_handler(event, context):
             # Auto-send TIME_SYNC on EVSE uplinks
             try:
                 device_ts = decoded.get('device_timestamp_epoch')
-                maybe_send_time_sync(wireless_device_id, device_timestamp=device_ts)
+                maybe_send_time_sync(sc_id, device_timestamp=device_ts)
             except Exception as e:
                 print(f"TIME_SYNC error: {e}")
 
             # Check scheduler divergence (TASK-071)
             try:
                 check_scheduler_divergence(
-                    wireless_device_id, decoded.get('charge_allowed', False))
+                    sc_id, decoded.get('charge_allowed', False))
             except Exception as e:
                 print(f"Divergence check error: {e}")
 
             # Charge Now override (TASK-064 / ADR-003)
             if decoded.get('charge_now'):
                 try:
-                    handle_charge_now_override(wireless_device_id)
+                    handle_charge_now_override(sc_id)
                 except Exception as e:
                     print(f"Charge Now override error: {e}")
 
@@ -717,7 +714,7 @@ def lambda_handler(event, context):
             if reason_code != 0:
                 try:
                     store_transition_event(
-                        wireless_device_id, timestamp_ms, decoded)
+                        sc_id, timestamp_ms, decoded)
                 except Exception as e:
                     print(f"Transition event error: {e}")
         else:
@@ -728,6 +725,35 @@ def lambda_handler(event, context):
 
         # Write to DynamoDB
         table.put_item(Item=item)
+
+        # Update device-state snapshot (best-effort)
+        if decoded.get('payload_type') == 'evse':
+            try:
+                state_update = {
+                    ':seen': timestamp_mt_str,
+                    ':wid': wireless_device_id,
+                    ':j1772': decoded.get('j1772_state', 'UNKNOWN'),
+                    ':pv': decoded.get('pilot_voltage_mv', 0),
+                    ':cur': decoded.get('current_ma', 0),
+                    ':ca': decoded.get('charge_allowed', False),
+                    ':cn': decoded.get('charge_now', False),
+                    ':cool': decoded.get('thermostat_cool', False),
+                    ':rssi': rssi,
+                    ':link': link_type,
+                }
+                state_table.update_item(
+                    Key={'device_id': sc_id},
+                    UpdateExpression=(
+                        'SET last_seen = :seen, wireless_device_id = :wid, '
+                        'j1772_state = :j1772, pilot_voltage_mv = :pv, '
+                        'current_draw_ma = :cur, charge_allowed = :ca, '
+                        'charge_now = :cn, thermostat_cool_active = :cool, '
+                        'rssi = :rssi, link_type = :link'
+                    ),
+                    ExpressionAttributeValues=state_update,
+                )
+            except Exception as e:
+                print(f"Device state update failed (non-fatal): {e}")
 
         # Update device registry (best-effort, never block event processing)
         try:
@@ -746,7 +772,7 @@ def lambda_handler(event, context):
             'statusCode': 200,
             'body': json.dumps({
                 'message': 'EVSE data processed',
-                'device_id': wireless_device_id,
+                'device_id': sc_id,
                 'decoded': decoded
             })
         }

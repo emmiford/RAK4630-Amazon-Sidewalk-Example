@@ -30,8 +30,11 @@ MAX_RETRIES = int(os.environ.get("OTA_MAX_RETRIES", "5"))
 CHUNK_DATA_SIZE = int(os.environ.get("OTA_CHUNK_SIZE", "15"))  # 15B data + 4B header = 19B (full LoRa MTU)
 
 table = dynamodb.Table(TABLE_NAME)
+DEVICE_STATE_TABLE = os.environ.get('DEVICE_STATE_TABLE', 'evse-device-state')
+state_table = dynamodb.Table(DEVICE_STATE_TABLE)
 
-from protocol_constants import OTA_CMD_TYPE, crc32
+import device_registry
+from protocol_constants import OTA_CMD_TYPE, crc32, unix_ms_to_mt
 
 # --- Protocol constants (must match ota_update.h) ---
 OTA_SUB_START = 0x01
@@ -96,44 +99,83 @@ def load_firmware(bucket, key):
     return data
 
 
-# --- Session state in DynamoDB (sentinel key: timestamp = -1) ---
+# --- Session state in device-state table (ADR-006) ---
+
+def _get_sc_id():
+    """Get SC-ID for the target device."""
+    return device_registry.generate_sc_short_id(get_device_id())
+
 
 def get_session():
-    """Read OTA session state."""
+    """Read OTA session state from device-state table."""
     try:
-        resp = table.get_item(Key={"device_id": get_device_id(), "timestamp": -1})
-        return resp.get("Item")
+        resp = state_table.get_item(Key={"device_id": _get_sc_id()})
+        item = resp.get("Item")
+        if not item or "ota_status" not in item:
+            return None
+        # Flatten ota_ prefix fields into a session dict
+        session = {}
+        for k, v in item.items():
+            if k.startswith("ota_"):
+                session[k[4:]] = v  # strip ota_ prefix
+            elif k in ("device_id",):
+                session[k] = v
+        session["updated_at"] = item.get("ota_updated_at", 0)
+        return session
     except Exception as e:
         print(f"get_session error: {e}")
         return None
 
 
 def write_session(session_data):
-    """Write OTA session state to sentinel key."""
-    item = {
-        "device_id": get_device_id(),
-        "timestamp": -1,
-        "event_type": "ota_session",
-        **session_data,
-        "updated_at": int(time.time()),
-    }
-    item = json.loads(json.dumps(item, default=str), parse_float=Decimal)
-    table.put_item(Item=item)
+    """Write OTA session state to device-state table."""
+    sc_id = _get_sc_id()
+    update_parts = []
+    expr_values = {}
+    for i, (k, v) in enumerate(session_data.items()):
+        if k in ("device_id", "timestamp", "event_type"):
+            continue
+        attr_name = f"ota_{k}" if not k.startswith("ota_") else k
+        placeholder = f":v{i}"
+        update_parts.append(f"{attr_name} = {placeholder}")
+        expr_values[placeholder] = v
+    # Always set updated_at
+    update_parts.append("ota_updated_at = :upd")
+    expr_values[":upd"] = int(time.time())
+
+    update_expr = "SET " + ", ".join(update_parts)
+    expr_values = json.loads(json.dumps(expr_values, default=str), parse_float=Decimal)
+    state_table.update_item(
+        Key={"device_id": sc_id},
+        UpdateExpression=update_expr,
+        ExpressionAttributeValues=expr_values,
+    )
 
 
 def clear_session():
-    """Delete OTA session state."""
+    """Remove OTA session fields from device-state."""
     try:
-        table.delete_item(Key={"device_id": get_device_id(), "timestamp": -1})
+        resp = state_table.get_item(Key={"device_id": _get_sc_id()})
+        item = resp.get("Item", {})
+        ota_keys = [k for k in item if k.startswith("ota_")]
+        if ota_keys:
+            remove_expr = "REMOVE " + ", ".join(ota_keys)
+            state_table.update_item(
+                Key={"device_id": _get_sc_id()},
+                UpdateExpression=remove_expr,
+            )
     except Exception as e:
         print(f"clear_session error: {e}")
 
 
 def log_ota_event(event_type, details):
-    """Log an OTA event with real timestamp."""
+    """Log an OTA event to the events table with SC-ID PK and MT timestamp SK."""
+    timestamp_ms = int(time.time() * 1000)
     item = {
-        "device_id": get_device_id(),
-        "timestamp": int(time.time() * 1000),
+        "device_id": _get_sc_id(),
+        "timestamp_mt": unix_ms_to_mt(timestamp_ms),
+        "wireless_device_id": get_device_id(),
+        "ttl": int(timestamp_ms / 1000) + 7776000,
         "event_type": event_type,
         **details,
     }
@@ -348,7 +390,7 @@ def handle_device_ack(ack_data):
                 flags=retry_flags,
             )
             write_session({**{k: v for k, v in session.items()
-                             if k not in ("device_id", "timestamp", "updated_at")},
+                             if k not in ("device_id", "updated_at")},
                            "restarts": restarts,
                            "status": "restarting"})
             send_sidewalk_msg(msg)
@@ -376,7 +418,7 @@ def handle_device_ack(ack_data):
 
         print(f"Retrying chunk {retry_idx} (attempt {retries})")
         write_session({**{k: v for k, v in session.items()
-                         if k not in ("device_id", "timestamp", "updated_at")},
+                         if k not in ("device_id", "updated_at")},
                        "next_chunk": int(next_chunk),
                        "retries": retries,
                        "status": "retrying"})
@@ -402,7 +444,7 @@ def handle_device_ack(ack_data):
         if delta_cursor >= len(delta_list):
             print("All delta chunks acknowledged, waiting for COMPLETE")
             write_session({**{k: v for k, v in session.items()
-                         if k not in ("device_id", "timestamp", "updated_at")},
+                         if k not in ("device_id", "updated_at")},
                            "status": "validating",
                            "delta_cursor": delta_cursor,
                            "highest_acked": chunks_received})
@@ -412,7 +454,7 @@ def handle_device_ack(ack_data):
         print(f"Delta: sending chunk {delta_cursor}/{len(delta_list)} (abs idx {abs_chunk_idx})")
 
         write_session({**{k: v for k, v in session.items()
-                         if k not in ("device_id", "timestamp", "updated_at")},
+                         if k not in ("device_id", "updated_at")},
                        "delta_cursor": delta_cursor,
                        "retries": 0,
                        "status": "sending",
@@ -433,14 +475,14 @@ def handle_device_ack(ack_data):
     if chunk_idx >= total_chunks:
         print("All chunks acknowledged, waiting for COMPLETE")
         write_session({**{k: v for k, v in session.items()
-                         if k not in ("device_id", "timestamp", "updated_at")},
+                         if k not in ("device_id", "updated_at")},
                        "status": "validating",
                        "next_chunk": chunk_idx,
                        "highest_acked": chunks_received})
         return {"statusCode": 200, "body": "all chunks sent, awaiting COMPLETE"}
 
     write_session({**{k: v for k, v in session.items()
-                     if k not in ("device_id", "timestamp", "updated_at")},
+                     if k not in ("device_id", "updated_at")},
                    "next_chunk": chunk_idx,
                    "retries": 0,
                    "status": "sending",
@@ -517,7 +559,7 @@ def handle_retry_check(event):
     print(f"Session stale ({elapsed}s), retrying: status={status} chunk={next_chunk}")
 
     write_session({**{k: v for k, v in session.items()
-                     if k not in ("device_id", "timestamp", "updated_at")},
+                     if k not in ("device_id", "updated_at")},
                    "retries": retries,
                    "status": "retrying"})
 
