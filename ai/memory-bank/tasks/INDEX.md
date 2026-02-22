@@ -67,7 +67,7 @@ Special: deferred, declined
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-107 | Device timestamp as DynamoDB sort key (ADR-007) | MERGED DONE | 2026-02-22 | Eliel |
-| TASK-106 | EVSE Fleet Dashboard + Table Migration (ADR-006) | MERGED DONE | 2026-02-21 | Eliel |
+| TASK-106 | EVSE Fleet Dashboard + Table Migration (ADR-006) | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-105 | Naming consistency audit and cleanup | MERGED DONE | 2026-02-21 | Utz |
 | TASK-101 | Build version tracking + release tooling | MERGED DONE | 2026-02-21 | Eliel+Pam+Utz |
 | TASK-100 | Remap firmware pins to RAK19007 WisBlock connector | MERGED DONE | 2026-02-19 | Eliel |

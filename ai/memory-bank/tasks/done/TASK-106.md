@@ -5,7 +5,7 @@
 **Owner**: Eliel
 **Branch**: `task/106-dashboard-migration`
 **Size**: XL (13 points)
-**Date completed**: 2026-02-21
+**Date completed**: 2026-02-22
 
 ## Summary
 Comprehensive DynamoDB table restructuring (ADR-006) + fleet monitoring dashboard. Renamed all tables to consistent `evse-*` scheme, normalized PK to SC-ID across all tables, changed event sort key from Unix ms to Mountain Time strings, added event-type GSI, extracted sentinel keys into dedicated `evse-device-state` table. Built dashboard API Lambda (4 routes) + single-file HTML frontend (dark theme, vanilla JS). Updated all 7 Lambda files, 6 test files, 10+ documentation files.
