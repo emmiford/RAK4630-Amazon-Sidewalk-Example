@@ -614,7 +614,7 @@ def lambda_handler(event, context):
         sc_id = device_registry.generate_sc_short_id(wireless_device_id)
 
         # Create DynamoDB item with SC-ID PK and Mountain Time SK
-        timestamp_ms = int(time.time() * 1000)
+        timestamp_ms = event.get('timestamp_override_ms') or int(time.time() * 1000)
         timestamp_mt_str = unix_ms_to_mt(timestamp_ms)
         ttl_seconds = int(timestamp_ms / 1000) + 7776000  # 90-day retention
 
