@@ -31,8 +31,8 @@ EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z
 
 WIRELESS_DEVICE_ID = "b319d001-6b08-4d88-b4ca-4d2d98a6d43c"
 DEVICE_SC_ID = "SC-C014EA63"
-DECODE_LAMBDA_NAME = "decode-evse"
-AGGREGATION_LAMBDA_NAME = "evse-aggregation"
+DECODE_LAMBDA_NAME = "uplink-decoder"
+AGGREGATION_LAMBDA_NAME = "daily-aggregation"
 
 MT = ZoneInfo("America/Denver")
 
