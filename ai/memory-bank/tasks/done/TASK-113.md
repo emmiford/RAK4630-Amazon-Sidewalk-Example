@@ -9,16 +9,19 @@
 ## Summary
 Board #2 (RAK4630 module) CC310 crypto accelerator is defective. `psa_generate_key()` for ECC P-256 hangs indefinitely even with BLE completely off (antenna removed). Root cause confirmed via custom `sid psa test` shell command that exercises PSA key IDs 3, 4, 5 without BLE — Phase 1 (destroy) succeeds, Phase 2 (generate) hangs every time.
 
-**Workaround found:** Cross-chip PSA ITS key transfer. PSA ITS keys (0xF6000, 8KB) are NOT HUK-encrypted — can be copied between chips via pyOCD. Registered cert5 on Board #1 (working CC310), saved PSA ITS, flashed to Board #2. Both boards now on separate certs and working over LoRa.
+**Workaround found:** Cross-chip PSA key transfer. Sidewalk registration keys are NOT HUK-encrypted — can be copied between chips via pyOCD. Registered cert5 on Board #1 (working CC310), saved full key range (0xF4000–0xFEFFF), flashed to Board #2. Both boards now on separate certs and working over LoRa.
+
+**Key storage discovery:** Fresh Sidewalk registrations store keys at **0xF5000** and **0xF7000**, NOT 0xF6000 (PSA ITS). The full range 0xF4000–0xFF000 must be captured. Earlier attempts using only 0xF6000 (PSA ITS) produced empty files.
 
 **Final board state:**
-- Board #1: original cert (restored after cert5 registration), LoRa working
+- Board #1: original cert (re-registered after factory reset), LoRa working
 - Board #2: cert5 (registered via Board #1, keys transferred), LoRa working
 
-**Board #2 limitations:** Cannot BLE-register independently. If chip-erased, restore from `cert5_psa_its.bin` + `mfg5.hex`.
+**Board #2 limitations:** Cannot BLE-register independently. If chip-erased, restore from `cert5_all_keys.bin` (0xF4000) + `mfg5.hex`/`mfg5.bin` (0xFF000).
 
 ## Deliverables
 - `sid psa test` shell command added to `platform_shell.c` (on branch `task/113-psa-test`)
 - Root cause: CC310 hardware defect (ECC P-256 key generation hangs)
 - Cross-chip PSA ITS key transfer procedure validated
-- Backup files in `sidewalk-projects/`: `board1_psa_its.bin`, `board1_mfg.bin`, `cert5_psa_its.bin`
+- Backup files in `sidewalk-projects/`: `board1_psa_its.bin`, `board1_mfg.bin`, `cert5_all_keys.bin` (0xF4000–0xFEFFF, 44KB), `mfg5.bin`, `mfg5.hex`
+- KI-004 documented in `docs/known-issues.md`
