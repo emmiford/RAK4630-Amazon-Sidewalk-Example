@@ -710,7 +710,7 @@
       devices.forEach(function(d) {
         var id = d.device_id || d.id || "unknown";
         var state = d.j1772_state || d.state || "--";
-        var current = d.current_ma != null ? d.current_ma : (d.current != null ? d.current : "--");
+        var current = d.current_draw_ma != null ? d.current_draw_ma : "--";
         var rssi = d.rssi != null ? d.rssi + " dBm" : "--";
         var lastSeen = d.last_seen || d.timestamp || d.updated_at;
 
@@ -778,15 +778,15 @@
     }
 
     apiFetch(path).then(function(data) {
-      // Populate status card
+      // Populate status card (data.device is the flat device dict)
       var dev = data.device || data;
       qs("#ds-status").innerHTML = onlineBadge(dev.online);
-      qs("#ds-j1772").textContent = dev.j1772_state || dev.state || "--";
-      qs("#ds-current").textContent = (dev.current_ma != null ? dev.current_ma + " mA" : (dev.current != null ? dev.current + " mA" : "--"));
-      qs("#ds-voltage").textContent = (dev.voltage != null ? dev.voltage + " V" : "--");
+      qs("#ds-j1772").textContent = dev.j1772_state || "--";
+      qs("#ds-current").textContent = (dev.current_draw_ma != null ? dev.current_draw_ma + " mA" : "--");
+      qs("#ds-voltage").textContent = (dev.pilot_voltage_mv != null ? dev.pilot_voltage_mv + " mV" : "--");
       qs("#ds-charge-allowed").textContent = dev.charge_allowed != null ? (dev.charge_allowed ? "Yes" : "No") : "--";
       qs("#ds-rssi").textContent = dev.rssi != null ? dev.rssi + " dBm" : "--";
-      qs("#ds-link").textContent = dev.link_type || dev.link || "--";
+      qs("#ds-link").textContent = dev.link_type || "--";
 
       // Events table
       var events = data.events || [];

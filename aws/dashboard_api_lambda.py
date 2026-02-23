@@ -81,6 +81,42 @@ def check_auth(event):
     return None
 
 
+# --- Shared helpers ---
+
+def _is_online(last_seen):
+    """Determine online status from a last_seen MT timestamp string."""
+    if not last_seen:
+        return False
+    try:
+        main_part = last_seen.rsplit(".", 1)[0]
+        dt = datetime.strptime(main_part, "%Y-%m-%d %H:%M:%S")
+        dt = dt.replace(tzinfo=MT)
+        age_s = time.time() - dt.timestamp()
+        return age_s < (HEARTBEAT_INTERVAL_S * OFFLINE_MULTIPLIER)
+    except (ValueError, IndexError):
+        return False
+
+
+def _flatten_device(registry, state):
+    """Build a flat, UI-ready device dict from registry + state records."""
+    last_seen = state.get("last_seen", "")
+    return {
+        "device_id": registry.get("device_id", state.get("device_id", "")),
+        "status": registry.get("status", "unknown"),
+        "wireless_device_id": registry.get("wireless_device_id", ""),
+        "online": _is_online(last_seen),
+        "last_seen": last_seen,
+        "j1772_state": state.get("j1772_state", ""),
+        "pilot_voltage_mv": state.get("pilot_voltage_mv"),
+        "current_draw_ma": state.get("current_draw_ma", 0),
+        "charge_allowed": state.get("charge_allowed"),
+        "charge_now": state.get("charge_now"),
+        "thermostat_cool_active": state.get("thermostat_cool_active"),
+        "rssi": state.get("rssi"),
+        "link_type": state.get("link_type", ""),
+    }
+
+
 # --- Route: GET /devices ---
 
 def get_devices():
@@ -106,37 +142,11 @@ def get_devices():
             break
         scan_kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
 
-    now = time.time()
     result = []
     for dev in devices:
         device_id = dev.get("device_id", "")
         state = states.get(device_id, {})
-        last_seen = state.get("last_seen", "")
-
-        # Determine online status from last_seen MT timestamp
-        online = False
-        if last_seen:
-            try:
-                main_part = last_seen.rsplit(".", 1)[0]
-                dt = datetime.strptime(main_part, "%Y-%m-%d %H:%M:%S")
-                dt = dt.replace(tzinfo=MT)
-                age_s = now - dt.timestamp()
-                online = age_s < (HEARTBEAT_INTERVAL_S * OFFLINE_MULTIPLIER)
-            except (ValueError, IndexError):
-                pass
-
-        result.append({
-            "device_id": device_id,
-            "status": dev.get("status", "unknown"),
-            "wireless_device_id": dev.get("wireless_device_id", ""),
-            "online": online,
-            "last_seen": last_seen,
-            "j1772_state": state.get("j1772_state", ""),
-            "current_draw_ma": state.get("current_draw_ma", 0),
-            "charge_allowed": state.get("charge_allowed"),
-            "rssi": state.get("rssi"),
-            "link_type": state.get("link_type", ""),
-        })
+        result.append(_flatten_device(dev, state))
 
     return json_response(200, {"devices": result, "count": len(result)})
 
@@ -199,10 +209,11 @@ def get_device_detail(device_id, window="1h", event_type=None):
     # Build event summaries
     summaries = [summarize_event(e) for e in events]
 
+    # Return flat device shape (same contract as GET /devices)
+    device = _flatten_device(registry, state)
+
     return json_response(200, {
-        "device_id": device_id,
-        "registry": registry,
-        "state": state,
+        "device": device,
         "events": summaries,
         "event_count": len(summaries),
         "window": window,

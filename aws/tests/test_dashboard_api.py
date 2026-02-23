@@ -184,7 +184,9 @@ class TestGetDeviceDetail:
 
         assert result["statusCode"] == 200
         body = parse_body(result)
-        assert body["device_id"] == "SC-AABB"
+        assert body["device"]["device_id"] == "SC-AABB"
+        assert body["device"]["j1772_state"] == "C"
+        assert body["device"]["online"] is not None  # computed, not missing
         assert body["event_count"] == 1
         assert body["events"][0]["event_type"] == "evse_telemetry"
 
