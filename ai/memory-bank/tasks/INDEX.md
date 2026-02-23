@@ -24,7 +24,7 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (22)
+## Open Tasks (21)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -34,7 +34,6 @@ Special: deferred, declined
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-113 | not started | — | Investigate Board #2 BLE registration failure (PSA reboot loop) | — |
 | TASK-102 | not started | — | Reflow RAK19001 even-row header pin solder joints | — |
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
@@ -66,6 +65,7 @@ Special: deferred, declined
 ## Completed Tasks (89)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-113 | Investigate Board #2 BLE registration failure (CC310 defect + key transfer workaround) | MERGED DONE | 2026-02-23 | Eliel |
 | TASK-109 | PRD §2.0.3a — Definitive pin name cross-reference table | MERGED DONE | 2026-02-22 | Pam |
 | TASK-104 | Apply SAADC errata workaround + validate AIN1 recovery | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-112 | Fix dashboard 500 — Lambda response exceeded 6MB payload limit | MERGED DONE | 2026-02-22 | Eliel |
