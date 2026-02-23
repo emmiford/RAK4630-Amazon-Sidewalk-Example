@@ -24,16 +24,17 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (24)
+## Open Tasks (22)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-104 | validated — ready to merge | Eliel | Apply SAADC errata workaround + validate AIN1 recovery (EXP-012 Phase 1) | — |
+| (none) | | | | |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
+| TASK-113 | not started | — | Investigate Board #2 BLE registration failure (PSA reboot loop) | — |
 | TASK-102 | not started | — | Reflow RAK19001 even-row header pin solder joints | — |
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
@@ -47,7 +48,6 @@ Special: deferred, declined
 | TASK-098 | not started | Eliel | Cloud v1.1 — Decode HEAT flag in Lambda + DynamoDB | TASK-097 |
 | TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | TASK-100 |
 | TASK-103 | not started | — | Validate external button and potentiometer hardware independently | TASK-102 |
-| TASK-109 | committed | Pam | PRD §2.0.3a — Definitive pin name cross-reference table | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
@@ -63,9 +63,11 @@ Special: deferred, declined
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (87)
+## Completed Tasks (89)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-109 | PRD §2.0.3a — Definitive pin name cross-reference table | MERGED DONE | 2026-02-22 | Pam |
+| TASK-104 | Apply SAADC errata workaround + validate AIN1 recovery | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-112 | Fix dashboard 500 — Lambda response exceeded 6MB payload limit | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-110 | Restore uplink deduplication in decode Lambda (ADR-008) | MERGED DONE | 2026-02-22 | Eliel+Utz |
 | TASK-111 | Fix dashboard detail view — normalize API contract | MERGED DONE | 2026-02-22 | Eliel+Utz |

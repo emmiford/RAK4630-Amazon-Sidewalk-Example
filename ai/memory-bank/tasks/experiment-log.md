@@ -731,7 +731,19 @@ Board #2 exhibits intermittent SWD communication failures during flash operation
 
 **Impact**: Multi-step flash sequences (MFG → platform → app) are unreliable — each step may require a module reseat. Single-step flashes sometimes succeed on first attempt. The `--frequency 1000000` (1MHz) flag helps but does not eliminate the issue.
 
-**Workaround**: After any SWD failure, unsnap and resnap the module, then retry. Verify each flash step with `sid mfg` / `sid status` before proceeding to the next.
+**Workaround**: After any SWD failure, unsnap and resnap the module, then retry. Verify each flash step with `sid mfg` / `sid status` before proceeding to the next. Best erase command: `pyocd erase --target nrf52840 --frequency 500000 --chip -Oconnect_mode=under-reset`.
+
+### Known Issue: Board #2 BLE Registration Failure (PSA Reboot Loop)
+Board #2 cannot complete Sidewalk BLE registration with ANY certificate. Tested with 3 unique certs (cert0=Board #1's, cert2, cert5). cert5 confirmed PROVISIONED (never registered) in AWS IoT Wireless. Pattern: BLE connects to Echo → `psa_destroy_key invalid id 3/4/5` → reboot → serial disconnects.
+
+**Critical discovery (2026-02-22)**: Board #2 requires the NanoDAP for power — it won't boot from USB alone on the RAK19007 baseboard. Three of four NanoDAP pins must be connected (VCC, SWDIO, SWCLK; GND not required). This suggests the RAK19007's USB power path to the module is broken, likely because the dead onboard DAPLink chip is in the power delivery path. The NanoDAP becomes the sole power source, but it may not supply enough current for BLE TX bursts (~10mA peak). Additionally, the active SWD data lines may interfere with BLE radio operation.
+
+**Possible root causes**: (1) NanoDAP insufficient current for BLE TX, (2) SWD interference with BLE radio, (3) PSA/HUK hardware defect on this module, (4) broken USB power path on baseboard.
+
+**Next steps**: See TASK-113. Try powering module independently (own USB port, external 3.3V, or different baseboard) with NanoDAP SWD lines disconnected.
+
+### Known Issue: Duplicate Certificate Files
+Six certificate JSON files in Downloads were actually only 3 unique certs. `certificate.json` = `cert3.json`, `cert2.json` = `certificate (1).json`, `certificate (2).json` = `certificate (3).json`. Confirmed by generating MFG hex from each and comparing MD5 hashes. All stale MFG hex files deleted; only `mfg5.hex` (from cert5/`certificate (3).json`) retained.
 
 ### Potentiometer wiring note
 The external pot has **protection resistors on both sides** (series resistors between pot and MCU pin, and between pot and supply). This limits fault current through the analog pin but does not protect against ESD (nanosecond pulse passes before resistor can limit).
