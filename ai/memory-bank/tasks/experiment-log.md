@@ -412,6 +412,82 @@
 
 ---
 
+### EXP-009b: Board #2 Potentiometer Overcurrent Incident — Partial Silicon Damage
+
+## Incident Report (reconstructed 2026-02-22 by Oliver)
+
+**Date**: ~2026-01-05
+**Board**: Board #2 (RAK4631). Device ID from MFG certificate does not reliably identify physical hardware.
+**Baseboard**: RAK19007 (only 1 analog pin on J11: AIN1/P0.31)
+**Firmware at time of incident**: Original RAK SDK demo (rak1901 temperature/humidity). No custom ADC or GPIO configuration. All pins in nRF52840 default reset state (disconnected input, high impedance). The EVSE monitor firmware was not written until Feb 1 (commit `e35af07`).
+
+## What Happened
+
+A small potentiometer was connected to the RAK19007 J11 header with protection resistors on both sides of the pot. The pot was turned up and **started to smoke**. Shortly thereafter, the board became unable to flash via its built-in USB/DAPLink interface.
+
+## Damage Assessment
+
+| Capability | Status | Evidence |
+|-----------|--------|----------|
+| Flash memory | **Working** | MFG, platform, and app all flashed via NanoDAP (external SWD programmer) |
+| SWD debug port | **Intermittent** | Responds but drops connection constantly. User confirms this is NOT loose wiring — stable wiring doesn't help. Flashing required dozens of retries; pyOCD's page-skip feature accumulated partial writes across attempts. |
+| USB interface / DAPLink | **Dead** | Cannot flash or connect via USB. NanoDAP required for all programming. |
+| AIN1 (P0.31) | **Possibly damaged** | A friend measured the pin as shorted to ground. Unconfirmed — may be floating input reading ~0V (indistinguishable without resistance measurement). |
+| BLE registration | **Not attempted** | Board was flashed but never completed first-boot BLE registration with an Echo gateway. |
+| Sidewalk key backup | **Not done** | Keys at `0xF8000` not backed up yet. |
+
+## Root Cause Analysis
+
+**The pot smoked because of excessive power dissipation through the pot's resistive element.** The MCU pin (P0.31, unconfigured high-impedance input on Jan 5) could not source or sink enough current to smoke anything (~5mA max from GPIO, and the pin wasn't even configured as output). The current path was the pot's power supply (3V3 from J11 header) → pot → GND.
+
+For a pot to smoke at 3.3V, total resistance must be very low:
+- 100Ω → 109mW (borderline for small trim pot rated 100-250mW)
+- 50Ω → 218mW (smoking)
+- 20Ω → 545mW (definitely smoking)
+
+The pot was described as "small" — likely a trim pot with low power rating.
+
+**The "coded as output" theory is ruled out.** On Jan 5, the firmware was the RAK SDK demo with no custom pin configuration. P0.31 was in nRF52840 default reset state (disconnected input). No firmware version in the git history ever configured P0.31 as a GPIO output.
+
+## Why the Board Became Partially Unflashable
+
+Two candidate damage mechanisms from the pot overcurrent:
+
+**Theory 1 — LDO thermal damage**: The RAK19007's onboard voltage regulator was trying to supply the short-circuit current through the pot. Sustained overcurrent overheated the LDO, permanently degrading it. Now produces marginal voltage on power-up → nRF52840 operates at edge of voltage spec → intermittent SWD, dead USB.
+
+**Theory 2 — nRF52840 latch-up**: If the 3V3 rail sagged during the overcurrent event and then recovered rapidly (when the pot burned open or was disconnected), the voltage transient could trigger CMOS latch-up in the nRF52840. Latch-up drives destructive current through chip internals. Damage pattern: flash memory survives (robust oxide), sensitive analog/digital peripherals (USB PHY, SWD timing, SAADC) degraded.
+
+Both theories are consistent with the observed behavior: flash writes work, SWD is intermittent even with stable wiring, USB is completely dead.
+
+## Recovery Path
+
+Board #2 is partially functional but unreliable. Options:
+1. **Continue with NanoDAP**: Accept intermittent SWD, complete BLE registration, back up Sidewalk keys, use as secondary test board
+2. **Write off**: Treat as parts donor. The board may never be reliable enough for development
+3. **Solder SWD wires**: Reduce connection resistance to see if SWD reliability improves (tests whether the issue is marginal signal integrity vs dead silicon)
+
+## Key Insight: nRF52840 AIN Naming Confusion
+
+A critical naming confusion was identified that affected the entire project from Feb 1 through Feb 19:
+
+| Label | nRF52840 SAADC | Physical Pin | WisBlock Connector (RAK4631) |
+|-------|---------------|-------------|------------------------------|
+| `NRF_SAADC_AIN0` | AIN0 | P0.02 | **Not on WisBlock connector** |
+| `NRF_SAADC_AIN1` | AIN1 | P0.03 | **Not on WisBlock connector** |
+| `NRF_SAADC_AIN7` | AIN7 | P0.31 | Pin 22, labeled **"AIN1"** on J11 |
+| WisBlock "AIN0" | AIN3 | P0.05 | Pin 21 |
+| WisBlock "AIN1" | AIN7 | P0.31 | Pin 22 |
+
+The original firmware (commit `e35af07`, Feb 1) used `NRF_SAADC_AIN0` (P0.02) for pilot voltage — a pin that is NOT routed to the WisBlock connector. All telemetry data from Feb 4–19 was from a floating, unconnected internal pin. The firmware was not corrected to read from P0.31 (the actual WisBlock AIN1 pad) until TASK-100 (commit `41ea3fe`, Feb 19).
+
+An intermediate commit on Feb 19 (`59102c3`) swapped pilot to `NRF_SAADC_AIN1` (P0.03) — also not on the WisBlock connector — likely due to the same naming confusion. This was superseded hours later by TASK-100.
+
+This naming mismatch means: **no real analog sensor data was ever collected before Feb 20 11:00 AM.** All prior telemetry (documented in `j1772-telemetry-analysis-2026-02.md`) was noise from floating pins. See that document's addendum for the full revised interpretation.
+
+## Status: DOCUMENTED — Board #2 is damaged, root cause recorded. Naming confusion identified and corrected in TASK-100. Board numbering corrected 2026-02-22 (was previously mislabeled as Board #1).
+
+---
+
 ### EXP-010: RAK19001 Baseboard Pin Mapping Validation — Connector Seating Failure
 
 ## Hypothesis
@@ -503,6 +579,14 @@ The RAK4631 module is not fully seated in the RAK19001 baseboard's 40-pin board-
 - **Board-to-board connectors are fragile.** The RAK WisBlock system uses Hirose DF40C-series connectors with 0.4mm pitch. These require significant, even pressure to seat fully. Partial seating can leave one row of contacts disconnected while the module appears physically attached.
 - **Always validate assumptions on new hardware before writing software workarounds.** The switch from RAK19007 to RAK19001 was assumed to be a drop-in replacement. A 5-minute continuity check on the connector would have caught this before any firmware changes were made.
 
+## Addendum (2026-02-22)
+
+Subsequent investigation revealed that the telemetry data from Feb 4–19 (analyzed in `j1772-telemetry-analysis-2026-02.md`) was **not** related to the RAK19001 connector seating failure. The firmware was reading from `NRF_SAADC_AIN0` (P0.02) — a pin not routed to the WisBlock connector — until TASK-100 remapped to `NRF_SAADC_AIN7` (P0.31) on Feb 19. All data before Feb 20 was floating-pin noise, not a hardware fault. The potentiometer was not connected until ~11 AM Feb 20.
+
+The connector seating failure (even-row pin pattern) remains valid and confirmed by EXP-010's pin-by-pin tests. However, AIN1 (P0.31, pin 22) may have an additional, independent failure: on Feb 20, connecting a voltmeter caused a board reset, after which P0.31 read 0mV permanently. This could be SAADC mux latch (recoverable via firmware) or ESD damage (permanent). See EXP-012 for the diagnostic protocol.
+
+See also: `j1772-telemetry-analysis-2026-02.md` addendum for the full revised interpretation.
+
 ## Status: CONCLUDED — Root cause identified (mechanical), firmware changes to be reverted
 
 ---
@@ -533,7 +617,7 @@ The RAK4631 module is not fully seated in the RAK19001 baseboard's 40-pin board-
 ### REC-008: SAADC Errata Workaround Retention Decision
 
 ## Hypothesis
-**Problem Statement**: EXP-010 added `nrf_saadc_disable(NRF_SAADC)` at boot as a workaround for the nRF52840 SAADC errata. The workaround did not fix the issue (root cause was mechanical), but the errata is real and could manifest in other scenarios (warm reboot, long uptime, sleep/wake cycles).
+**Problem Statement**: EXP-010 added `nrf_saadc_disable(NRF_SAADC)` at boot as a workaround for the nRF52840 SAADC errata. The workaround did not fix the issue (root cause was mechanical), but the underlying SAADC errata is real and could manifest in other scenarios (warm reboot, long uptime, sleep/wake cycles).
 **Hypothesis**: Keeping the SAADC disable-at-boot workaround as a defensive measure will prevent a potential future SAADC lockup, at negligible code/runtime cost.
 
 ## Experimental Design
@@ -544,8 +628,8 @@ The RAK4631 module is not fully seated in the RAK19001 baseboard's 40-pin board-
 **Metrics**: ADC accuracy after 1000 enable/disable cycles with and without the workaround
 **Duration**: 1 hour
 
-## Priority: Low
-**Rationale**: The workaround is 2 lines of code with zero runtime cost. Low risk to keep, but worth validating that it is actually the correct mitigation for the relevant errata.
+## Priority: **High** (elevated from Low, 2026-02-22)
+**Rationale**: EXP-012 Phase 1 will test whether the SAADC workaround recovers Board #1's grounded AIN1 pin. If Hypothesis A (SAADC mux latch) is confirmed, this workaround becomes a **permanent production requirement** — without it, any board reset during an active ADC sample could permanently ground an analog pin until the next firmware flash. The Feb 20 voltmeter incident on Board #1 is a plausible real-world trigger for this exact failure mode. See EXP-012 Phase 1 for the diagnostic protocol. Resolves jointly with TASK-104.
 
 ---
 
@@ -569,6 +653,272 @@ The RAK4631 module is not fully seated in the RAK19001 baseboard's 40-pin board-
 
 ---
 
+### EXP-011: Dashboard Data Generation — Lambda Replay + Serial Automation
+
+## Hypothesis
+**Problem Statement**: The EVSE Fleet Dashboard needed realistic multi-day telemetry data for development and testing, but accumulating real device data over LoRa would take weeks. Without representative data (charge sessions, faults, idle periods, OTA events, Charge Now overrides), dashboard features couldn't be validated.
+**Hypothesis**: Invoking the decode Lambda directly with firmware-format binary payloads and backdated timestamps will generate realistic dashboard data that exercises the full decode pipeline — bypassing only the LoRa radio hop.
+**Success Metrics**: DynamoDB populated with 14 days of realistic telemetry. Dashboard renders all event types correctly. Full end-to-end pipeline verified via serial automation.
+
+## Experimental Design
+**Type**: Tooling experiment — two complementary data generation approaches
+**Branch**: Part of `task/106-dashboard-migration` work
+**Implementation** (commit `cd08a27`):
+
+**Variant A — Lambda replay** (`aws/seed_dashboard_data.py`):
+- Builds firmware-format binary payloads (magic byte, version, J1772 state, pilot voltage, current, thermostat flags, device epoch)
+- Invokes the `uplink-decoder` Lambda directly with `timestamp_override_ms` for backdating
+- Generates 14 days of scenarios: idle, charge sessions, faults, wandering pilot, recovery, OTA, Charge Now overrides
+- Small Lambda change: `decode_evse_lambda.py` accepts optional `timestamp_override_ms` field (production uplinks don't include this, so behavior unchanged)
+
+**Variant B — Serial automation** (`aws/serial_data_gen.py`):
+- Connects to device serial port (`/dev/tty.usbmodem101`)
+- Cycles through J1772 simulation states via shell commands (`app evse a/b/c`, `app evse allow/pause`, `app sid send`)
+- Each uplink travels the full path: device → LoRa → Sidewalk → IoT Rule → decode Lambda → DynamoDB
+- Respects the 5s TX rate limiter
+
+## Results
+**Decision**: **GO** — Both approaches work, committed to main
+**Primary Metric Impact**: 14 days of realistic telemetry populated in DynamoDB in ~2 minutes (Lambda replay) vs real-time generation (serial automation).
+**Bug discovered**: The seed script exposed TASK-108 — `ev.timestamp` vs `ev.timestamp_mt` field mismatch in the dashboard frontend. The event table was showing "Invalid Date" because the frontend expected a field name that didn't match what the Lambda wrote.
+**Secondary benefit**: The `timestamp_override_ms` approach keeps the Lambda as the single source of truth for payload decoding. No separate data-import path needed.
+
+## Key Insights
+- Lambda replay that uses the real decode path is strictly better than writing DynamoDB records directly — it catches schema mismatches, decode bugs, and interlock logic issues that a raw DynamoDB put would miss.
+- The seed script's scenario library (idle → charge → fault → recovery) doubles as a regression suite for the decode pipeline.
+- Serial automation is slower but validates the full radio path. Use Lambda replay for volume, serial for end-to-end confidence.
+- The `timestamp_override_ms` pattern is a clean way to enable historical data injection without polluting the production code path.
+
+## Status: CONCLUDED — Shipped, both scripts in `aws/`
+
+---
+
+### EXP-012: Board #1 AIN1 Pin Recovery + RAK19001 Connector Validation
+
+> **Board numbering correction (2026-02-22)**: Board #1 and Board #2 labels were swapped in all prior documentation. Board #1 is physically marked "1" on the module. It is the board with (a) AIN1 grounded after the Feb 20 voltmeter incident, and (b) dead DAPLink (flashable via NanoDAP only). Board #2 is the board where the pot smoked ~Jan 5. This correction was applied across EXP-009b, EXP-012, and TASK-104.
+
+## Hypothesis
+**Problem Statement**: Board #1 (physically marked "1") has two overlapping pin problems:
+1. **P0.31 (AIN1) reads 0mV permanently** — after a voltmeter was connected on Feb 20, the board reset and AIN1 was grounded thereafter. This may be an SAADC analog mux latch (recoverable via firmware) or ESD damage to the pin's protection diode (permanent).
+2. **RAK19001 even-row connector seating failure** (EXP-010) — one row of the 40-pin Hirose DF40C connector has no electrical contact.
+
+These problems must be separated and addressed independently.
+
+**Hypothesis A (SAADC latch)**: The board reset on Feb 20 interrupted an active SAADC sample, latching the analog mux in a state that grounds P0.31 internally. Adding `nrf_saadc_disable(NRF_SAADC)` at boot will release the latch and restore AIN1. This is a known nRF52840 SAADC errata behavior.
+
+**Hypothesis B (ESD damage)**: The voltmeter probe injected an ESD pulse that permanently damaged P0.31's internal protection diode, creating a low-impedance path to ground. The pin is physically dead.
+
+**Success Metrics**: Determine which hypothesis is correct. If A: recover AIN1 via firmware. If B: confirm pin is dead and plan for alternate pin (AIN2/P0.04 on IO4). Then validate RAK19001 connector seating independently.
+
+## Hardware Inventory
+
+| Item | Status | Device ID | Notes |
+|------|--------|-----------|-------|
+| **Board #1** (RAK4631, marked "1") | Active dev board | (cert-based, not reliable HW ID) | Voltmeter incident Feb 20 → P0.31/AIN1 grounded (recovered via SAADC workaround). **DAPLink dead**. Flashable via NanoDAP only. |
+| **Board #2** (RAK4631) | Active dev board | (cert-based, not reliable HW ID) | Pot overcurrent ~Jan 5. **DAPLink dead**. Flashable via NanoDAP only. Intermittent SWD failures during flash (see KI below). |
+| **RAK19007 baseboard ×2** | Working | — | 3 pins on J11: AIN1 (P0.31), IO1 (P0.17), IO2 (P1.02) |
+| **RAK19001 baseboard** | Bad solder joints on even-row headers | — | 7+ IO pins. Even-row GPIOs work via back-side probe; front-side header pins have cold joints. Needs reflow. |
+| **RAK19011 baseboard** | Untested | — | Alternate baseboard. |
+| **NanoDAP** (external SWD programmer) | Working | `0700000100...` | Required for both boards (both onboard DAPLinks are dead). |
+
+### Known Issue: Both DAPLinks Dead
+Neither Board #1 nor Board #2 has a working onboard DAPLink programmer. Board #1 was known; Board #2 was discovered during EXP-012 when `pyocd list` showed no probes with only Board #2 connected. Both boards require the external NanoDAP for all flash operations.
+
+### Known Issue: Power Brownout During Flash (Board #2)
+Board #2 exhibits intermittent SWD communication failures during flash operations via NanoDAP. **Observed behavior**: the red LED on the baseboard dims and flashes rapidly, after which pyOCD reports "SWD/JTAG communication failure (No ACK)." The operator must physically unsnap the RAK4631 module from the baseboard and resnap it to restore communication. This happens during most flash operations and occasionally at other times.
+
+**Likely cause**: Flash erase/write operations draw significantly more current than normal operation. If the baseboard power supply cannot sustain the peak current, the module browns out, resetting the SWD debug interface. The snap-unsnap cycle power-cycles the module and re-establishes the SWD connection.
+
+**Impact**: Multi-step flash sequences (MFG → platform → app) are unreliable — each step may require a module reseat. Single-step flashes sometimes succeed on first attempt. The `--frequency 1000000` (1MHz) flag helps but does not eliminate the issue.
+
+**Workaround**: After any SWD failure, unsnap and resnap the module, then retry. Verify each flash step with `sid mfg` / `sid status` before proceeding to the next.
+
+### Potentiometer wiring note
+The external pot has **protection resistors on both sides** (series resistors between pot and MCU pin, and between pot and supply). This limits fault current through the analog pin but does not protect against ESD (nanosecond pulse passes before resistor can limit).
+
+## Experimental Design
+
+**Type**: Multi-phase diagnostic — firmware test, then resistance measurement, then connector validation
+
+### Phase 1 — SAADC Latch Test (Board #1 on RAK19007, non-invasive)
+
+This tests Hypothesis A. Can be done on the current RAK19007 setup before touching the RAK19001.
+
+**Step 1.1 — Resistance measurement (board powered OFF)** — SKIPPED (2026-02-22, no multimeter available)
+- Remove Board #1 from baseboard
+- Multimeter: measure resistance from P0.31 pad to GND pad on the module itself
+- **If near 0Ω**: ESD diode is blown → Hypothesis B confirmed → P0.31 is dead → skip to Phase 2
+- **If high impedance (MΩ)**: No physical damage → Hypothesis A likely → proceed to Step 1.2
+- **Decision**: Proceed directly to Step 1.2. The firmware test is non-destructive and will give us diagnostic signal either way — if AIN1 recovers, Theory A is confirmed regardless of the resistance measurement.
+
+**Step 1.2 — Firmware SAADC workaround build** — DONE (2026-02-22)
+Build and flash firmware with the SAADC disable workaround (from TASK-104 implementation reference):
+```c
+#include <hal/nrf_saadc.h>
+// At top of platform_adc_init(), before adc_initialized check:
+nrf_saadc_disable(NRF_SAADC);
+```
+Flashed to Board #1 on RAK19007 via NanoDAP. Branch `task/104-saadc-errata-workaround`, 454KB programmed successfully. Also fixed pre-existing `leds_id_t` build error. Board boots, serial shell responds, Sidewalk init OK.
+Initial `app evse status` with nothing connected to J11: **Pilot voltage: 0 mV**. This is expected with no pot connected — need Step 1.3 to determine if pin is alive.
+
+**Step 1.3 — AIN1 ADC test** — DONE (2026-02-22) — **AIN1 IS ALIVE**
+- Touched 3V3 (pin 5) to AIN1 (pin 22) on RAK19001 J10/J15 headers
+- `app evse status` reported: **Pilot voltage: 3301–3343 mV**
+- Pin bounced between 3300 mV and 0 mV as wire was touched/released — expected behavior
+- **RESULT: Hypothesis A confirmed** → SAADC analog mux latch was the cause → `nrf_saadc_disable(NRF_SAADC)` at boot released the latch → AIN1 (P0.31) is fully recovered
+- **Partial finding**: Pin 22 (even row) works — but see Step 1.5 below for the full picture
+- **Decision**: Keep `nrf_saadc_disable()` workaround permanently as a production safety measure. Merge TASK-104 to main.
+- **Complete Phase 1 picture (2026-02-22)**: The AIN1 recovery via SAADC workaround is definitive. Combined with Step 1.6 (back-side probe confirming all even-row GPIOs work), Phase 1 establishes: (a) the nRF52840 silicon is fine on both boards, (b) the Hirose DF40C board-to-board connector is fine, (c) the only hardware fault is bad solder joints on the RAK19001's hand-soldered header pins. Additionally, both boards have dead onboard DAPLink programmers (Board #1 from the Feb 20 voltmeter incident brownout, Board #2 from the Jan 5 pot overcurrent incident), requiring the external NanoDAP for all flash operations. Board #2 also exhibits intermittent SWD brownout during flash (red LED dims, "No ACK" errors, requires module reseat).
+
+**Step 1.5 — Even-row GPIO test (all at once)** — DONE (2026-02-22)
+- Built throwaway firmware on branch `exp/012-even-pin-test` (from task-104)
+- Configured IO2 (P1.02), IO4 (P0.04), IO6 (P0.10) as pull-down inputs
+- Added `app io read` shell command to read all three GPIOs + AIN1 ADC simultaneously
+- Overlay: changed cool_call from PULL_UP|ACTIVE_LOW to PULL_DOWN|ACTIVE_HIGH; added io4_test and io6_test nodes
+- Platform: added gpio_dt_spec structs, GPIO_PIN_4/GPIO_PIN_6 indices, init + read cases
+- App: added shell_io_read() function, `app io read` dispatch
+- Touched 3V3 to each even-row pin:
+
+| Pin | WisBlock Label | nRF52840 | Connector Pin | Result |
+|-----|---------------|----------|---------------|--------|
+| 22  | AIN1          | P0.31    | even          | **3301–3343 mV** — PASS |
+| 30  | IO2           | P1.02    | even          | LOW — **FAIL** |
+| 32  | IO4           | P0.04    | even          | LOW — **FAIL** |
+| 38  | IO6           | P0.10    | even          | LOW — **FAIL** |
+
+- **RESULT**: Only pin 22 makes contact via front-side headers. Pins 30, 32, 38 fail via front.
+
+**Step 1.6 — Back-side probe of even-row pins** — DONE (2026-02-22)
+- Probed even-row pins from the **back side** of the RAK19001 PCB (bypassing soldered header pins)
+- **All even-row pins work** when probed from the back — IO2, IO4, IO6 all read HIGH with 3V3 applied
+- **ROOT CAUSE IDENTIFIED**: The hand-soldered header pin row on the RAK19001 has **cold/bad solder joints** on the even row. The Hirose board-to-board connector and the nRF52840 GPIOs are both fine.
+- This fully explains EXP-010's even-row failure pattern — it was never a connector seating issue, it was bad header solder joints on the baseboard.
+- **Fix**: Reflow or resolder the even-row header pins on the RAK19001. No firmware or connector work needed.
+
+**Step 1.4 — If AIN1 is dead, test AIN2 fallback**
+- Remap pilot ADC to `NRF_SAADC_AIN2` (P0.04 / IO4) — the ain2-swap branch already has this change
+- Requires RAK19001 or RAK19011 baseboard (IO4 is not on RAK19007 J11)
+- This consumes an IO pin but provides a working analog input
+
+### Phase 2 — RAK19001 Connector Validation (Board #1)
+
+> **SUPERSEDED (2026-02-22)**: Steps 2.1–2.6 below were designed to diagnose a suspected Hirose DF40C connector seating failure. Step 1.6 (back-side probe) identified the actual root cause: **cold/bad solder joints on the hand-soldered even-row header pins** on the RAK19001 baseboard. The Hirose board-to-board connector is fine — all even-row GPIOs respond correctly when probed from the back side of the PCB, bypassing the header pins. The fix is straightforward: reflow/resolder the even-row header pins on the RAK19001. No connector reseat, baseboard swap, or firmware changes are needed.
+>
+> **Summary of Phase 2 resolution**:
+> - **Root cause**: Cold/bad solder joints on hand-soldered even-row header pins on RAK19001
+> - **Evidence**: All even-row GPIOs (IO2, IO4, IO6) read correctly via back-side PCB probe; fail only via front-side header pins
+> - **Fix**: Reflow or resolder the even-row header pins on the RAK19001
+> - **Hirose DF40C connector**: Confirmed working — not the source of EXP-010's even-row failures
+> - **Steps 2.1–2.6**: No longer needed. Retained below as historical record.
+
+<details>
+<summary>Original Phase 2 steps (superseded by Step 1.6 findings — click to expand)</summary>
+
+Proceed regardless of Phase 1 outcome — the connector issue is independent.
+
+**Step 2.1 — Physical reseat**
+- Remove Board #1 from RAK19001 baseboard completely
+- Inspect both connector rows for bent pins, debris, or oxidation
+- Reseat with firm, even pressure until both rows of the Hirose DF40C click into place
+- Visual check: module sits flat and level on baseboard, no tilt
+
+**Step 2.2 — Continuity check (before firmware)**
+Multimeter continuity test on all even-row pins:
+| Pin | WisBlock Label | nRF52840 | EXP-010 Result |
+|-----|---------------|----------|---------------|
+| 22 | AIN1 | P0.31 | FAIL |
+| 30 | IO2 | P1.02 | FAIL |
+| 32 | IO4 | P0.04 | FAIL |
+| 38 | IO6 | P0.10 | FAIL |
+
+Also verify odd-row pins (sanity check): pins 29, 31, 37.
+**STOP if continuity fails** — swap to RAK19011 baseboard and retest (isolates baseboard vs connector).
+
+**Step 2.3 — GPIO output test (charge_block LED toggle)**
+| Test | Pin | nRF52840 GPIO | Expected |
+|------|-----|---------------|----------|
+| 2.3a | IO2 / pin 30 | P1.02 (gpio1 2) | PASS |
+| 2.3b | IO4 / pin 32 | P0.04 (gpio0 4) | PASS |
+| 2.3c | IO6 / pin 38 | P0.10 (gpio0 10) | PASS |
+
+Method: Assign `charge_block` to each pin, `app evse allow` / `app evse pause` — visual LED toggle.
+
+**Step 2.4 — GPIO input test (wire short to GND)**
+| Test | Pin | nRF52840 GPIO | Expected |
+|------|-----|---------------|----------|
+| 2.4a | IO2 / pin 30 | P1.02 (gpio1 2) | PASS |
+| 2.4b | IO4 / pin 32 | P0.04 (gpio0 4) | PASS |
+| 2.4c | IO6 / pin 38 | P0.10 (gpio0 10) | PASS |
+
+Method: Wire short pin to GND, verify `app hvac status` shows `cool=1`. Remove wire, verify `cool=0`.
+
+**Step 2.5 — ADC test (AIN1 + AIN2)**
+| Test | Pin | nRF52840 Analog | Expected |
+|------|-----|-----------------|----------|
+| 2.5a | AIN1 / pin 22 | P0.31 / AIN7 | Correct voltage (if Phase 1 recovered it) or 0mV (if dead) |
+| 2.5b | IO4 / pin 32 | P0.04 / AIN2 | Correct voltage |
+
+Method: Potentiometer (with protection resistors) to pin, sweep range, compare against multimeter reference.
+
+**Step 2.6 — Baseboard swap (if Step 2.2 fails)**
+If continuity fails on even pins after reseat:
+- Move Board #1 to **RAK19011** baseboard
+- Repeat Step 2.2 continuity check
+- **If RAK19011 passes**: RAK19001 baseboard is faulty
+- **If RAK19011 also fails**: Board #1 module connector is damaged
+
+</details>
+
+### Phase 3 — Final Pin Assignment Decision
+
+**Outcome (2026-02-22): AIN1 recovered + Connector fine (bad solder)**
+
+This matches the first row of the decision matrix below. Decisions:
+
+1. **Use original pin map** — AIN7/P0.31 for pilot voltage. No pin reassignment needed.
+2. **Keep SAADC workaround permanently** — `nrf_saadc_disable(NRF_SAADC)` at boot is now a production requirement. Without it, any board reset during an active ADC sample could re-latch the analog mux and ground the pin until next firmware flash. Merge TASK-104 to main.
+3. **Reflow RAK19001 header pins when needed** — the even-row solder joints need rework before the RAK19001 can be used for v1.1 features (TASK-095/096/097/098). This is a 10-minute soldering task, not a blocker for current development.
+4. **RAK19007 is sufficient for now** — it has AIN1 on J11 (P0.31), IO1 (P0.17), and IO2 (P1.02). Current v1.0 firmware only needs pilot ADC + charge_block GPIO + cool_call GPIO, all of which are available on RAK19007.
+
+Original decision matrix (retained for reference):
+
+| Phase 1 Result | Phase 2 Result | Action |
+|---------------|---------------|--------|
+| **AIN1 recovered (latch)** | **Connector fine (bad solder)** | **<-- THIS OUTCOME.** Use original pin map (AIN7 pilot). Keep SAADC workaround permanently. Reflow header pins when RAK19001 needed. |
+| AIN1 recovered (latch) | Connector still broken | Stay on RAK19007 (3 pins) or try RAK19011. Keep SAADC workaround. |
+| AIN1 dead (ESD) | Connector fixed | Use AIN2 (P0.04/IO4) for pilot on RAK19001. Costs one IO pin. |
+| AIN1 dead (ESD) | Connector still broken | Stay on RAK19007, no analog input available. Escalate to new module. |
+
+## Metrics
+- **Primary**: Is P0.31 recoverable? (Yes/No — determines v1.1 pin budget)
+- **Secondary**: Pass/fail on each even-row pin after connector reseat (4 pins × output + input)
+- **Tertiary**: Voltage accuracy on working ADC pins (±50mV of multimeter reference)
+- **Guardrail**: No regressions on odd-row pins (IO1, IO3, IO5)
+
+## Priority: **Critical** — Blocks all v1.1 hardware features (TASK-095 → 096 → 097 → 098) and determines whether TASK-104 workaround ships permanently
+
+## Status: Phase 1 COMPLETE, Phase 2 SUPERSEDED, Phase 3 DECIDED — Hypothesis A confirmed (SAADC mux latch). AIN1 recovered via `nrf_saadc_disable()` workaround. Phase 2 superseded by Step 1.6 root cause: bad solder joints on RAK19001 even-row header pins (not a connector seating issue). Remaining action: reflow RAK19001 header pins when needed for v1.1 features. Current development continues on RAK19007 with original pin map.
+
+---
+
+### REC-010: Connector Seating Force Measurement
+
+## Hypothesis
+**Problem Statement**: EXP-010 revealed that the Hirose DF40C 40-pin connector can appear physically attached while leaving one entire row disconnected. This is a production risk — field installers may not apply sufficient seating force.
+**Hypothesis**: Measuring the force required for full engagement and defining a go/no-go tactile or visual indicator will prevent connector seating failures in production units.
+
+## Experimental Design
+**Type**: Process validation
+**Step 1**: With a spring scale, measure the insertion force required for the RAK4631 to fully seat (both rows click)
+**Step 2**: Identify the tactile/audible feedback that distinguishes partial vs full seating
+**Step 3**: Document a commissioning checklist step: "apply X grams of force until Y click/flush indicator"
+**Step 4**: Consider a simple electrical continuity test as part of commissioning self-test (e.g., loopback between an odd and even pin)
+
+## Priority: Medium
+**Rationale**: Important for production reliability, but only relevant once the PCB design (TASK-095) is finalized.
+
+---
+
 ## Appendix: Experiment Evolution Timeline
 
 ```
@@ -585,7 +935,10 @@ e3f97e0    —            EXP-001: Windowed blast mode        REVERTED
 78924b6    —            EXP-001 reverted (delta made it moot)
 7dab212    —            OTA reliability fixes (supporting)  GO
 e88d519    —            EXP-008: Generic platform           GO
+—          ~2026-01-05  EXP-009b: Board #2 pot overcurrent  DAMAGED (partial silicon)  [board numbering corrected 2026-02-22]
 —          2026-02-21   EXP-010: RAK19001 pin validation    MECHANICAL FAILURE
+cd08a27    2026-02-22   EXP-011: Dashboard data generation  GO
+—          2026-02-22   EXP-012: AIN1 recovery + connector   RESOLVED (SAADC latch + bad solder)
 ```
 
 ## Cross-Reference
@@ -594,10 +947,13 @@ e88d519    —            EXP-008: Generic platform           GO
   - TASK-005 (OTA recovery tests) — validates EXP-004/EXP-007 recovery paths
   - TASK-007 (E2E test plan) — should include REC-005 field conditions
   - TASK-008 (OTA recovery docs) — documents EXP-007/EXP-008 recovery behavior
-  - EXP-010 (RAK19001 pin validation) — informs REC-007 (post-reseat validation), REC-008 (SAADC errata retention), REC-009 (button/pot validation)
+  - EXP-010 (RAK19001 pin validation) — informs REC-007 (post-reseat validation, now EXP-012), REC-008 (SAADC errata retention), REC-009 (button/pot validation)
+  - EXP-011 (dashboard data generation) — discovered TASK-108 (timestamp field mismatch)
+  - EXP-009b (Board #2 pot overcurrent) — documents hardware damage, naming confusion discovery. Board numbering corrected 2026-02-22.
+  - EXP-012 (AIN1 recovery + connector validation) — resolved: Hypothesis A confirmed (SAADC latch), AIN1 recovered, connector fine (bad solder on header pins). Resolves TASK-104. RAK19001 header reflow needed before v1.1 features (TASK-095/096/097/098).
 
 ---
 
 **Experiment Tracker**: Oliver
-**Statistical Confidence**: Retrospective analysis — metrics quoted from commit messages and code artifacts. No controlled statistical trials were run; experiments were engineering feature flags with before/after comparisons. EXP-010 is a systematic hardware bring-up with deterministic pass/fail criteria (no statistical inference needed).
-**Decision Impact**: All GO decisions shipped to production. One REVERT executed cleanly. One MECHANICAL FAILURE root-caused.
+**Statistical Confidence**: Retrospective analysis — metrics quoted from commit messages and code artifacts. No controlled statistical trials were run; experiments were engineering feature flags with before/after comparisons. EXP-010 is a systematic hardware bring-up with deterministic pass/fail criteria (no statistical inference needed). EXP-011 is tooling validation (deterministic). EXP-012 is a planned physical validation with pass/fail criteria.
+**Decision Impact**: All GO decisions shipped to production. One REVERT executed cleanly. One MECHANICAL FAILURE root-caused. EXP-012 resolved (Phase 1 complete, Phase 2 superseded, Phase 3 decided — remaining action is hardware rework only).

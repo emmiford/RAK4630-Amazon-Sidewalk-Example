@@ -1,35 +1,27 @@
-# TASK-102: Reseat RAK4631 in RAK19001 and validate all even-row pins
+# TASK-102: Reflow RAK19001 even-row header pin solder joints
 
-**Status**: not started
-**Priority**: P1
+**Status**: not started (redefined 2026-02-22)
+**Priority**: P2 (downgraded from P1 — RAK19007 is sufficient for current dev)
 **Owner**: —
 **Branch**: —
-**Size**: S (1 point)
+**Size**: XS (0.5 point)
 
 ## Description
-EXP-010 identified that one entire row (even-numbered pins) of the RAK4631-to-RAK19001 40-pin board-to-board connector has no electrical contact due to incomplete module seating. This blocks all further hardware development on the RAK19001 baseboard.
+~~EXP-010 identified a Hirose DF40C connector seating failure on the RAK19001.~~
 
-Physically reseat the RAK4631 module with firm, even pressure until both rows of the Hirose DF40C connector click into place. Then systematically validate all previously-failing even-row pins: IO2 (P1.02), IO4 (P0.04), IO6 (P0.10), and AIN1 (P0.31/AIN7).
+**Updated (2026-02-22)**: EXP-012 Step 1.6 identified the actual root cause — **cold/bad solder joints on the hand-soldered even-row header pins** on the RAK19001 baseboard. The Hirose board-to-board connector and nRF52840 GPIOs are both fine. All even-row pins (IO2, IO4, IO6, AIN1) respond correctly when probed from the back side of the PCB.
 
-Reference: Oliver's experiment log EXP-010 root cause analysis and recommendation REC-007.
+This is a physical hardware rework task: reflow or resolder the even-row header pins. No firmware changes needed.
 
 ## Dependencies
 **Blocked by**: none
-**Blocks**: all further RAK19001 hardware bring-up, TASK-103 (button/pot validation)
+**Blocks**: TASK-103 (button/pot validation on RAK19001)
 
 ## Acceptance Criteria
-- [ ] RAK4631 module physically reseated in RAK19001 baseboard — both connector rows engaged
-- [ ] Multimeter continuity check passes on all even-row connector pins (22, 30, 32, 38) between module pad and baseboard test point
-- [ ] IO2 (P1.02, pin 30) GPIO output test passes (LED toggle) — was FAIL in EXP-010
-- [ ] IO2 (P1.02, pin 30) GPIO input test passes (wire short to GND) — was FAIL in EXP-010
-- [ ] AIN1 (P0.31, pin 22) ADC reads correct voltage from applied source — was 0mV in EXP-010
-- [ ] IO4 (P0.04, pin 32) and IO6 (P0.10, pin 38) pass GPIO output/input tests
-- [ ] Firmware reverted to original pin assignments: charge_block=IO1/P0.17, cool_call=IO2/P1.02, pilot ADC=AIN7/P0.31
-
-## Testing Requirements
-- [ ] All tests performed with original firmware (no workaround pin swaps)
-- [ ] Results logged in experiment log as REC-007 follow-up
+- [ ] Even-row header pins reflowed/resoldered on RAK19001
+- [ ] IO2 (pin 30), IO4 (pin 32), IO6 (pin 38) read HIGH via front-side headers when 3V3 applied
+- [ ] AIN1 (pin 22) reads correct voltage via front-side header
 
 ## Deliverables
-- Reseated hardware with all even-row pins validated
-- Updated experiment log entry confirming fix (or escalation if reseat does not resolve)
+- RAK19001 with working even-row header pins
+- Updated experiment log confirming fix

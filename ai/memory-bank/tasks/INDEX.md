@@ -30,12 +30,12 @@ Special: deferred, declined
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-110 | committed | Eliel+Utz | Restore uplink deduplication in decode Lambda (ADR-008) | — |
-| TASK-104 | committed | Eliel | Apply SAADC errata workaround + validate AIN1 recovery (EXP-012 Phase 1) | — |
-| TASK-102 | not started | — | Reseat RAK4631 in RAK19001 and validate all even-row pins (EXP-012 Phase 2) | — |
+| TASK-104 | validated — ready to merge | Eliel | Apply SAADC errata workaround + validate AIN1 recovery (EXP-012 Phase 1) | — |
 
 ### P2 — Important but not blocking v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
+| TASK-102 | not started | — | Reflow RAK19001 even-row header pin solder joints | — |
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
 | TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
 | TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
