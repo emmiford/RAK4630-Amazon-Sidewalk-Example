@@ -198,13 +198,15 @@ def get_device_detail(device_id, window="1h", event_type=None):
         query_kwargs["ExpressionAttributeNames"]["#et"] = "event_type"
         query_kwargs["ExpressionAttributeValues"][":et"] = event_type
 
+    max_events = 500
     events = []
     while True:
         resp = events_table.query(**query_kwargs)
         events.extend(resp.get("Items", []))
-        if not resp.get("LastEvaluatedKey"):
+        if not resp.get("LastEvaluatedKey") or len(events) >= max_events:
             break
         query_kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]
+    events = events[:max_events]
 
     # Build event summaries
     summaries = [summarize_event(e) for e in events]
@@ -274,7 +276,7 @@ def summarize_event(event):
         "event_type": event_type,
         "summary": summary,
         "anomaly": anomaly,
-        "raw": event,
+        "raw": {},
     }
 
 
