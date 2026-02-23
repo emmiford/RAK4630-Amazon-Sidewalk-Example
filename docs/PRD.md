@@ -228,6 +228,101 @@ The device has 4 inputs (2 analog, 2 digital), 2 outputs, and 1 power input. The
 
 AIN1 (WisBlock) / AIN7 (nRF52840 SAADC channel) serves double duty: the same pin reads both the Cp voltage level (implemented) and the Cp PWM duty cycle (not yet implemented). The voltage level tells us the car's state; the duty cycle tells us the maximum current the charger is offering. These are two different measurements of the same physical signal.
 
+#### 2.0.3a Pin Name Cross-Reference (Definitive Mapping)
+
+The nRF52840 chip, the RAK4631 module, the WisBlock connector standard, and each baseboard use **different names for the same physical pins**. This table is the single source of truth. All other documents should reference this table, not invent pin names.
+
+**The word "pin" means different things at each level of the hardware stack:**
+
+| Level | Component | Total "Pins" | What They Are |
+|-------|-----------|:------------:|---------------|
+| Chip | nRF52840 (aQFN73 package) | 73 pads | Physical solder pads on the chip. 48 are GPIO, ~25 are power/ground/crystal/antenna/USB/RESET. |
+| GPIO ports | nRF52840 internal | 48 GPIOs | **Port 0** (P0.00–P0.31, 32 pins): all analog-capable pins, NFC, crystal, UART, I2C, SPI. **Port 1** (P1.00–P1.15, 16 pins): general purpose (LEDs, LoRa radio, etc). The port number (0 or 1) is a bank selector; the pin number (.00–.31) is the index within that bank. |
+| Module | RAK4631 40-pin connector | 40 positions | Hirose DF40C board-to-board connector. Routes ~20 of the 48 GPIOs plus power/ground to the baseboard. |
+| Baseboard | RAK19007 J11 header | 6 pins | Through-hole header exposing only 3 signal GPIOs + 3 power pins. |
+| Baseboard | RAK19001 slot connectors | 40 positions | Full 40-pin connector pass-through (all WisBlock signals available). |
+
+Only **8 of the 48 GPIOs** have analog (SAADC) capability — all on Port 0:
+
+| SAADC Channel | nRF52840 GPIO | WisBlock Label | On RAK19007 J11? | Notes |
+|:---:|---|---|:---:|---|
+| AIN0 | P0.02 | — | No | Not routed to WisBlock connector |
+| AIN1 | P0.03 | — | No | Not routed to WisBlock connector |
+| AIN2 | P0.04 | IO4 (pin 32) | No | Fallback pilot ADC if P0.31 dead |
+| AIN3 | P0.05 | AIN0 (pin 21) | No | Battery voltage divider on baseboard |
+| AIN4 | P0.28 | IO7 (pin 24) | No | Shared with QSPI; NC on RAK4631 |
+| AIN5 | P0.29 | SPI_MISO (pin 27) | No | Shared with QSPI |
+| AIN6 | P0.30 | SPI_MOSI (pin 28) | No | Shared with QSPI |
+| **AIN7** | **P0.31** | **AIN1 (pin 22)** | **Yes (J11 pin 1)** | **J1772 pilot voltage — the only analog pin on J11** |
+
+> **Critical naming hazard**: The nRF52840 SAADC names (AIN0-AIN7) do NOT match the WisBlock connector labels (AIN0, AIN1). For example, WisBlock "AIN1" is nRF52840 AIN**7** (P0.31), not AIN1 (P0.03). This mismatch caused a firmware bug that went undetected for 18 days (see experiment log EXP-009b). **Always use the WisBlock silkscreen label as the primary identifier in user-facing docs and the nRF52840 pin name (P0.xx) in firmware.**
+
+**Complete 40-pin WisBlock Core connector** (Hirose DF40C-40DP-0.4V(51), RAK4631 mapping):
+
+| Pin | WisBlock Label | nRF52840 Pin | Type | Description | SideCharge Use |
+|:---:|----------------|-------------|:----:|-------------|----------------|
+| 1 | VBAT | — | S | Battery power supply | — |
+| 2 | VBAT | — | S | Battery power supply | — |
+| 3 | GND | — | S | Ground | — |
+| 4 | GND | — | S | Ground | — |
+| 5 | 3V3 | — | S | 3.3V regulated supply | — |
+| 6 | 3V3 | — | S | 3.3V regulated supply | — |
+| 7 | USB+ | D+ (dedicated) | I/O | USB Data+ (not GPIO-mapped) | — |
+| 8 | USB− | D− (dedicated) | I/O | USB Data− (not GPIO-mapped) | — |
+| 9 | VBUS | — | S | USB 5V (only when USB connected) | — |
+| 10 | SW1 | P0.01 | I/O | User push button (active low) | (available) |
+| 11 | TXD0 | P0.20 | I/O | UART0 TX | — |
+| 12 | RXD0 | P0.19 | I/O | UART0 RX | — |
+| 13 | RESET | P0.18 | I | MCU hardware reset (active low) | — |
+| 14 | LED1 | P1.03 | I/O | Green LED — battery charging (active low) | Status LED |
+| 15 | LED2 | P1.04 | I/O | Blue LED — user-defined (active low) | Status LED |
+| 16 | LED3 | NC | I/O | Not connected on RAK4631 | — |
+| 17 | VDD | — | S | Switched 3.3V for sensors (3V3_S rail) | — |
+| 18 | VDD | — | S | Switched 3.3V for sensors (3V3_S rail) | — |
+| 19 | I2C1_SDA | P0.13 | I/O | Primary I2C data | — |
+| 20 | I2C1_SCL | P0.14 | I/O | Primary I2C clock | — |
+| **21** | **AIN0** | **P0.05 / AIN3** | **A** | **Analog input (battery voltage divider on baseboard)** | **(unused)** |
+| **22** | **AIN1** | **P0.31 / AIN7** | **A** | **Analog input for ADC** | **J1772 pilot voltage** |
+| 23 | BOOT0 | NC | I | For STM32 cores (not used on nRF52840) | — |
+| 24 | IO7 | P0.28 | I/O | GPIO (shared with QSPI IO2) | NC on RAK4631 |
+| 25 | SPI_CS | P0.26 | I/O | SPI chip select (shared with QSPI CSN) | — |
+| 26 | SPI_CLK | P0.03 | I/O | SPI clock (shared with QSPI SCK) | — |
+| 27 | SPI_MISO | P0.29 | I/O | SPI MISO (shared with QSPI IO1) | — |
+| 28 | SPI_MOSI | P0.30 | I/O | SPI MOSI (shared with QSPI IO0) | — |
+| **29** | **IO1** | **P0.17** | **I/O** | **GPIO (Slot A/B interrupt)** | **charge_block (output)** |
+| **30** | **IO2** | **P1.02** | **I/O** | **GPIO (controls 3V3_S rail enable)** | **cool_call (input)** |
+| 31 | IO3 | P0.21 | I/O | GPIO (Slot C) | (available) |
+| **32** | **IO4** | **P0.04 / AIN2** | **I/O** | **GPIO (Slot C, also analog-capable)** | **AIN2 fallback for pilot** |
+| 33 | TXD1 | P0.16 | I/O | UART1 TX (console) | Shell/debug |
+| 34 | RXD1 | P0.15 | I/O | UART1 RX (console) | Shell/debug |
+| 35 | I2C2_SDA | P0.24 | I/O | Secondary I2C data | — |
+| 36 | I2C2_SCL | P0.25 | I/O | Secondary I2C clock | — |
+| 37 | IO5 | P0.09 | I/O | GPIO (Slot D; also NFC1) | (available; needs `CONFIG_NFCT_PINS_AS_GPIOS=y`) |
+| 38 | IO6 | P0.10 | I/O | GPIO (Slot D; also NFC2) | (available; needs `CONFIG_NFCT_PINS_AS_GPIOS=y`) |
+| 39 | GND | — | S | Ground | — |
+| 40 | GND | — | S | Ground | — |
+
+**Type legend**: S = Supply/Ground, I/O = Input/Output, I = Input only, A = Analog input. **Bold** rows are pins actively used by SideCharge.
+
+**Connector geometry note**: Odd-numbered pins and even-numbered pins sit on opposite physical rows of the Hirose DF40C 40-pin board-to-board connector. EXP-010 demonstrated that incomplete module seating can leave one entire row (even pins) disconnected while the module appears physically attached. The RAK19007 J11 header uses a standard 2.54mm through-hole header and does not have this failure mode.
+
+**SPI bus sharing warning**: Pins 24–28 (IO7, SPI_CS, SPI_CLK, SPI_MISO, SPI_MOSI) are shared with the RAK4631's onboard QSPI flash (IS25LP080D). Using these as general SPI will conflict with flash operations. The SX1262 LoRa radio uses a separate internal SPI bus (P1.10–P1.15) that is NOT on the 40-pin connector.
+
+**RAK19007 J11 header pinout** (only 3 signal pins + power):
+
+```
+J11 Pin  WisBlock   nRF52840    Signal
+───────  ─────────  ──────────  ──────────
+1        AIN1       P0.31       Pilot ADC
+2        IO1        P0.17       charge_block
+3        IO2        P1.02       cool_call
+4        VDD        —           3.0V sensor power
+5        GND        —           Ground
+6        3V3        —           3.3V supply
+```
+
+**TODO**: Verify RAK19001 J10/J15 silkscreen labels against the physical board. The labels above assume they match the WisBlock standard names (IO1–IO6, AIN0, AIN1) but this should be confirmed.
+
 #### 2.0.3.1 Wiring Terminal Definitions (Installer-Facing)
 
 These are the terminal labels on the SideCharge device as the electrician sees them during installation. The device sits inline on the thermostat call wires and the J1772 pilot wire -- signals pass through the device rather than being tapped. This pass-through architecture is what enables the interlock: the device can block a signal by opening the relay between the "in" and "out" terminals.
