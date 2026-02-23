@@ -1,6 +1,6 @@
 # TASK-110: Restore uplink deduplication in decode Lambda
 
-**Status**: committed (2026-02-22, Eliel + Utz)
+**Status**: merged done (2026-02-22, Eliel + Utz)
 **Priority**: P1
 **Owner**: Eliel (code), Utz (docs)
 **Branch**: `task/110-uplink-dedupe`
@@ -11,26 +11,8 @@ Sidewalk delivers the same LoRa uplink multiple times — once per gateway withi
 
 **Fix**: Make the SK deterministic by deriving the millisecond fraction from a SHA-256 hash of the raw payload instead of from cloud time. Add a DynamoDB conditional write to skip duplicates and short-circuit all side effects.
 
-## Dependencies
-**Blocked by**: none
-**Blocks**: dashboard data quality, daily aggregate accuracy
-
-## Acceptance Criteria
-- [x] ADR-008 documents Sidewalk multi-gateway delivery and dedupe strategy
-- [x] TDD §8.1 updated with dedupe flow
-- [x] `compute_event_timestamp_ms()` uses deterministic payload-hash ms fraction
-- [x] `lambda_handler()` uses conditional write for device-timestamped events
-- [x] Duplicate deliveries return early, skipping side effects (TIME_SYNC, scheduler divergence, charge_now, transitions, registry updates)
-- [x] Unit tests cover: deterministic ms fraction, duplicate detection, side-effect skipping
-- [x] All existing tests pass (413/413)
-
-## Testing Requirements
-- [x] 7 new dedupe unit tests
-- [x] All 113 decode Lambda tests pass
-- [x] Full `python3 -m pytest aws/tests/ -v` green (413/413)
-
 ## Deliverables
 - `docs/adr/008-uplink-deduplication.md`
 - Updated `docs/technical-design.md` §8.1
 - Updated `aws/decode_evse_lambda.py`
-- Updated `aws/tests/test_decode_evse.py`
+- Updated `aws/tests/test_decode_evse.py` (7 new tests, 413/413 passing)

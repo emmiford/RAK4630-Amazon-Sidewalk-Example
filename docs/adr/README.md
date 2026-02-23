@@ -38,3 +38,4 @@ What other approaches were evaluated?
 | [005](005-simulation-stays-in-evse-sensors.md) | Simulation mode stays in evse_sensors.c | Accepted | 2026-02-21 |
 | [006](006-table-architecture.md) | DynamoDB table architecture — unified events, SC-ID PK, Mountain Time SK | Accepted | 2026-02-21 |
 | [007](007-device-timestamp-as-sort-key.md) | Device timestamp as DynamoDB sort key (supplements ADR-006) | Accepted | 2026-02-22 |
+| [008](008-uplink-deduplication.md) | Sidewalk uplink deduplication (deterministic SK + conditional write) | Accepted | 2026-02-22 |

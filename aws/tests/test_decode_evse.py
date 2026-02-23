@@ -20,6 +20,19 @@ sys.modules["sidewalk_utils"] = mock_sidewalk_utils
 if "boto3" not in sys.modules:
     sys.modules["boto3"] = MagicMock()
 
+if "botocore" not in sys.modules:
+    import types
+    _botocore = types.ModuleType("botocore")
+    _botocore_exc = types.ModuleType("botocore.exceptions")
+    class _ClientError(Exception):
+        def __init__(self, error_response=None, operation_name=''):
+            self.response = error_response or {}
+            super().__init__(str(error_response))
+    _botocore_exc.ClientError = _ClientError
+    _botocore.exceptions = _botocore_exc
+    sys.modules["botocore"] = _botocore
+    sys.modules["botocore.exceptions"] = _botocore_exc
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import decode_evse_lambda as decode  # noqa: E402
 
@@ -1339,7 +1352,9 @@ class TestHandlerTimestampSource:
         assert item["timestamp_source"] == "device"
         assert "cloud_received_mt" in item
         # SK should be based on device time, not cloud time
-        expected_device_mt = decode.unix_ms_to_mt((86400 + decode.EPOCH_OFFSET) * 1000 + 500)
+        b64_payload = encode_b64(raw)
+        ms_frac = decode._payload_ms_fraction(b64_payload)
+        expected_device_mt = decode.unix_ms_to_mt((86400 + decode.EPOCH_OFFSET) * 1000 + ms_frac)
         assert item["timestamp_mt"] == expected_device_mt
 
     def test_evse_presync_has_cloud_presync_source(self):
@@ -1397,7 +1412,9 @@ class TestHandlerTimestampSource:
         item = mock_table.put_item.call_args[1]["Item"]
         assert item["timestamp_source"] == "device"
         # SK should be device time, NOT cloud time
-        expected_device_mt = decode.unix_ms_to_mt(device_unix * 1000 + 123)
+        b64_payload = encode_b64(raw)
+        ms_frac = decode._payload_ms_fraction(b64_payload)
+        expected_device_mt = decode.unix_ms_to_mt(device_unix * 1000 + ms_frac)
         expected_cloud_mt = decode.unix_ms_to_mt(cloud_ms)
         assert item["timestamp_mt"] == expected_device_mt
         assert item["timestamp_mt"] != expected_cloud_mt
@@ -1422,3 +1439,139 @@ class TestHandlerTimestampSource:
         # last_seen in state_table should be cloud_received_mt
         state_call = mock_state.update_item.call_args[1]
         assert state_call["ExpressionAttributeValues"][":seen"] == cloud_received_mt
+
+# --- Uplink deduplication (ADR-008) ---
+
+class TestDeduplication:
+    """Tests for Sidewalk multi-gateway duplicate suppression."""
+
+    def _make_v08(self, flags=0, timestamp=1000):
+        return bytes([
+            0xE5, 0x08, 0x01,
+            0xA4, 0x0B,  # 2980 mV
+            0x00, 0x00,
+            flags,
+            timestamp & 0xFF, (timestamp >> 8) & 0xFF,
+            (timestamp >> 16) & 0xFF, (timestamp >> 24) & 0xFF,
+        ])
+
+    def _make_event(self, raw_bytes, seq=1):
+        return {
+            "WirelessDeviceId": "test-device",
+            "PayloadData": encode_b64(raw_bytes),
+            "WirelessMetadata": {
+                "Sidewalk": {
+                    "LinkType": "LoRa", "Rssi": -80, "Seq": seq,
+                    "Timestamp": "2026-02-22T00:00:00Z",
+                    "SidewalkId": "sid-123",
+                }
+            },
+        }
+
+    def test_payload_ms_fraction_deterministic(self):
+        """Same payload -> same ms fraction regardless of call count."""
+        raw = self._make_v08(timestamp=86400)
+        b64 = encode_b64(raw)
+        frac1 = decode._payload_ms_fraction(b64)
+        frac2 = decode._payload_ms_fraction(b64)
+        assert frac1 == frac2
+        assert 0 <= frac1 < 1000
+
+    def test_payload_ms_fraction_differs_for_different_payloads(self):
+        """Different payloads -> different ms fractions (with high probability)."""
+        raw1 = self._make_v08(timestamp=86400)
+        raw2 = self._make_v08(timestamp=86401)
+        frac1 = decode._payload_ms_fraction(encode_b64(raw1))
+        frac2 = decode._payload_ms_fraction(encode_b64(raw2))
+        assert frac1 != frac2  # Different payloads
+
+    def test_same_payload_same_sk(self):
+        """Two calls with same payload + device timestamp -> same effective_ms."""
+        raw = self._make_v08(timestamp=86400)
+        b64 = encode_b64(raw)
+        decoded = decode.decode_raw_evse_payload(raw)
+        eff1, _ = decode.compute_event_timestamp_ms(decoded, 1000000123, raw_payload_b64=b64)
+        eff2, _ = decode.compute_event_timestamp_ms(decoded, 1000000456, raw_payload_b64=b64)
+        assert eff1 == eff2  # Same payload -> same SK despite different cloud times
+
+    def test_duplicate_returns_200_skipped(self):
+        """Conditional write failure -> 200 with 'Duplicate skipped'."""
+        from botocore.exceptions import ClientError
+        raw = self._make_v08(flags=0x04, timestamp=1000)
+
+        error_response = {'Error': {'Code': 'ConditionalCheckFailedException'}}
+        mock_put = MagicMock(side_effect=ClientError(error_response))
+
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
+             patch.object(decode, "maybe_send_time_sync") as mock_sync, \
+             patch.object(decode, "check_scheduler_divergence") as mock_div, \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen") as mock_reg:
+            mock_table.put_item = mock_put
+            result = decode.lambda_handler(self._make_event(raw), None)
+
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["message"] == "Duplicate skipped"
+        # Side effects should NOT have been called
+        mock_sync.assert_not_called()
+        mock_div.assert_not_called()
+        mock_reg.assert_not_called()
+
+    def test_first_write_triggers_side_effects(self):
+        """Non-duplicate write -> side effects run (TIME_SYNC, divergence, registry)."""
+        raw = self._make_v08(flags=0x04, timestamp=1000)
+
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
+             patch.object(decode, "maybe_send_time_sync") as mock_sync, \
+             patch.object(decode, "check_scheduler_divergence") as mock_div, \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen") as mock_reg:
+            mock_table.put_item = MagicMock()  # Succeeds (no exception)
+            result = decode.lambda_handler(self._make_event(raw), None)
+
+        assert result["statusCode"] == 200
+        body = json.loads(result["body"])
+        assert body["message"] == "EVSE data processed"
+        mock_sync.assert_called_once()
+        mock_div.assert_called_once()
+        mock_reg.assert_called_once()
+
+    def test_conditional_write_passes_condition_expression(self):
+        """put_item should include ConditionExpression for dedupe."""
+        raw = self._make_v08(flags=0x04, timestamp=1000)
+
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
+             patch.object(decode, "maybe_send_time_sync"), \
+             patch.object(decode, "check_scheduler_divergence"), \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
+            mock_table.put_item = MagicMock()
+            decode.lambda_handler(self._make_event(raw), None)
+
+        call_kwargs = mock_table.put_item.call_args[1]
+        assert 'ConditionExpression' in call_kwargs
+        assert 'attribute_not_exists' in call_kwargs['ConditionExpression']
+
+    def test_non_client_error_reraises(self):
+        """Non-dedupe ClientError (e.g., ProvisionedThroughputExceededException) should re-raise."""
+        from botocore.exceptions import ClientError
+        raw = self._make_v08(flags=0x04, timestamp=1000)
+
+        error_response = {'Error': {'Code': 'ProvisionedThroughputExceededException'}}
+        mock_put = MagicMock(side_effect=ClientError(error_response))
+
+        with patch.object(decode, "table") as mock_table, \
+             patch.object(decode, "state_table"), \
+             patch.object(decode.device_registry, "generate_sc_short_id", return_value="SC-TEST01"), \
+             patch.object(decode.device_registry, "get_or_create_device"), \
+             patch.object(decode.device_registry, "update_last_seen"):
+            mock_table.put_item = mock_put
+            with pytest.raises(ClientError):
+                decode.lambda_handler(self._make_event(raw), None)

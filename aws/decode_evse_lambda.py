@@ -26,9 +26,11 @@ import os
 import time
 from datetime import datetime
 from decimal import Decimal
+import hashlib
 from zoneinfo import ZoneInfo
 
 import boto3
+from botocore.exceptions import ClientError
 
 import device_registry
 
@@ -96,7 +98,17 @@ J1772_STATES = {
 }
 
 
-def compute_event_timestamp_ms(decoded, cloud_timestamp_ms):
+
+def _payload_ms_fraction(raw_payload_b64):
+    """Derive deterministic 0-999 ms fraction from payload content (ADR-008).
+
+    Same payload -> same fraction -> same DynamoDB sort key, ensuring
+    duplicate Sidewalk gateway deliveries produce identical keys.
+    """
+    return int(hashlib.sha256(raw_payload_b64.encode()).hexdigest()[:4], 16) % 1000
+
+
+def compute_event_timestamp_ms(decoded, cloud_timestamp_ms, raw_payload_b64=None):
     """Return (effective_ms, source) for the event's DynamoDB sort key.
 
     EVSE telemetry with a valid device timestamp uses device time (converted
@@ -107,8 +119,11 @@ def compute_event_timestamp_ms(decoded, cloud_timestamp_ms):
         device_ts_unix = decoded.get('device_timestamp_unix')
         device_ts_epoch = decoded.get('device_timestamp_epoch')
         if device_ts_unix and device_ts_epoch and device_ts_epoch > 0:
-            cloud_ms_fraction = cloud_timestamp_ms % 1000
-            effective_ms = device_ts_unix * 1000 + cloud_ms_fraction
+            if raw_payload_b64:
+                ms_fraction = _payload_ms_fraction(raw_payload_b64)
+            else:
+                ms_fraction = cloud_timestamp_ms % 1000
+            effective_ms = device_ts_unix * 1000 + ms_fraction
             return effective_ms, 'device'
         # Pre-sync (ts=0) or v0x06 without timestamp fields
         return cloud_timestamp_ms, 'cloud_presync'
@@ -639,7 +654,7 @@ def lambda_handler(event, context):
         # Compute timestamps: device time as SK when available, cloud time as fallback
         cloud_timestamp_ms = event.get('timestamp_override_ms') or int(time.time() * 1000)
         cloud_received_mt = unix_ms_to_mt(cloud_timestamp_ms)
-        effective_ms, timestamp_source = compute_event_timestamp_ms(decoded, cloud_timestamp_ms)
+        effective_ms, timestamp_source = compute_event_timestamp_ms(decoded, cloud_timestamp_ms, raw_payload_b64=payload_data)
         timestamp_mt_str = unix_ms_to_mt(effective_ms)
         ttl_seconds = int(cloud_timestamp_ms / 1000) + 7776000  # 90-day retention (cloud time)
 
@@ -715,6 +730,32 @@ def lambda_handler(event, context):
                 evse_data['device_timestamp_unix'] = decoded['device_timestamp_unix']
             item['data'] = {'evse': evse_data}
 
+        else:
+            item['data'] = {'decode_result': decoded}
+
+        # Convert floats to Decimal for DynamoDB
+        item = json.loads(json.dumps(item), parse_float=Decimal)
+
+        # Write to DynamoDB (conditional write for deduplication — ADR-008)
+        try:
+            table.put_item(
+                Item=item,
+                ConditionExpression='attribute_not_exists(device_id) AND attribute_not_exists(timestamp_mt)',
+            )
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+                print(f"Duplicate skipped: {sc_id} {timestamp_mt_str} seq={seq}")
+                return {
+                    'statusCode': 200,
+                    'body': json.dumps({
+                        'message': 'Duplicate skipped',
+                        'device_id': sc_id,
+                    })
+                }
+            raise
+
+        # EVSE side effects — run only on first (non-duplicate) write
+        if decoded.get('payload_type') == 'evse':
             # Auto-send TIME_SYNC on EVSE uplinks
             try:
                 device_ts = decoded.get('device_timestamp_epoch')
@@ -745,14 +786,6 @@ def lambda_handler(event, context):
                         timestamp_source, decoded)
                 except Exception as e:
                     print(f"Transition event error: {e}")
-        else:
-            item['data'] = {'decode_result': decoded}
-
-        # Convert floats to Decimal for DynamoDB
-        item = json.loads(json.dumps(item), parse_float=Decimal)
-
-        # Write to DynamoDB
-        table.put_item(Item=item)
 
         # Update device-state snapshot (best-effort)
         if decoded.get('payload_type') == 'evse':

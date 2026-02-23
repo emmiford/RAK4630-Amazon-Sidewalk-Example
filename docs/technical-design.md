@@ -1,7 +1,7 @@
 # SideCharge Technical Design Document
 
 **Status**: Living document — updated as the implementation evolves
-**Last updated**: 2026-02-21
+**Last updated**: 2026-02-22
 
 This is the single authoritative reference for how the SideCharge firmware and cloud
 systems work at the wire format, state machine, and protocol level. For *why* decisions
@@ -1173,17 +1173,23 @@ is decoded and stored, and a time-sync downlink is sent if the device clock is s
 2. Check for OTA uplink (cmd type 0x20) → forward async to ota_sender Lambda
 3. Try raw EVSE decode (magic 0xE5) → v0x06, v0x07, v0x08, v0x09, or v0x0A
 4. Fall back to legacy sid_demo format
-5. Store decoded telemetry in DynamoDB (`evse-events`)
-6. Call `maybe_send_time_sync()` — sends TIME_SYNC if sentinel is >24h old or missing
-7. Check `FLAG_CHARGE_NOW` in uplink — if set, write `charge_now_override_until`
+5. Compute deterministic sort key: for device-timestamped EVSE telemetry, the
+   millisecond fraction is derived from SHA-256 of the raw payload (ADR-008),
+   not from cloud receive time. This ensures duplicate gateway deliveries of the
+   same uplink produce the same DynamoDB sort key.
+6. Store decoded telemetry in DynamoDB (`evse-events`) using conditional write
+   (`attribute_not_exists`). On duplicate (ConditionalCheckFailedException),
+   log and return early — skip all side effects below.
+7. Call `maybe_send_time_sync()` — sends TIME_SYNC if sentinel is >24h old or missing
+8. Check `FLAG_CHARGE_NOW` in uplink — if set, write `charge_now_override_until`
    to the scheduler sentinel (`timestamp=0`) with the end of the current peak
    window. This tells the scheduler to suppress pause commands (see ADR-003).
-8. Update device registry (best-effort)
+9. Update device registry (best-effort)
 
 **DynamoDB item structure** (EVSE telemetry):
 ```
-device_id:     wireless device ID (partition key)
-timestamp:     Unix timestamp in milliseconds (sort key)
+device_id:     SC-XXXXXXXX short ID (partition key)
+timestamp_mt:  Mountain Time string, deterministic for device-timestamped events (sort key, see ADR-007/ADR-008)
 event_type:    "evse_telemetry"
 data.evse:     decoded payload fields (see §3.1 wire format, §3.2 flags byte)
 link_type:     LoRa/BLE/FSK
