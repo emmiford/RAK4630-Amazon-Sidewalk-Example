@@ -200,9 +200,9 @@ static void platform_led_set(int led_id, bool on)
 		return;
 	}
 	if (on) {
-		app_led_turn_on((enum leds_id_t)led_id);
+		app_led_turn_on((leds_id_t)led_id);
 	} else {
-		app_led_turn_off((enum leds_id_t)led_id);
+		app_led_turn_off((leds_id_t)led_id);
 	}
 }
 

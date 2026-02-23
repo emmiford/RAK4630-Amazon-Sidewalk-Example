@@ -22,7 +22,7 @@ void app_led_turn_off_all(void)
 	leds_state = DK_NO_LEDS_MSK;
 }
 
-void app_led_turn_on(enum leds_id_t id)
+void app_led_turn_on(leds_id_t id)
 {
 	if (id < LED_ID_LAST) {
 		dk_set_led_on(id);
@@ -30,7 +30,7 @@ void app_led_turn_on(enum leds_id_t id)
 	}
 }
 
-void app_led_turn_off(enum leds_id_t id)
+void app_led_turn_off(leds_id_t id)
 {
 	if (id < LED_ID_LAST) {
 		dk_set_led_off(id);
@@ -38,7 +38,7 @@ void app_led_turn_off(enum leds_id_t id)
 	}
 }
 
-bool app_led_is_on(enum leds_id_t id)
+bool app_led_is_on(leds_id_t id)
 {
 	if (id < LED_ID_LAST) {
 		return (leds_state & BIT(id));
