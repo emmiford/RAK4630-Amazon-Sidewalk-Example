@@ -15,6 +15,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/shell/shell.h>
+#include <psa/crypto.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -309,6 +310,86 @@ static int cmd_sid_selftest(const struct shell *sh, size_t argc, char **argv)
 	return cmd_app_dispatch(sh, "selftest", 1, (char *[]){"selftest"});
 }
 
+
+/* ------------------------------------------------------------------ */
+/*  PSA key test (Board #2 debug — TASK-113)                           */
+/* ------------------------------------------------------------------ */
+
+static int cmd_sid_psa_test(const struct shell *sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc); ARG_UNUSED(argv);
+
+	psa_status_t status;
+	psa_key_id_t key_id;
+	psa_key_attributes_t attr = PSA_KEY_ATTRIBUTES_INIT;
+
+	/* Test key IDs 3, 4, 5 — same ones Sidewalk uses during BLE registration */
+	static const psa_key_id_t test_ids[] = {3, 4, 5};
+
+	shell_print(sh, "PSA Key Test — exercising key IDs 3, 4, 5 (no BLE)");
+	shell_print(sh, "---------------------------------------------------");
+
+	/* Phase 1: Destroy any existing keys (mirrors what Sidewalk does) */
+	shell_print(sh, "Phase 1: Destroy existing keys");
+	for (int i = 0; i < 3; i++) {
+		status = psa_destroy_key(test_ids[i]);
+		shell_print(sh, "  psa_destroy_key(%d) = %d %s",
+			    (int)test_ids[i], (int)status,
+			    (status == PSA_SUCCESS) ? "OK" :
+			    (status == PSA_ERROR_INVALID_HANDLE) ? "(not found)" : "FAIL");
+	}
+
+	/* Phase 2: Create persistent ECC P-256 keys (like Sidewalk ECDH) */
+	shell_print(sh, "Phase 2: Create persistent ECC P-256 keys");
+	for (int i = 0; i < 3; i++) {
+		psa_reset_key_attributes(&attr);
+		psa_set_key_id(&attr, test_ids[i]);
+		psa_set_key_lifetime(&attr,
+			PSA_KEY_LIFETIME_FROM_PERSISTENCE_AND_LOCATION(
+				PSA_KEY_PERSISTENCE_DEFAULT,
+				PSA_KEY_LOCATION_LOCAL_STORAGE));
+		psa_set_key_type(&attr, PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1));
+		psa_set_key_bits(&attr, 256);
+		psa_set_key_algorithm(&attr, PSA_ALG_ECDH);
+		psa_set_key_usage_flags(&attr,
+			PSA_KEY_USAGE_DERIVE | PSA_KEY_USAGE_EXPORT);
+
+		key_id = 0;
+		status = psa_generate_key(&attr, &key_id);
+		shell_print(sh, "  psa_generate_key(id=%d) = %d, got id=%d %s",
+			    (int)test_ids[i], (int)status, (int)key_id,
+			    (status == PSA_SUCCESS) ? "OK" : "FAIL");
+		if (status != PSA_SUCCESS) {
+			shell_error(sh, "  >>> KEY CREATION FAILED — possible HW defect <<<");
+		}
+	}
+
+	/* Phase 3: Export public keys (proves keys are usable) */
+	shell_print(sh, "Phase 3: Export public keys");
+	uint8_t pub_buf[65]; /* Uncompressed P-256 public key = 65 bytes */
+	size_t pub_len = 0;
+	for (int i = 0; i < 3; i++) {
+		status = psa_export_public_key(test_ids[i], pub_buf, sizeof(pub_buf), &pub_len);
+		shell_print(sh, "  psa_export_public_key(%d) = %d, len=%d %s",
+			    (int)test_ids[i], (int)status, (int)pub_len,
+			    (status == PSA_SUCCESS) ? "OK" : "FAIL");
+	}
+
+	/* Phase 4: Destroy all keys (cleanup) */
+	shell_print(sh, "Phase 4: Destroy keys (cleanup)");
+	for (int i = 0; i < 3; i++) {
+		status = psa_destroy_key(test_ids[i]);
+		shell_print(sh, "  psa_destroy_key(%d) = %d %s",
+			    (int)test_ids[i], (int)status,
+			    (status == PSA_SUCCESS) ? "OK" : "FAIL");
+	}
+
+	shell_print(sh, "---------------------------------------------------");
+	shell_print(sh, "PSA test complete — no reboot = power issue (not HW)");
+	shell_print(sh, "Reboot during test = HW defect in PSA key storage");
+	return 0;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Shell registration                                                 */
 /* ------------------------------------------------------------------ */
@@ -326,6 +407,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sid_cmds,
 	SHELL_CMD(mfg, NULL, "Check MFG store", cmd_sid_mfg),
 	SHELL_CMD(reinit, NULL, "Re-run Sidewalk init", cmd_sid_reinit),
 	SHELL_CMD(send, NULL, "Trigger manual send (app)", cmd_sid_send_app),
+	SHELL_CMD(psa, NULL, "Test PSA key operations", cmd_sid_psa_test),
 	SHELL_CMD(selftest, NULL, "Run commissioning self-test", cmd_sid_selftest),
 	SHELL_CMD(lora, NULL, "Switch to LoRa", cmd_sid_lora),
 	SHELL_CMD(ble, NULL, "Switch to BLE", cmd_sid_ble),
