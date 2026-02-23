@@ -137,3 +137,59 @@ Three-layer fix implemented:
 1. `flash.sh`: Erases app partition (0x90000-0xCEFFF) before writing app hex
 2. `ota_update.c`: Erases stale pages beyond new image after OTA apply (full, delta, and recovery paths)
 3. `ota_deploy.py`: Warns if baseline dump is significantly larger than app binary size
+
+
+---
+
+## KI-004: Board #2 CC310 crypto accelerator defect — ECC key generation hangs
+
+**Since**: 2026-02-23
+**Severity**: High — Board #2 cannot BLE-register independently
+**Tracking**: TASK-113
+**Status**: Workaround in place
+
+### Symptom
+
+Board #2 (RAK4630 module on RAK19001 baseboard) hangs indefinitely during BLE registration. The `sid psa test` shell command confirms `psa_generate_key()` for ECC P-256 (secp_r1, 256-bit) never returns — even with BLE antenna removed and no BLE activity.
+
+Phase 1 (destroy existing keys) succeeds. Phase 2 (generate persistent ECC P-256 keys) hangs on the first `psa_generate_key()` call and never returns.
+
+### Root Cause
+
+Hardware defect in the nRF52840's ARM CryptoCell CC310 crypto accelerator. The CC310 handles ECC key generation in hardware. Board #2's CC310 cannot complete elliptic curve point multiplication for P-256 key pairs.
+
+### Impact
+
+- Board #2 cannot complete BLE registration (which requires PSA key generation)
+- Cannot generate new Sidewalk session keys on-device
+- If chip-erased, Board #2 cannot self-recover — keys must be restored from backup
+
+### Workaround
+
+**Cross-chip PSA key transfer**: Register on Board #1 (working CC310), save keys, flash to Board #2.
+
+1. Flash target MFG certificate to Board #1: `pyocd flash --target nrf52840 mfg5.hex`
+2. Reboot Board #1, let BLE registration complete (watch serial for "Device Is registered")
+3. Save keys: `pyocd commander -c "savemem 0xF4000 0xB000 cert5_all_keys.bin"`
+4. Restore Board #1's original MFG + keys
+5. Flash to Board #2:
+   ```
+   pyocd commander --target nrf52840 --frequency 500000 -Oconnect_mode=under-reset \
+     -c "erase 0xF4000 0xC000" \
+     -c "loadmem 0xF4000 cert5_all_keys.bin" \
+     -c "loadmem 0xFF000 mfg5.bin" \
+     -c "reset"
+   ```
+6. Run `sid lora` on Board #2, verify "Device Is registered"
+
+**Key storage note**: Fresh Sidewalk registrations store keys at **0xF5000** and **0xF7000** (within the storage partition range), NOT at 0xF6000 (PSA ITS). Always save the full 0xF4000-0xFEFFF range (44KB).
+
+**Backup files** (in `sidewalk-projects/`):
+- `cert5_all_keys.bin` — Board #2 (cert5) registration keys, load at 0xF4000
+- `mfg5.bin` / `mfg5.hex` — Board #2 (cert5) MFG credentials, load at 0xFF000
+- `board1_psa_its.bin` — Board #1 original keys (0xF6000, 8KB)
+- `board1_mfg.bin` — Board #1 original MFG (0xFF000, 4KB)
+
+### Resolution
+
+Permanent fix requires replacing the RAK4630 module on Board #2. The workaround is stable — Board #2 operates normally over LoRa with transferred keys. Only limitation: cannot re-register via BLE if chip-erased.
