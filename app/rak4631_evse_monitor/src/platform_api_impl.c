@@ -16,6 +16,7 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/adc.h>
+#include <hal/nrf_saadc.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/logging/log.h>
@@ -49,6 +50,11 @@ static bool adc_initialized;
 
 static int platform_adc_init(void)
 {
+	/* nRF52840 SAADC errata workaround: the analog mux can latch pins
+	 * to ground across reboot cycles. Force-disable the peripheral to
+	 * release any latched pins before re-initializing. */
+	nrf_saadc_disable(NRF_SAADC);
+
 	if (adc_initialized) {
 		return 0;
 	}
