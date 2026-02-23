@@ -24,13 +24,13 @@ Special: deferred, declined
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (26)
+## Open Tasks (25)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
 | TASK-110 | committed | Eliel+Utz | Restore uplink deduplication in decode Lambda (ADR-008) | — |
-| TASK-104 | not started | Eliel | Apply SAADC errata workaround + validate AIN1 recovery (EXP-012 Phase 1) | — |
+| TASK-104 | committed | Eliel | Apply SAADC errata workaround + validate AIN1 recovery (EXP-012 Phase 1) | — |
 | TASK-102 | not started | — | Reseat RAK4631 in RAK19001 and validate all even-row pins (EXP-012 Phase 2) | — |
 
 ### P2 — Important but not blocking v1.0
@@ -64,9 +64,10 @@ Special: deferred, declined
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (84)
+## Completed Tasks (85)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-111 | Fix dashboard detail view — normalize API contract | MERGED DONE | 2026-02-22 | Eliel+Utz |
 | TASK-108 | Dashboard event table missing timestamps + online badge | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-107 | Device timestamp as DynamoDB sort key (ADR-007) | MERGED DONE | 2026-02-22 | Eliel |
 | TASK-093 | Clean up stale IoT rules and old Lambdas | MERGED DONE | 2026-02-22 | Oliver |
