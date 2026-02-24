@@ -16,9 +16,8 @@ import argparse
 import base64
 import json
 import struct
-import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import boto3

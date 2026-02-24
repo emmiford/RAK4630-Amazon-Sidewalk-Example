@@ -110,7 +110,7 @@ void event_buffer_trim(uint32_t ack_watermark)
 		memmove(buf, &buf[src], new_count * sizeof(struct event_snapshot));
 	} else {
 		/* Source wraps — copy via temp to avoid overwrite */
-		struct event_snapshot tmp[EVENT_BUFFER_CAPACITY];
+		struct event_snapshot tmp[EVENT_BUFFER_CAPACITY] = {0};
 		for (uint8_t i = 0; i < new_count; i++) {
 			tmp[i] = buf[(src + i) % EVENT_BUFFER_CAPACITY];
 		}

@@ -33,8 +33,8 @@ table = dynamodb.Table(TABLE_NAME)
 DEVICE_STATE_TABLE = os.environ.get('DEVICE_STATE_TABLE', 'evse-device-state')
 state_table = dynamodb.Table(DEVICE_STATE_TABLE)
 
-import device_registry
-from protocol_constants import OTA_CMD_TYPE, crc32, unix_ms_to_mt
+import device_registry  # noqa: E402
+from protocol_constants import OTA_CMD_TYPE, crc32, unix_ms_to_mt  # noqa: E402
 
 # --- Protocol constants (must match ota_update.h) ---
 OTA_SUB_START = 0x01

@@ -54,8 +54,8 @@ CHARGE_CONTROL_CMD = 0x10
 DELAY_WINDOW_SUBTYPE = 0x02
 MOER_WINDOW_DURATION_S = 1800   # 30-minute MOER pause windows
 HEARTBEAT_RESEND_S = 1800       # Re-send window if last send >30 min ago
-import device_registry
-from protocol_constants import EPOCH_OFFSET, unix_ms_to_mt
+import device_registry  # noqa: E402
+from protocol_constants import EPOCH_OFFSET, unix_ms_to_mt  # noqa: E402
 
 table = dynamodb.Table(TABLE_NAME)
 DEVICE_STATE_TABLE = os.environ.get('DEVICE_STATE_TABLE', 'evse-device-state')

@@ -24,7 +24,6 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import boto3
-
 from protocol_constants import unix_ms_to_mt
 
 dynamodb = boto3.resource("dynamodb")

@@ -24,9 +24,8 @@ import os
 import time
 
 import boto3
-
-from sidewalk_utils import send_sidewalk_msg
 from protocol_constants import unix_ms_to_mt
+from sidewalk_utils import send_sidewalk_msg
 
 dynamodb = boto3.resource("dynamodb")
 sns = boto3.client("sns")

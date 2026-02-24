@@ -21,18 +21,17 @@ Extracts:
 """
 
 import base64
+import hashlib
 import json
 import os
 import time
 from datetime import datetime
 from decimal import Decimal
-import hashlib
 from zoneinfo import ZoneInfo
 
 import boto3
-from botocore.exceptions import ClientError
-
 import device_registry
+from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource('dynamodb')
 lambda_client = boto3.client('lambda')
@@ -45,13 +44,22 @@ registry_table = dynamodb.Table(REGISTRY_TABLE_NAME)
 DEVICE_STATE_TABLE = os.environ.get('DEVICE_STATE_TABLE', 'evse-device-state')
 state_table = dynamodb.Table(DEVICE_STATE_TABLE)
 
-from protocol_constants import OTA_CMD_TYPE, OTA_SUB_ACK, OTA_SUB_COMPLETE, OTA_SUB_STATUS, EPOCH_OFFSET, TELEMETRY_MAGIC, DIAG_MAGIC, unix_ms_to_mt
+from protocol_constants import (  # noqa: E402
+    DIAG_MAGIC,
+    EPOCH_OFFSET,
+    OTA_CMD_TYPE,
+    OTA_SUB_ACK,
+    OTA_SUB_COMPLETE,
+    OTA_SUB_STATUS,
+    TELEMETRY_MAGIC,
+    unix_ms_to_mt,
+)
 
 # TIME_SYNC constants
 TIME_SYNC_CMD_TYPE = 0x30
 TIME_SYNC_INTERVAL_S = 86400  # Re-sync daily
 
-from sidewalk_utils import send_sidewalk_msg, get_device_id  # noqa: E402
+from sidewalk_utils import send_sidewalk_msg  # noqa: E402
 
 # Scheduler divergence detection (TASK-071)
 DIVERGENCE_MAX_RETRIES = 3

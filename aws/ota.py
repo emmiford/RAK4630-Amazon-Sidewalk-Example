@@ -27,7 +27,6 @@ BUILD_APP_DIR = "build_app"
 APP_BIN = os.path.join(BUILD_APP_DIR, "app.bin")
 
 sys.path.insert(0, os.path.dirname(__file__))
-from protocol_constants import crc32
 
 
 # --- Delta computation ---
@@ -78,7 +77,7 @@ def pyocd_dump(addr, size, out_path):
         expected = os.path.getsize(bin_path)
         if expected > 0 and len(trimmed) > expected * 2:
             print(f"  WARNING: Dump ({len(trimmed)}B) >> app binary ({expected}B)")
-            print(f"  Stale flash data likely present. Re-flash with flash.sh app first.")
+            print("  Stale flash data likely present. Re-flash with flash.sh app first.")
 
     return trimmed
 

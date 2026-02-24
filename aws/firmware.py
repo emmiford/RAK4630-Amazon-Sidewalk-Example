@@ -24,7 +24,6 @@ import ota
 import release
 from protocol_constants import crc32
 
-
 # --- Subcommand handlers ---
 
 
@@ -74,8 +73,6 @@ def cmd_deploy(args):
         print("ERROR: --version must be >= 1")
         sys.exit(1)
 
-    # Verify the tag exists (should have been created by 'release')
-    tag = f"app-v{args.version}"
 
     # Load firmware binary
     abs_bin = os.path.join("/Users/emilyf/sidewalk-projects", ota.APP_BIN)

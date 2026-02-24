@@ -2,15 +2,12 @@
 
 import os
 import sys
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 # Ensure aws/ is on the path (conftest.py also does this, belt-and-suspenders)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import device_registry as reg  # noqa: E402
-
 
 # --- SC Short ID generation ---
 

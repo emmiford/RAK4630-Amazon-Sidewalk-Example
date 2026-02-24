@@ -6,8 +6,6 @@ import sys
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # Ensure aws/ is on the path and boto3 is mocked before import
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 if "boto3" not in sys.modules:
@@ -15,7 +13,6 @@ if "boto3" not in sys.modules:
 
 import aggregation_lambda as agg
 from protocol_constants import unix_ms_to_mt
-
 
 # ================================================================
 # Constants

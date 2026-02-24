@@ -21,7 +21,6 @@ if "boto3" not in sys.modules:
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import decode_evse_lambda as decode  # noqa: E402
 
-
 # --- TIME_SYNC payload builder ---
 
 class TestBuildTimeSyncBytes:

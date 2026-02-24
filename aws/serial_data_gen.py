@@ -64,7 +64,7 @@ def send_and_uplink(ser, state_cmd, label, dry_run=False):
 
     time.sleep(1)
 
-    print(f"  Sending uplink...")
+    print("  Sending uplink...")
     resp = send_cmd(ser, CMD_SEND, wait_s=2.0, dry_run=dry_run)
     if resp:
         # Look for confirmation in output

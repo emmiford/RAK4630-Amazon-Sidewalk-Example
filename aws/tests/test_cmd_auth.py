@@ -11,7 +11,6 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from cmd_auth import CMD_AUTH_KEY_SIZE, CMD_AUTH_TAG_SIZE, get_auth_key, sign_command
 
-
 # --- Test key (same as C tests: 32 bytes of 0xAA) ---
 TEST_KEY = bytes([0xAA] * 32)
 

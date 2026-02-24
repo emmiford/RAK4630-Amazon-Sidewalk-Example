@@ -7,7 +7,7 @@ import struct
 import sys
 import time
 from datetime import datetime
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
 import pytest

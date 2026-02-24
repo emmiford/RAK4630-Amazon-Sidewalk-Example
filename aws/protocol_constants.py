@@ -6,7 +6,7 @@ Only constants used by multiple files belong here.
 """
 
 import binascii
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # --- OTA protocol (must match ota_update.h) ---

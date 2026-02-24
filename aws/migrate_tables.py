@@ -14,13 +14,10 @@ Usage:
 
 import argparse
 import hashlib
-import sys
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import boto3
-from boto3.dynamodb.types import TypeDeserializer
 
 dynamodb = boto3.resource("dynamodb")
 MT = ZoneInfo("America/Denver")

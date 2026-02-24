@@ -9,8 +9,6 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 from zoneinfo import ZoneInfo
 
-import pytest
-
 # Module-level mocking
 if "boto3" not in sys.modules:
     sys.modules["boto3"] = MagicMock()
