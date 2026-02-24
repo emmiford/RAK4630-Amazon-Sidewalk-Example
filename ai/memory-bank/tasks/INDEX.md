@@ -158,7 +158,7 @@ Special: deferred, declined
 
 ## Related Documents
 - RAK Firmware Technical Design: `docs/technical-design.md`
-- Experiment Log: `experiment-log.md`
+- Experiment Log: `docs/experiment-log.md`
 - MOER Threshold Analysis: `moer-threshold-analysis.md`
 - OTA Field Test Results: `ota-field-test-results.md`
 - ADRs: `docs/adr/`

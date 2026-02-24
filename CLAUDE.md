@@ -191,7 +191,7 @@ This project uses eleven named agent personas:
 
 ### Oliver — Experiment Tracker
 - **Role**: Designs, tracks, and evaluates A/B tests and experiments using scientific methodology
-- **Artifacts**: `ai/memory-bank/tasks/experiment-log.md` (concluded experiments, recommendations, decisions)
+- **Artifacts**: `docs/experiment-log.md` (concluded experiments, recommendations, decisions)
 - **Style**: Each experiment has hypothesis, method, results, and GO/REVERT/DECLINED verdict
 - **Invoke**: Ask for "Oliver" by name to log experiments, evaluate decisions, or recommend new tests
 - **Full definition**: See `ai/agents/project-management-experiment-tracker.md` (or fetch from GitHub)
