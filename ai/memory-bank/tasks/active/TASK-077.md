@@ -7,7 +7,7 @@
 **Size**: M (3 points)
 
 ## Description
-Implement the customer data deletion Lambda defined in `docs/data-retention.md` §2.4. Triggered daily by EventBridge, queries device registry for devices with `status=returned` past the 30-day grace period, removes PII attributes, and batch-deletes all associated telemetry and aggregate records. Required to fulfill CCPA Right to Delete. See also `docs/privacy-governance.md` §4.
+Implement a customer data deletion Lambda. Triggered daily by EventBridge, queries device registry for devices with `status=returned` past the 30-day grace period, removes PII attributes, and batch-deletes all associated telemetry and aggregate records.
 
 ## Dependencies
 **Blocked by**: none

@@ -7,7 +7,7 @@
 **Size**: S (1 point)
 
 ## Description
-Host and publish the customer-facing privacy policy (`docs/privacy-policy.md`) at a publicly accessible URL. Required before first non-developer customer deployment. The policy must be accessible without login. Update the policy document with the final effective date, contact email, and mailing address. Update the commissioning card and any product materials with the policy URL.
+Draft and publish a customer-facing privacy policy at a publicly accessible URL. The policy must be accessible without login. Include effective date, contact email, and mailing address. Update the commissioning card and any product materials with the policy URL. Requires external counsel review (TASK-076).
 
 ## Dependencies
 **Blocked by**: TASK-076 (consultant should review policy before publication)
@@ -22,4 +22,3 @@ Host and publish the customer-facing privacy policy (`docs/privacy-policy.md`) a
 
 ## Deliverables
 - Published privacy policy URL
-- Updated `docs/privacy-policy.md` with final fields

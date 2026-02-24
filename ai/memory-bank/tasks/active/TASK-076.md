@@ -7,7 +7,7 @@
 **Size**: S (2 points)
 
 ## Description
-Engage an external privacy consultant (attorney or certified privacy professional) for legal review of privacy policy, CCPA/CPA gap analysis, and incident response plan development. Required before first non-developer customer deployment. See `docs/privacy-governance.md` §1.3 for engagement triggers and budget estimate ($2k–$5k initial + $1k–$2k/yr retainer). Consider IAPP referral network.
+Engage an external privacy consultant (attorney or certified privacy professional) for legal review of privacy policy, CCPA/CPA gap analysis, and incident response plan development. Required before any customer deployment. Budget estimate: $2k–$5k initial + $1k–$2k/yr retainer. Consider IAPP referral network.
 
 ## Dependencies
 **Blocked by**: none
@@ -16,8 +16,8 @@ Engage an external privacy consultant (attorney or certified privacy professiona
 ## Acceptance Criteria
 - [ ] Privacy consultant identified (name, firm, credentials)
 - [ ] Engagement agreement signed
-- [ ] Consultant has reviewed privacy policy (`docs/privacy-policy.md`)
-- [ ] Consultant has reviewed data retention procedures (`docs/data-retention.md`)
+- [ ] Consultant has reviewed data privacy architecture (PRD §6.4.2)
+- [ ] Consultant has reviewed data retention rules (90-day telemetry TTL, 3-year aggregates, 30-day logs)
 - [ ] CCPA/CPA compliance gap report received
 - [ ] Remediation plan agreed
 

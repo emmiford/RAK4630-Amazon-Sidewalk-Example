@@ -17,10 +17,9 @@ Under CCPA, `install_lat` and `install_lon` qualify as "precise geolocation" (se
 - [ ] Legal guidance obtained on whether install_address alone triggers CCPA sensitive data provision
 - [ ] Opt-out mechanism implemented (either: make lat/lon optional in commissioning, or store utility region instead)
 - [ ] Device registry updated: lat/lon fields nullable or removed
-- [ ] Privacy policy updated to reflect change
+- [ ] Privacy policy updated to reflect change (when published)
 - [ ] Existing lat/lon data deletion procedure defined for opted-out customers
 
 ## Deliverables
 - Updated device registry schema
-- Updated `docs/privacy-policy.md`
 - Updated commissioning flow (if lat/lon made optional)

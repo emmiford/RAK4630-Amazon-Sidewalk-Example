@@ -7,7 +7,7 @@
 **Size**: M (3 points)
 
 ## Description
-Automate the CCPA "Right to Know" response: given an owner_email, export all personal information and telemetry associated with that customer's device(s) in a machine-readable format (JSON or CSV). Currently this would require manual DynamoDB queries. Automation becomes necessary at 50+ customers to meet the 45-day response SLA. See `docs/privacy-governance.md` §4.1.
+Automate the "Right to Know" response: given an owner_email, export all personal information and telemetry associated with that customer's device(s) in a machine-readable format (JSON or CSV). Currently this would require manual DynamoDB queries.
 
 ## Dependencies
 **Blocked by**: none

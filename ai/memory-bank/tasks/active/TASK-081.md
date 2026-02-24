@@ -7,7 +7,7 @@
 **Size**: M (3 points)
 
 ## Description
-Develop a formal data breach incident response plan to replace the interim procedure in `docs/privacy-governance.md` §5.2. Must cover detection, containment, assessment, notification (72-hour CCPA/CPA deadlines), remediation, and post-incident documentation. Should be developed with input from external privacy consultant (TASK-076). Required before multi-customer rollout.
+Develop a formal data breach incident response plan. Must cover detection, containment, assessment, notification (state-specific deadlines), remediation, and post-incident documentation. Should be developed with input from external privacy consultant (TASK-076).
 
 ## Dependencies
 **Blocked by**: TASK-076 (needs consultant input for legal notification requirements)
@@ -23,5 +23,4 @@ Develop a formal data breach incident response plan to replace the interim proce
 - [ ] Tabletop exercise conducted
 
 ## Deliverables
-- `docs/incident-response-plan.md`
-- Updated `docs/privacy-governance.md` §5 (replace interim with reference to formal plan)
+- Incident response plan document
