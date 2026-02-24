@@ -1486,7 +1486,7 @@ The meter number would be collected during commissioning (printed on the meter, 
 | CloudWatch log retention (30 days) | IMPLEMENTED |
 | No PII in Lambda log output | VERIFIED (all 5 Lambdas) |
 
-**Still needed**: Customer-facing privacy policy, CCPA/state compliance review with external counsel, customer data deletion automation (on device return/decommission), and incident response planning.
+**Still needed**: Customer-facing privacy policy, CCPA/state compliance review, customer data deletion automation (on device return/decommission), and incident response planning.
 
 **Data sensitivity note**: Behavioral data (AC/EV run patterns) reveals occupancy patterns even without a name attached. The 90-day TTL on raw telemetry and daily aggregation to summary statistics mitigate this, but a formal privacy review should evaluate whether further minimization is warranted.
 
