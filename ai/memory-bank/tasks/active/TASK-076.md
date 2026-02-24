@@ -7,11 +7,11 @@
 **Size**: S (2 points)
 
 ## Description
-Engage an external privacy consultant (attorney or certified privacy professional) for legal review of privacy policy, CCPA/CPA gap analysis, and incident response plan development. Required before any customer deployment. Budget estimate: $2k–$5k initial + $1k–$2k/yr retainer. Consider IAPP referral network.
+Engage an external privacy consultant (attorney or certified privacy professional) for privacy policy review, CCPA/CPA gap analysis, and incident response plan development. Budget estimate: $2k–$5k initial + $1k–$2k/yr retainer. Consider IAPP referral network.
 
 ## Dependencies
 **Blocked by**: none
-**Blocks**: TASK-081 (incident response plan needs consultant input), TASK-082 (geo opt-out needs legal guidance)
+**Blocks**: TASK-081 (incident response plan needs consultant input), TASK-082 (geo opt-out needs consultant guidance)
 
 ## Acceptance Criteria
 - [ ] Privacy consultant identified (name, firm, credentials)

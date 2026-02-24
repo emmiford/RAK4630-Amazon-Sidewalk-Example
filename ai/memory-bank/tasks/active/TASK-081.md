@@ -10,7 +10,7 @@
 Develop a formal data breach incident response plan. Must cover detection, containment, assessment, notification (state-specific deadlines), remediation, and post-incident documentation. Should be developed with input from external privacy consultant (TASK-076).
 
 ## Dependencies
-**Blocked by**: TASK-076 (needs consultant input for legal notification requirements)
+**Blocked by**: TASK-076 (needs consultant input on notification requirements)
 **Blocks**: none
 
 ## Acceptance Criteria
@@ -18,7 +18,7 @@ Develop a formal data breach incident response plan. Must cover detection, conta
 - [ ] Covers all phases: detect, contain, assess, notify, remediate, document
 - [ ] State-specific notification deadlines documented (CA 72h, CO 30d, VA/CT "reasonable")
 - [ ] Roles and responsibilities assigned (who does what in each phase)
-- [ ] Contact list maintained (legal counsel, AWS support, affected customers)
+- [ ] Contact list maintained (privacy consultant, AWS support, affected customers)
 - [ ] Plan reviewed by external privacy consultant
 - [ ] Tabletop exercise conducted
 
