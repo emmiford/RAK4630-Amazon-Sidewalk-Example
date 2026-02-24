@@ -1512,17 +1512,17 @@ There is also a mechanical wear concern: SideCharge cycles the EVSE's internal r
 
 **HVAC warranty -- LOW risk.** Thermostat replacement and wiring modification is standard homeowner/contractor practice. HVAC manufacturers generally don't void warranties for thermostat-side changes. SideCharge sits inline on the thermostat call wires (Y and W), passing signals through or blocking them entirely. The thermostat's built-in short-cycle protection timer is upstream of the SideCharge break, so it remains in the loop. For heat pump installations, blocking both Y-out and W-out prevents the compressor from running in either mode -- the reversing valve state is irrelevant because the compressor itself is de-energized.
 
-#### 6.4.3 Legal Protection: Magnuson-Moss Warranty Act
+#### 6.4.3 Magnuson-Moss Warranty Act
 
-The federal Magnuson-Moss Warranty Act (15 U.S.C. §§ 2301-2312) is SideCharge's primary legal defense:
+The federal Magnuson-Moss Warranty Act (15 U.S.C. §§ 2301-2312) applies to aftermarket products installed alongside consumer goods:
 
 - A manufacturer **cannot void a warranty** simply because a third-party product was installed
 - The manufacturer **must prove** that the third-party product **caused** the specific defect being claimed
 - "Tie-in sales provisions" (requiring OEM-only accessories) are generally prohibited for consumer products
 
-This is the same law that protects aftermarket car parts, third-party phone accessories, and non-OEM components across industries. SideCharge has a strong legal position under MMWA for defects unrelated to the pilot wire or thermostat modifications.
+This is the same law that covers aftermarket car parts, third-party phone accessories, and non-OEM components across industries.
 
-**Where MMWA doesn't help**: If SideCharge's modifications actually cause the defect -- accelerated relay wear from frequent State B cycling, signal integrity issues from the inline pilot pass-through, or a wiring error during installation -- the manufacturer has a legitimate basis for denial. MMWA protects against blanket voiding, not against genuine causation.
+**Where MMWA doesn't help**: If SideCharge's modifications actually cause the defect — accelerated relay wear from frequent State B cycling, signal integrity issues from the inline pilot pass-through, or a wiring error during installation — the manufacturer has a legitimate basis for denial. MMWA covers blanket voiding, not genuine causation.
 
 #### 6.4.4 Mitigation Strategies
 
@@ -1530,23 +1530,23 @@ This is the same law that protects aftermarket car parts, third-party phone acce
 |---|----------|--------|----------------|----------|
 | 1 | **J1772 protocol compliance** — All pilot manipulations use valid J1772 signaling (standard State A-F voltage levels, standard PWM). The EVSE and vehicle never see out-of-spec signals. | Done | Medium | v1.0 (current) |
 | 2 | **Professional installation only** — Licensed electrician installs with commissioning checklist. Documented wiring, verified connections, installer sign-off. Reduces risk of installation-caused defects. | Low | Medium | v1.0 |
-| 3 | **Customer disclosure** — Installation documentation explicitly states SideCharge modifies the EVSE pilot circuit and thermostat call wire, explains MMWA protections, recommends checking EVSE/vehicle warranty terms before installation. | Low | Low (legal CYA) | v1.0 |
+| 3 | **Customer disclosure** — Installation documentation explicitly states SideCharge modifies the EVSE pilot circuit and thermostat call wire, recommends checking EVSE/vehicle warranty terms before installation. | Low | Low | v1.0 |
 | 4 | **Product liability insurance** — General commercial liability + product liability coverage for claims arising from SideCharge installations. | Medium ($2-5K/yr) | Medium (financial protection) | Pre-customer deployment |
 | 5 | **Reversible connector design** -- The v1.0 inline pass-through architecture (PILOT-in/PILOT-out) requires cutting the pilot wire. A v1.1 improvement would use standard connectors (e.g., quick-disconnect or adapter plugs) so the EVSE's original wiring is unmodified and removal restores the original circuit instantly. Similarly, thermostat Y/W pass-through could use lever-cage connectors for tool-free reversibility. | Medium | High | v1.1 |
-| 6 | **Relay cycle logging** — Track how many State B ↔ State C transitions SideCharge causes per day/week. If an EVSE relay fails, we have data showing whether SideCharge's cycling was within the relay's rated lifetime. | Low | Medium (evidentiary) | v1.1 |
+| 6 | **Relay cycle logging** — Track how many State B ↔ State C transitions SideCharge causes per day/week. If an EVSE relay fails, we have data showing whether SideCharge's cycling was within the relay's rated lifetime. | Low | Medium | v1.1 |
 | 7 | **EVSE manufacturer partnerships** — Approach 1-2 EVSE manufacturers (Emporia and OpenEVSE are most accessible) for explicit compatibility acknowledgment or co-testing. | High | Very High | v1.1+ |
 | 8 | **OCPP software integration** — For OCPP-capable EVSEs, control charging via the EVSE's own management API instead of hardware pilot manipulation. Eliminates the pilot wire modification entirely for compatible chargers. | High | Very High | v2.0 |
 
 #### 6.4.5 Recommended Phased Approach
 
 **v1.0 (current — early adopters, installer-owned properties)**:
-Accept the warranty risk. Mitigate with strategies 1-3: protocol compliance (done), professional installation (planned), customer disclosure (add to commissioning docs). The first installations are on properties where the installer understands and accepts the tradeoff.
+Mitigate with strategies 1-3: protocol compliance (done), professional installation (planned), customer disclosure (add to commissioning docs). The first installations are on properties where the installer understands and accepts the tradeoff.
 
 **Pre-customer deployment (before any non-installer customer)**:
 Add strategy 4: product liability insurance. Non-negotiable before any customer installation. Budget $2-5K/year for a small commercial general liability + product liability policy. An insurance broker with IoT/hardware product experience can quote this.
 
 **v1.1**:
-Add strategies 5-6: reversible connector and relay cycle logging. The reversible connector is the single highest-impact mitigation — it changes the installation from "modified your EVSE wiring" to "plugged in an adapter." This fundamentally shifts the warranty argument. Relay cycle logging provides evidentiary defense if an EVSE relay fails.
+Add strategies 5-6: reversible connector and relay cycle logging. The reversible connector is the single highest-impact mitigation — it changes the installation from "modified your EVSE wiring" to "plugged in an adapter." Relay cycle logging provides data to evaluate whether SideCharge's cycling contributed to any relay failure.
 
 **v1.1+ (growth phase)**:
 Add strategy 7: EVSE manufacturer partnerships. Start with Emporia (small, US-based, receptive to integrations) or OpenEVSE (open-source hardware, community-driven). A single manufacturer's explicit compatibility acknowledgment validates the product category.
@@ -1560,9 +1560,9 @@ Add strategy 8: OCPP integration. This is the long-term answer for compatible EV
 
 2. **Product positioning**: Should SideCharge be marketed as an "EVSE accessory" or an "energy management system"? The framing affects how EVSE manufacturers perceive the relationship. An "accessory" implies subordinate to the EVSE; an "energy management system" implies independent and authorized by code (NEC Article 750).
 
-3. **Insurance scope**: Does product liability insurance cover warranty claims that a customer brings against us (i.e., "SideCharge told me it was safe and my EVSE warranty was voided"), or only claims for physical damage? Need to confirm scope with an insurance broker.
+3. **Insurance scope**: Does product liability insurance cover warranty claims that a customer brings against us (i.e., "SideCharge told me it was safe and my EVSE warranty was voided"), or only claims for physical damage?
 
-4. **State lemon laws and implied warranty**: Some states extend implied warranty protections beyond the manufacturer's written warranty. If SideCharge causes a defect within the implied warranty period, state law may provide the customer additional remedies. This varies by state and needs legal review.
+4. **State lemon laws and implied warranty**: Some states extend implied warranty protections beyond the manufacturer's written warranty. If SideCharge causes a defect within the implied warranty period, state law may provide the customer additional remedies.
 
 ---
 
