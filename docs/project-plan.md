@@ -2,6 +2,7 @@
 
 **Author**: Malcolm (Senior Project Manager, Eta Works)
 **Created**: 2026-02-12
+**Updated**: 2026-02-23
 **Source**: PRD v1.4, task list (2026-02-11), known issues, architecture doc, ADR-001
 **Purpose**: Master project plan from current state to production deployment
 
@@ -86,12 +87,13 @@ All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clam
 
 #### Feature 2.1.1: Pilot Voltage Classification
 - **Story**: As a system, I want to read the J1772 pilot voltage and classify it into states A-F, so that the interlock knows whether a car is connected and charging. **(S)**
-  - [x] Task: Read J1772 pilot voltage via ADC (AIN0, 12-bit, 0-3.6V range) — `SW+HW` — IMPLEMENTED
+  - [x] Task: Read J1772 pilot voltage via ADC (AIN1/P0.31, 12-bit, 0-3.6V range) — `SW+HW` — IMPLEMENTED (TASK-100 remapped to WisBlock AIN1)
   - [x] Task: Classify into states A-F using voltage thresholds — `SW` — IMPLEMENTED
   - [x] Task: Implement all state ranges: A (>2600mV), B (1850-2600), C (1100-1850), D (350-1100), E (<350), F (no pilot) — `SW` — IMPLEMENTED
   - [x] Task: Poll interval 500ms — `SW` — IMPLEMENTED
   - [x] Task: Transmit on state change only — `SW` — IMPLEMENTED
   - [x] Task: Simulation mode for testing (states A-D, 10s duration) — `SW` — IMPLEMENTED
+  - [x] Task: Fix SAADC errata — `nrf_saadc_disable()` at boot releases analog mux latch on AIN1, recovering pilot readings from ~0 to ~3300mV — `SW` — IMPLEMENTED (TASK-104)
 
 #### Feature 2.1.2: J1772 PWM Duty Cycle Decoding
 - **Story**: As a system, I want to decode the J1772 PWM duty cycle, so that I know the maximum current the charger is offering and can report it to the cloud. **(M)**
@@ -109,7 +111,7 @@ All analog and digital sensor inputs: J1772 pilot monitoring (2.1), current clam
 
 #### Feature 2.2.1: Current Measurement and Scaling
 - **Story**: As a system, I want to measure real-time EV charging current via the current clamp, so that I can report charging power and detect anomalies. **(M)**
-  - [x] Task: Read current clamp voltage via ADC (AIN1, 12-bit) — `SW+HW` — IMPLEMENTED
+  - [x] Task: Read current clamp voltage via ADC (AIN1, 12-bit) — `SW+HW` — IMPLEMENTED (Note: current clamp dropped in TASK-100 pin remap; AIN1 now used for pilot)
   - [x] Task: Linear scaling 0-3.3V = 0-30A (0-30,000 mA) — `SW` — IMPLEMENTED (needs rescaling)
   - [x] Task: Transmit on change detection — `SW` — IMPLEMENTED
   - [ ] Task: Rescale to minimum 48A range (60A circuit at 80% continuous) — `SW+HW` — NOT STARTED — PRD ref: TASK-026 in known gaps. Requires clamp selection + resistor divider change.
@@ -150,6 +152,7 @@ Amazon Sidewalk integration, uplink/downlink messaging, payload encoding, AWS ba
   - [x] Task: MFG key health check at boot (detect missing/empty credentials) — `SW` — IMPLEMENTED
   - [x] Task: Sidewalk session key presence check (trigger BLE registration if needed) — `SW` — IMPLEMENTED
   - [x] Task: Unknown command type logging (graceful reject) — `SW` — IMPLEMENTED
+  - [x] Task: Investigate Board #2 CC310 crypto accelerator defect — ECC P-256 key generation hangs; workaround: cross-chip PSA key transfer from Board #1 — `HW` — IMPLEMENTED (TASK-113, KI-004)
 
 #### Feature 3.1.2: Reconnection and Error Handling
 - **Story**: As a device, I want to handle connectivity loss gracefully and continue local interlock operation, so that a network outage never disables the safety function. **(M)**
@@ -199,9 +202,10 @@ Amazon Sidewalk integration, uplink/downlink messaging, payload encoding, AWS ba
   - [x] Task: Lambda decodes raw 8-byte EVSE payload — `CLOUD` — IMPLEMENTED
   - [x] Task: Decoded events stored in DynamoDB (device_id + timestamp) — `CLOUD` — IMPLEMENTED
   - [x] Task: TTL expiration on DynamoDB records — `CLOUD` — IMPLEMENTED
-  - [x] Task: Backward compatibility via payload version field (byte 1) — `CLOUD` — DESIGNED
+  - [x] Task: Backward compatibility via payload version field (byte 1) — `CLOUD` — IMPLEMENTED (handles v0x07, v0x08, v0x09)
   - [x] Task: Update decode Lambda to handle v0x08 12-byte payload with timestamp — `CLOUD` — IMPLEMENTED (TASK-035, TASK-060)
   - [x] Task: Update decode Lambda to update device registry `last_seen` and `app_version` — `CLOUD` — IMPLEMENTED (TASK-084)
+  - [x] Task: Restore uplink deduplication — deterministic sort key via SHA-256 hash + DynamoDB conditional write — `CLOUD` — IMPLEMENTED (TASK-110, ADR-008)
 
 #### Feature 3.4.2: Demand Response and Charge Scheduling
 - **Story**: As a cloud system, I want to automatically pause EV charging during peak electricity hours and high grid carbon periods, so that charging shifts to off-peak, low-carbon windows. **(S)**
@@ -222,6 +226,7 @@ Amazon Sidewalk integration, uplink/downlink messaging, payload encoding, AWS ba
   - [x] Task: CloudWatch log groups with 14-day retention — `CLOUD` — IMPLEMENTED
   - [x] Task: S3 bucket for firmware binaries — `CLOUD` — IMPLEMENTED
   - [x] Task: DynamoDB with PAY_PER_REQUEST billing — `CLOUD` — IMPLEMENTED
+  - [x] Task: Clean up stale IoT rules and obsolete Lambdas — consolidated to 1 IoT rule + 6 Lambdas — `CLOUD` — IMPLEMENTED (TASK-093)
 
 ---
 
@@ -263,6 +268,8 @@ Split-image architecture, delta OTA, recovery, staging partition, deploy tooling
 #### Feature 4.2.2: Deploy CLI
 - **Story**: As an operator, I want a CLI tool to manage OTA deployments (baseline, deploy, preview, status, abort), so that firmware updates are predictable and controllable. **(S)**
   - [x] Task: `ota_deploy.py baseline/deploy/preview/status/abort` — `CLOUD` — IMPLEMENTED
+  - [x] Task: Modular CLI restructure — `firmware.py`, `release.py`, `ota.py` replace monolithic `ota_deploy.py` — `CLOUD` — IMPLEMENTED (TASK-101)
+  - [x] Task: Build version tracking — `APP_BUILD_VERSION` + `PLATFORM_BUILD_VERSION` files, build versions in uplink bytes 13-14 — `SW+CLOUD` — IMPLEMENTED (TASK-101)
 
 ### Milestone 4.3: OTA Pipeline (Device Side)
 
@@ -343,6 +350,12 @@ Time-of-use pricing, MOER/grid carbon, demand response, coordinated scheduling, 
 PCB design, 2-LED system, enclosure, BOM, manufacturing, 24VAC power supply, and UL certification path. The bridge from prototype to product.
 
 ### Milestone 6.1: Production PCB Design (TASK-019)
+
+#### Feature 6.1.0: Pin Remapping to RAK19007 WisBlock Connector (Prototype)
+- **Story**: As a developer, I want firmware GPIO/ADC pins mapped to the RAK19007 WisBlock J11 header, so that the prototype works on the standard baseboard. **(S)**
+  - [x] Task: Remap all GPIO/ADC pins from raw nRF52840 to RAK19007 WisBlock J11 header (3 pins: AIN1 pilot, IO1 charge_block, IO2 cool_call) — `SW+HW` — IMPLEMENTED (TASK-100)
+  - [x] Task: Update PRD pin cross-reference table mapping nRF52840 GPIO, SAADC channels, WisBlock labels, and baseboard silkscreen — `DOC` — IMPLEMENTED (TASK-109)
+  - [x] Task: Naming consistency audit across C firmware, Python Lambda, and Terraform — `SW+CLOUD` — IMPLEMENTED (TASK-105)
 
 #### Feature 6.1.1: PCB Design and Fabrication
 - **Story**: As a manufacturer, I want a production PCB with proper isolation, dual relay outputs, current transducer interface, and 24VAC power supply, so that we can produce devices beyond one-off prototypes. **(XL)**
@@ -537,6 +550,18 @@ Operator dashboard, device fleet management, OTA deployment pipeline, alerting, 
   - [ ] Task: Populate registry at installation (owner, address, installer, meter number, install_date) — `CLOUD` — NOT STARTED
   - [x] Task: Decode Lambda updates `last_seen` and `app_version` on every uplink — `CLOUD` — IMPLEMENTED (TASK-084)
 
+### Milestone 9.5: Fleet Dashboard (Operator UI)
+
+#### Feature 9.5.1: EVSE Fleet Dashboard
+- **Story**: As an operator, I want a web-based dashboard showing all devices, their current state, and recent event history, so that I can monitor the fleet without querying DynamoDB directly. **(M)**
+  - [x] Task: DynamoDB table restructuring — `evse-*` naming scheme, normalized PK to SC-ID, event-type GSI (ADR-006) — `CLOUD` — IMPLEMENTED (TASK-106)
+  - [x] Task: Device timestamp as DynamoDB sort key — late-arriving buffered events sort by device time, not cloud receive time (ADR-007) — `CLOUD` — IMPLEMENTED (TASK-107)
+  - [x] Task: Dashboard API Lambda — 4 routes (fleet list, device detail, device events, device summary) — `CLOUD` — IMPLEMENTED (TASK-106)
+  - [x] Task: Single-file HTML frontend with dark theme — `CLOUD` — IMPLEMENTED (TASK-106)
+  - [x] Task: Online badge and event timestamps in detail view — `CLOUD` — IMPLEMENTED (TASK-108)
+  - [x] Task: Normalize API contract — `_is_online()` and `_flatten_device()` helpers for consistent response shape — `CLOUD` — IMPLEMENTED (TASK-111)
+  - [x] Task: Fix 6MB payload limit — cap event query at 500, drop unused `raw` field (~70KB response) — `CLOUD` — IMPLEMENTED (TASK-112)
+
 ### Milestone 9.3: Remote Diagnostics (Tier 2)
 
 #### Feature 9.3.1: Remote Status Query
@@ -730,44 +755,45 @@ The following dependencies span multiple epics and must be tracked carefully:
 | Device Registry | Epic 9 Feature 9.2.1 | Epic 5 Feature 5.2.1, Epic 3 Feature 3.4.1 | Per-device utility config and decode Lambda updates depend on registry |
 | LED State Machine | Epic 6 Feature 6.2.1 | Epic 8 Feature 8.1.1 | Commissioning sequence depends on LED patterns |
 | "Charge Now" Button | Epic 1 Feature 1.2.2 | Epic 9 Feature 9.4.1 | BLE diagnostics activation depends on button handler |
-| TIME_SYNC Downlink | Epic 3 Feature 3.3.1 | Epic 3 Feature 3.2.2 | Event buffer ACK trimming depends on TIME_SYNC |
-| OTA Signing | Epic 4 Feature 4.4.2 | Epic 10 Feature 10.5.1 | Security testing of OTA depends on signing implementation |
+| ~~TIME_SYNC Downlink~~ | ~~Epic 3 Feature 3.3.1~~ | ~~Epic 3 Feature 3.2.2~~ | ~~DONE (TASK-033)~~ |
+| ~~OTA Signing~~ | ~~Epic 4 Feature 4.4.2~~ | ~~Epic 10 Feature 10.5.1~~ | ~~DONE (TASK-031, TASK-045) — security testing can proceed~~ |
 | Rate Limiting | Epic 5 Feature 5.3.2 | Epic 10 Feature 10.5.1 | Security testing of command injection depends on rate limiting |
 | Current Clamp Scaling | Epic 2 Feature 2.2.1 | Epic 6 Feature 6.1.1 | PCB clamp interface depends on scaling decision (48A vs 80A) |
-| Stale Flash Fix (KI-003) | Epic 4 Feature 4.4.1 | All OTA operations | Delta OTA reliability depends on clean baselines |
-| Boot Path Tests (TASK-026) | Epic 10 Feature 10.1.3 | Blocked by TASK-024 (done) | Version mismatch behavior defined, tests can proceed |
-| Merge to Main (TASK-001) | All epics | All new work should be based on merged `main` | `feature/generic-platform` and `feature/testing-pyramid` need merge |
+| ~~Stale Flash Fix (KI-003)~~ | ~~Epic 4 Feature 4.4.1~~ | ~~All OTA operations~~ | ~~DONE (TASK-022)~~ |
+| ~~Boot Path Tests (TASK-026)~~ | ~~Epic 10 Feature 10.1.3~~ | ~~Blocked by TASK-024 (done)~~ | ~~DONE~~ |
+| ~~Merge to Main (TASK-001)~~ | ~~All epics~~ | ~~All new work should be based on merged `main`~~ | ~~DONE~~ |
 
 ---
 
 ## Priority Phases
 
-### Phase 0: Merge and Stabilize (Current Sprint)
+### Phase 0: Merge and Stabilize — COMPLETE
 **Goal**: Get all completed work onto `main`, fix the one open bug.
-1. TASK-001: Merge `feature/generic-platform` to main — **P1**
-2. Merge `feature/testing-pyramid` to main — **P1**
-3. TASK-022: Fix stale flash data (KI-003) — **P1**
-4. TASK-026: Boot path tests — **P2**
+1. ~~TASK-001: Merge `feature/generic-platform` to main~~ — DONE
+2. ~~Merge `feature/testing-pyramid` to main~~ — DONE
+3. ~~TASK-022: Fix stale flash data (KI-003)~~ — DONE
+4. ~~TASK-026: Boot path tests~~ — DONE
 
-### Phase 1: Firmware Completeness (Weeks 1-3)
+### Phase 1: Firmware Completeness — 7/8 COMPLETE
 **Goal**: All firmware features designed in the PRD are implemented.
-1. Feature 1.2.1: Boot/power recovery behavior (read thermostat before charge_block)
-2. Feature 1.2.2: "Charge Now" override button
-3. Feature 6.2.1: Priority-based LED state machine (prototype single-LED)
-4. Feature 3.2.1: Expand uplink payload to 12 bytes with timestamp
-5. Feature 3.3.1: TIME_SYNC downlink command
-6. Feature 3.2.2: Device-side event buffer (ring buffer)
-7. Feature 2.1.2: J1772 PWM duty cycle decoding
-8. Feature 1.2.4: Interlock transition logging
+1. ~~Feature 1.2.1: Boot/power recovery behavior~~ — DONE (TASK-065)
+2. Feature 1.2.2: "Charge Now" override button — PARTIAL (GPIO wired TASK-062, 30-min latch TASK-048b; thermal safeguard + long press + uplink reporting still TODO)
+3. ~~Feature 6.2.1: Priority-based LED state machine~~ — DONE (TASK-067)
+4. ~~Feature 3.2.1: Expand uplink payload to 15 bytes with timestamp + build versions~~ — DONE (TASK-035, TASK-060, TASK-101)
+5. ~~Feature 3.3.1: TIME_SYNC downlink command~~ — DONE (TASK-033)
+6. ~~Feature 3.2.2: Device-side event buffer (ring buffer)~~ — DONE (TASK-034, TASK-061)
+7. Feature 2.1.2: J1772 PWM duty cycle decoding — NOT STARTED
+8. ~~Feature 1.2.4: Interlock transition logging~~ — DONE (TASK-069)
 
-### Phase 2: Cloud Completeness (Weeks 3-5)
+### Phase 2: Cloud Completeness — 4/6 COMPLETE + Dashboard (bonus)
 **Goal**: Cloud infrastructure supports production monitoring and fleet management.
-1. Feature 9.2.1: Device registry (DynamoDB table, Terraform)
-2. Feature 9.1.1: Device offline detection (CloudWatch alarms)
-3. Feature 9.1.2: OTA failure alerting
-4. Feature 9.1.3: Interlock state change logging
-5. Feature 9.1.4: Daily health digest
-6. Feature 3.4.1: Update decode Lambda for v0x07 payload
+1. ~~Feature 9.2.1: Device registry (DynamoDB table, Terraform)~~ — DONE (TASK-036, TASK-049, TASK-084)
+2. Feature 9.1.1: Device offline detection (CloudWatch alarms) — NOT STARTED
+3. Feature 9.1.2: OTA failure alerting — PARTIAL (Lambda alarms exist, session stall detection TODO)
+4. Feature 9.1.3: Interlock state change logging — PARTIAL (events visible in dashboard, CloudWatch metrics TODO)
+5. ~~Feature 9.1.4: Daily health digest~~ — DONE (TASK-029, TASK-073)
+6. ~~Feature 3.4.1: Update decode Lambda for v0x09 payload~~ — DONE (TASK-035, TASK-060, TASK-084, TASK-110)
+7. ~~Feature 9.5.1: Fleet Dashboard (unplanned)~~ — DONE (TASK-106, TASK-107, TASK-108, TASK-111, TASK-112)
 
 ### Phase 3: Field Validation (Weeks 5-8)
 **Goal**: System validated with real hardware, real LoRa conditions, real J1772 equipment.
@@ -802,12 +828,12 @@ The following dependencies span multiple epics and must be tracked carefully:
 5. Feature 8.3.1: Electrician training materials
 6. Feature 11.1.1: Privacy policy and data retention
 
-### Phase 7: Security Hardening (Weeks 18-24)
+### Phase 7: Security Hardening — 2/4 COMPLETE
 **Goal**: Security gaps closed before any customer deployment.
-1. Feature 4.4.2: OTA image ED25519 signing
-2. Feature 11.2.4: Cloud command authentication (signed downlinks)
-3. Feature 5.3.2: Fleet-wide command throttling and rate limiting
-4. Feature 10.5.1: Security validation testing
+1. ~~Feature 4.4.2: OTA image ED25519 signing~~ — DONE (TASK-031, TASK-045, TASK-046)
+2. ~~Feature 11.2.4: Cloud command authentication (signed downlinks)~~ — DONE (TASK-032)
+3. Feature 5.3.2: Fleet-wide command throttling and rate limiting — NOT STARTED
+4. Feature 10.5.1: Security validation testing — NOT STARTED
 
 ---
 
@@ -816,14 +842,17 @@ The following dependencies span multiple epics and must be tracked carefully:
 | Metric | Count |
 |--------|-------|
 | Epics | 11 |
-| Milestones | 34 |
-| Features | 62 |
-| Total tasks | ~220 |
-| Tasks IMPLEMENTED (checked) | ~130 |
-| Tasks remaining (unchecked) | ~90 |
-| Known issues open | 0 |
+| Milestones | 35 |
+| Features | 64 |
+| Total tasks | ~235 |
+| Tasks IMPLEMENTED (checked) | ~155 |
+| Tasks remaining (unchecked) | ~80 |
+| Tracked tasks in INDEX.md | 110 (89 completed, 21 open) |
+| Known issues open | 1 (KI-004: CC310 crypto defect on Board #2) |
 | Known issues resolved | 3 (KI-001: documented workaround, KI-002: mitigated, KI-003: fixed in TASK-022) |
 
-The foundation is solid: the interlock hardware works, Sidewalk connectivity works, OTA pipeline works end-to-end with ED25519 signing, demand response works with HMAC command auth, the LED state machine is implemented, TIME_SYNC and event buffer are operational, boot path tests pass, and CI runs 200+ tests. The path to production requires building the production hardware (PCB, 24VAC, enclosure), validating with real equipment (J1772 chargers, thermostats, field RF conditions), navigating code compliance (NEC, UL), and building the installer experience (documentation, training, commissioning).
+**Current state (2026-02-23)**: Phase 0 complete. Phase 1 at 7/8 (J1772 PWM decoding remains). Phase 2 at 4/6 plus a full fleet dashboard that wasn't even in the original plan. Phase 7 security at 2/4 (OTA signing + command auth done). The system is live: interlock hardware works, Sidewalk LoRa connectivity works, OTA pipeline works end-to-end with ED25519 signing, demand response runs with HMAC command auth, the LED state machine is implemented, TIME_SYNC and event buffer are operational, 15-minute heartbeat is live, build version tracking is in uplinks, fleet dashboard shows real-time device state, and CI runs 200+ tests.
 
-The single biggest non-technical risk remains UL listing: no timeline, no budget, no NRTL engagement. This should be the next PM decision after Phase 0 stabilization.
+The path to production requires: building the production hardware (PCB, 24VAC, enclosure), completing the "Charge Now" button UX, validating with real equipment (J1772 chargers, thermostats, field RF conditions), navigating code compliance (NEC, UL), and building the installer experience (documentation, training, commissioning).
+
+The single biggest non-technical risk remains UL listing: no timeline, no budget, no NRTL engagement.
