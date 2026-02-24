@@ -46,8 +46,7 @@
   .main { margin-left: 252px; }
 
   /* COVER */
-  .cover { min-height: 100vh; background: linear-gradient(135deg, #064E56 0%, #0A7E8C 50%, #7B61FF 100%); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 80px 60px; position: relative; overflow: hidden; }
-  .cover::before { content: ''; position: absolute; inset: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 30% 70%, rgba(123,97,255,0.15) 0%, transparent 50%), radial-gradient(circle at 70% 30%, rgba(245,166,35,0.1) 0%, transparent 50%); pointer-events: none; }
+  .cover { min-height: 100vh; background: var(--sc-teal-dark); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 80px 60px; position: relative; overflow: hidden; }
   .cover-mark { width: 80px; height: 80px; border: 3px solid rgba(255,255,255,0.3); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: 40px; position: relative; }
   .cover h1 { font-family: var(--font-display); font-size: 72px; font-weight: 700; color: #fff; letter-spacing: -0.03em; line-height: 1; margin-bottom: 16px; position: relative; }
   .cover .tag { font-size: 22px; color: var(--sc-teal-light); margin-bottom: 48px; position: relative; }
@@ -91,9 +90,6 @@
   .crule-n { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--sc-teal); background: rgba(10,126,140,0.08); width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .crule p { margin: 0; font-size: 14px; }
 
-  /* GRADIENT */
-  .grad { height: 120px; border-radius: var(--radius-lg); background: linear-gradient(135deg, #064E56 0%, #0A7E8C 50%, #7B61FF 100%); display: flex; align-items: center; justify-content: center; margin: 24px 0; }
-  .grad span { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #fff; }
 
   /* TYPE SPECIMEN */
   .tspec { margin: 28px 0; padding: 28px 32px; background: var(--sc-cloud); border-radius: var(--radius-md); }
@@ -173,7 +169,7 @@
   .nc-src { font-size: 11px; color: var(--sc-slate); }
 
   /* SPECTRUM */
-  .sp-bar { height: 8px; background: linear-gradient(to right, var(--sc-teal-dark), var(--sc-teal), var(--sc-violet)); border-radius: 4px; position: relative; margin: 16px 0 24px; }
+  .sp-bar { height: 8px; background: var(--sc-teal); border-radius: 4px; position: relative; margin: 16px 0 24px; }
   .sp-mk { position: absolute; top: -6px; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #fff; box-shadow: var(--shadow-card); }
 
   /* DASHBOARD MOCK */
@@ -412,9 +408,6 @@
     <div class="crule"><div class="crule-n">6</div><p><strong>Dark mode:</strong> swap Charcoal to backgrounds, use Mist Teal and Cloud for text.</p></div>
   </div>
 
-  <h3>Hero Gradient</h3>
-  <p>For hero banners and feature sections only. Never for buttons or small UI elements.</p>
-  <div class="grad"><span>Deep Current &rarr; Sidewalk Teal &rarr; Signal Violet</span></div>
 </section>
 
 <!-- 06 TYPOGRAPHY -->
@@ -546,7 +539,7 @@
   <p class="sec-intro">Guidelines for consistent brand application across all touchpoints.</p>
   <div class="dd">
     <div class="do-col"><h4><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="#2ECC71" stroke-width="2" stroke-linecap="round"><polyline points="13 3 6 12 3 8"/></svg> Do</h4><ul><li>Lead with the interlock&mdash;the panel upgrade is the problem, the circuit interlock is the answer</li><li>Follow the interlock with "and it connects over radio, no WiFi"</li><li>Use real numbers ($2,400, 4KB, 15s, 14-26%)&mdash;specificity builds trust</li><li>Show the product in residential contexts, including electrical panels</li><li>Speak differently to different audiences</li><li>Celebrate engineering elegance (tiny footprint, delta OTA, circuit sharing)</li><li>Use Signal Violet as a "wink"&mdash;the unexpected detail</li><li>Maintain generous white space</li><li>Show the interlock toggle animation in product demos</li></ul></div>
-    <div class="dont-col"><h4><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg> Don't</h4><ul><li>Don't call SideCharge a "charger monitor"&mdash;it is a circuit interlock</li><li>Don't compare directly to ChargePoint in marketing</li><li>Don't use "IoT" in consumer copy (say "connected" or "smart")</li><li>Don't make LoRa the hero&mdash;the <em>interlock</em> is the hero</li><li>Don't use gradients on buttons or interactive elements</li><li>Don't use more than 2 brand colors per card</li><li>Don't stack more than 3 messaging pillars per page</li><li>Don't bury the interlock story below connectivity features</li></ul></div>
+    <div class="dont-col"><h4><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg> Don't</h4><ul><li>Don't call SideCharge a "charger monitor"&mdash;it is a circuit interlock</li><li>Don't compare directly to ChargePoint in marketing</li><li>Don't use "IoT" in consumer copy (say "connected" or "smart")</li><li>Don't make LoRa the hero&mdash;the <em>interlock</em> is the hero</li><li>Don't place Amber text on Teal background (insufficient contrast)</li><li>Don't use more than 2 brand colors per card</li><li>Don't stack more than 3 messaging pillars per page</li><li>Don't bury the interlock story below connectivity features</li></ul></div>
   </div>
 </section>
 
@@ -624,9 +617,6 @@
   family=JetBrains+Mono:wght@400;500&amp;
   family=Space+Grotesk:wght@500;700&amp;
   display=swap" rel="stylesheet"&gt;</code></div>
-  <h3>Hero Gradient</h3>
-  <div class="cb"><code><span class="cp">background</span>: <span class="cv">linear-gradient(135deg,
-  #064E56 0%, #0A7E8C 50%, #7B61FF 100%)</span>;</code></div>
 </section>
 
 <div class="foot">
