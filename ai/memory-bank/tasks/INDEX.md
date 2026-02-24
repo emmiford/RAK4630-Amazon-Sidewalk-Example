@@ -9,6 +9,21 @@ Embedded IoT EVSE monitor over Amazon Sidewalk (LoRa) with OTA firmware updates.
 not started → planned → in progress → coded → committed → pushed → merged done
 Special: deferred, declined
 
+## Roadmap (updated 2026-02-23)
+
+| Phase | Status | Remaining |
+|-------|--------|-----------|
+| 0: Merge & Stabilize | COMPLETE | — |
+| 1: Firmware Completeness | 7/8 | J1772 PWM duty cycle decoding; Charge Now button thermal safeguard + long press + uplink |
+| 2: Cloud Completeness | 4/6 + bonus | Device offline alarms, OTA stall alerting. Fleet dashboard delivered (unplanned) |
+| 3: Field Validation | Not started | OTA field reliability, J1772 hardware validation (3+ chargers, 3+ cars), interlock HW integration |
+| 4: Production Hardware | Not started | PCB design, 24VAC power, dual-LED, enclosure, BOM |
+| 5: Code Compliance | Not started | NEC 220.60/220.70/440.34 documentation, Colorado code, UL listing |
+| 6: Installer Experience | Not started | Installation guide, commissioning checklist, electrician training |
+| 7: Security Hardening | 2/4 | Fleet command throttling, security validation testing |
+
+Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
+
 ## Agent Registry
 | Agent | Role |
 |-------|------|
@@ -41,11 +56,11 @@ Special: deferred, declined
 | TASK-086 | not started | Eliel | Terraform: add CMD_AUTH_KEY to scheduler Lambda | — |
 | TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
 | TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
-| TASK-095 | not started | — | PCB design update — 3 relays, 11 terminals, inline interlock | TASK-100 |
+| TASK-095 | not started | — | PCB design update — 3 relays, 11 terminals, inline interlock | — |
 | TASK-096 | not started | Eliel | Firmware — W-out relay GPIO + platform API update | TASK-095 |
 | TASK-097 | not started | Eliel | Firmware v1.1 — Heat call input + interlock + uplink HEAT flag | TASK-096 |
 | TASK-098 | not started | Eliel | Cloud v1.1 — Decode HEAT flag in Lambda + DynamoDB | TASK-097 |
-| TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | TASK-100 |
+| TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | — |
 | TASK-103 | not started | — | Validate external button and potentiometer hardware independently | TASK-102 |
 
 ### P3 — Nice-to-have
