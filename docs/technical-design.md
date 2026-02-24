@@ -1234,6 +1234,15 @@ recent, the downlink is suppressed.
 user has opted out of demand response for the remainder of this peak window. After
 the timestamp passes, normal scheduling resumes. See ADR-003.
 
+**Multi-device evolution**: v1.0 hardcodes a single device (via
+`get_device_id()`) and a single utility (Xcel Colorado / PSCO). The target
+architecture iterates over all `active` devices from the device registry (§8.7),
+reads each device's `utility_id` and `rate_plan`, fetches the TOU schedule and
+WattTime region from the TOU schedules table (§8.8), and evaluates per-device.
+TOU schedules and MOER values are cached per-utility and per-region within a
+single invocation, so 10 devices on the same utility make 1 DynamoDB read and 1
+WattTime API call, not 10. See ADR-009 for the decision record.
+
 ### 8.3 ota_sender_lambda
 
 This is the most stateful Lambda in the cloud triad (§8.1 decode, §8.2 charge
@@ -1354,12 +1363,147 @@ All AWS infrastructure is managed via Terraform (`aws/terraform/`). Never use
 
 Components:
 - IoT Wireless (Sidewalk destination + rule)
-- 4 Lambda functions (decode, scheduler, OTA sender, health digest)
-- DynamoDB tables (`evse-events`, `evse-devices`)
+- 5 Lambda functions (decode, scheduler, OTA sender, health digest, liveness checker)
+- DynamoDB tables (`evse-events`, `evse-devices`, `evse-tou-schedules`)
 - S3 bucket (`evse-ota-firmware-dev`) for firmware binaries and baselines
 - EventBridge rules (scheduler schedule, OTA retry timer, daily health digest)
 - SNS topic for health digest email alerts
 - CloudWatch alarms
+
+### 8.7 Device Registry
+
+The `evse-devices` DynamoDB table is a fleet registry — one record per physical
+device, storing identity, ownership, installation metadata, and liveness state.
+It is separate from the events table (`evse-events`), which stores time-series
+telemetry. The decode Lambda bridges the two: it receives the Sidewalk UUID in
+each uplink, resolves it to a short device ID via the registry, and writes to
+both tables.
+
+**Table**: `evse-devices` (PAY_PER_REQUEST)
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `device_id` **(PK)** | S | `SC-XXXXXXXX` — deterministic short ID (see derivation below) |
+| `sidewalk_id` | S | Full Sidewalk `WirelessDeviceId` UUID (36 chars) |
+| `owner_name` | S | Customer name |
+| `owner_email` | S | Customer contact email |
+| `meter_number` | S | Utility electric meter number |
+| `utility_id` | S | Utility identifier (e.g., `xcel_co`) — used by scheduler for TOU lookup (§8.8) |
+| `rate_plan` | S | Rate plan identifier (e.g., `re_tou`) — used with `utility_id` for TOU lookup |
+| `install_address` | S | Street address of installation |
+| `install_lat` / `install_lon` | N | GPS coordinates (optional) |
+| `install_date` | S | ISO 8601 — when electrician installed |
+| `installer_name` | S | Who performed the installation |
+| `provisioned_date` | S | ISO 8601 — when MFG credentials were flashed |
+| `app_version` | N | Last known app payload version (from uplink byte 1) |
+| `last_seen` | S | ISO 8601 — most recent uplink timestamp |
+| `last_seen_epoch` | N | Unix epoch seconds of most recent uplink (for GSI range queries) |
+| `status` | S | Lifecycle state (see below) |
+| `created_at` / `updated_at` | S | ISO 8601 record timestamps |
+
+**Partition key rationale**: The PK is the short ID (`SC-XXXXXXXX`), not the
+Sidewalk UUID. Every human interaction (support calls, labels, CLI tools) uses
+the short ID. The Sidewalk UUID is a lookup path handled by a GSI.
+
+**Global Secondary Indexes**:
+
+| GSI | PK | SK | Projection | Purpose |
+|-----|----|----|------------|---------|
+| `sidewalk-id-index` | `sidewalk_id` | — | KEYS_ONLY | Decode Lambda resolves UUID → short ID on every uplink |
+| `status-last-seen-index` | `status` | `last_seen_epoch` | ALL | Fleet health queries, offline detection |
+| `installer-index` | `installer_name` | `install_date` | ALL | Installer audit trail |
+
+#### Short ID derivation
+
+```
+device_id = "SC-" + lowercase_hex(SHA-256(sidewalk_uuid))[:8]
+```
+
+The Sidewalk UUID string is hashed as-is (lowercase with hyphens, as returned by
+AWS IoT Wireless). 8 hex characters = 32 bits = ~4.3 billion values. Birthday
+paradox gives 50% collision probability at ~65,000 devices — effectively zero
+risk at <1,000 devices. If the fleet exceeds 10K, extend to 10-12 hex characters
+(trivial change, the SHA-256 digest has 64 available).
+
+The `derive_device_id()` function lives in `sidewalk_utils.py` and is called by
+the decode Lambda, the registry CLI, and `ota_deploy.py`.
+
+#### Lifecycle states
+
+```
+  Factory          Installer           First Uplink       No Uplinks        Device Returned
+    |                  |                    |              for 45 min              |
+    v                  v                    v                  v                   v
+PROVISIONED -----> INSTALLED ---------> ACTIVE ---------> INACTIVE ---------> RETURNED
+    |                                       ^                  |
+    |                                       +------------------+
+    |                                       (uplink resumes)
+    +--- (first uplink, no installer step) --> ACTIVE
+         (auto-registration: v1.0 default for dev/prototype devices)
+```
+
+| Status | Meaning | Transition in | Transition out |
+|--------|---------|---------------|----------------|
+| `provisioned` | MFG flashed, not yet installed | Factory provisioning | Installer updates record |
+| `installed` | Electrician installed, awaiting first uplink | Installer CLI/API | First uplink received |
+| `active` | Device communicating normally | First uplink (auto or post-install) | No uplink for 45 min |
+| `inactive` | Device gone silent | Liveness checker | Uplink resumes |
+| `returned` | Decommissioned | Manual operator action | Terminal (can re-provision) |
+
+**Auto-registration**: On first uplink from an unknown Sidewalk UUID, the decode
+Lambda creates a registry record with `status=active` via a single `UpdateItem`
+with `if_not_exists()` for idempotent upsert. All other fields (owner, address,
+installer) can be backfilled later via CLI or API.
+
+**Reactivation**: On every uplink, the decode Lambda checks if the device is
+`inactive` and transitions it back to `active` automatically.
+
+#### Liveness tracking
+
+A lightweight Lambda (`device-liveness-checker`) runs on a 15-minute EventBridge
+schedule. It queries the `status-last-seen-index` GSI for devices with
+`status=active` and `last_seen_epoch < (now - 2700)` (45 minutes ago), and
+transitions them to `inactive`.
+
+**Why 45 minutes**: The heartbeat is 15 minutes. One missed uplink is normal LoRa
+operation. Two missed (30 min) could be transient RF. Three missed (45 min) with
+high confidence indicates actual offline state (power loss, hardware failure, or
+gateway outage). The false-positive cost (unnecessary operator attention)
+outweighs 15 extra minutes of detection latency.
+
+### 8.8 TOU Schedules
+
+The `evse-tou-schedules` DynamoDB table stores per-utility Time-of-Use rate
+schedules and WattTime balancing authority mappings. The charge scheduler (§8.2)
+reads this table to determine the correct peak windows for each device based on
+its `utility_id` and `rate_plan` from the device registry (§8.7).
+
+**Table**: `evse-tou-schedules` (PAY_PER_REQUEST)
+
+| Attribute | Type | Description |
+|-----------|------|-------------|
+| `utility_id` **(PK)** | S | Utility identifier (e.g., `xcel_co`) |
+| `rate_plan` **(SK)** | S | Rate plan identifier (e.g., `re_tou`) |
+| `timezone` | S | IANA timezone (e.g., `America/Denver`) |
+| `peak_weekdays` | L | Days with peak pricing, Python weekday convention (e.g., `[0,1,2,3,4]` = Mon-Fri) |
+| `peak_start_hour` | N | Local hour peak begins (e.g., 17 = 5 PM) |
+| `peak_end_hour` | N | Local hour peak ends (e.g., 21 = 9 PM) |
+| `peak_months` | L | Months with peak pricing (e.g., `[1..12]` = year-round) |
+| `watttime_region` | S | WattTime balancing authority code (e.g., `PSCO`) |
+| `effective_date` | S | ISO 8601 — when this schedule took effect |
+| `source_url` | S | Tariff source URL for audit trail |
+
+**v1.0**: Seeded with one record — Xcel Colorado RE-TOU (weekdays 5-9 PM MT,
+year-round, PSCO region). The scheduler reads this instead of using hardcoded
+constants (see ADR-009).
+
+**Graduation path**: At 10+ utilities, bulk-import TOU data from the NREL OpenEI
+USURDB (free, 3,700+ utilities). At 50+ utilities, evaluate Arcadia Signal API
+for automated tariff extraction. See ADR-009 for the full decision record.
+
+**Flat-rate handling**: Devices on non-TOU plans have no record in this table.
+The scheduler skips TOU evaluation for those devices and applies only MOER-based
+delay windows.
 
 ---
 
