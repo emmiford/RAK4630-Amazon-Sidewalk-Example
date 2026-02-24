@@ -1469,23 +1469,26 @@ The meter number would be collected during commissioning (printed on the meter, 
 
 **Open question**: The meter number alone doesn't tell us the rate schedule — the same utility may have multiple residential TOU plans (e.g., Xcel's R, RE-TOU, S-EV). We may need the customer to confirm their plan, or query the utility's API if available. For v1.0 with a single utility, this is not urgent.
 
-#### 6.4.2 Data Privacy Requirements
+#### 6.4.2 Data Privacy and Retention
 
-| Requirement | Status |
-|-------------|--------|
-| DynamoDB encryption at rest (AWS default) | IMPLEMENTED |
+**Architecture**: The device stores zero PII — it knows nothing about its owner, location, or meter number. All personal data lives in the cloud (DynamoDB device registry). A stolen or discarded device reveals nothing about the customer.
+
+**What's implemented today**:
+
+| Control | Status |
+|---------|--------|
+| DynamoDB encryption at rest (AWS default AES-256) | IMPLEMENTED |
 | Sidewalk transport encryption (in transit) | IMPLEMENTED |
-| No PII stored on the device itself | IMPLEMENTED (device has no concept of owner/address) |
-| PII access limited to authenticated operators (IAM) | IMPLEMENTED (AWS IAM) |
-| No PII in CloudWatch logs (no logging of owner name, email, address) | NOT VERIFIED |
-| Data retention policy (how long telemetry is kept) | NOT STARTED |
-| Customer data deletion on device return/decommission | NOT STARTED |
-| Privacy policy document for customers | NOT STARTED |
-| CCPA/state privacy law compliance review | NOT STARTED |
+| No PII stored on the device itself | IMPLEMENTED |
+| PII access limited to authenticated operators (IAM) | IMPLEMENTED |
+| Raw telemetry TTL (90 days, DynamoDB TTL) | IMPLEMENTED |
+| Daily aggregation Lambda (3-year retention) | IMPLEMENTED |
+| CloudWatch log retention (30 days) | IMPLEMENTED |
+| No PII in Lambda log output | VERIFIED (all 5 Lambdas) |
 
-The device itself stores zero PII — it knows nothing about its owner, location, or meter number. All personal data lives in the cloud (DynamoDB device registry). This is a deliberate architectural choice: a stolen or discarded device reveals nothing about the customer.
+**Still needed**: Customer-facing privacy policy, CCPA/state compliance review with external counsel, customer data deletion automation (on device return/decommission), and incident response planning.
 
-The behavioral data (AC/EV run patterns) is the harder privacy problem. Even without a name attached, timestamped load-switching data at a known address is identifying. A data retention policy should limit how long raw telemetry is kept — aggregated statistics (daily kWh, monthly AC hours) can persist, but per-minute state transitions should expire.
+**Data sensitivity note**: Behavioral data (AC/EV run patterns) reveals occupancy patterns even without a name attached. The 90-day TTL on raw telemetry and daily aggregation to summary statistics mitigate this, but a formal privacy review should evaluate whether further minimization is warranted.
 
 ### 6.4 Warranty and Liability
 
