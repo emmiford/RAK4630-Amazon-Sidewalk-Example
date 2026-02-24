@@ -71,10 +71,10 @@ python3 -m pytest rak-sid/aws/tests/ -v
 ## OTA Quick Reference
 
 ```
-python3 rak-sid/aws/ota_deploy.py keygen       # One-time: generate signing keypair
-python3 rak-sid/aws/ota_deploy.py baseline      # Capture current firmware for delta OTA
-python3 rak-sid/aws/ota_deploy.py deploy --build --version <N>  # Build, sign, deploy
-python3 rak-sid/aws/ota_deploy.py status        # Monitor progress
+python3 rak-sid/aws/firmware.py keygen       # One-time: generate signing keypair
+python3 rak-sid/aws/firmware.py baseline      # Capture current firmware for delta OTA
+python3 rak-sid/aws/firmware.py deploy --build --version <N>  # Build, sign, deploy
+python3 rak-sid/aws/firmware.py status        # Monitor progress
 ```
 
 For OTA protocol details, state machine, and recovery procedures, see [TDD §5](docs/technical-design.md#5-ota-system).

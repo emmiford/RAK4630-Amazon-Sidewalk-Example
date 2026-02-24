@@ -145,14 +145,13 @@ class TestDeploySigning:
     def test_s3_upload_accepts_metadata(self):
         """s3_upload passes Metadata kwarg when provided."""
         import ota
-        import ota_deploy as deploy
 
         mock_s3 = MagicMock()
         with patch.object(ota, "get_s3", return_value=mock_s3):
-            deploy.s3_upload("test/key", b"data", metadata={"signed": "true"})
+            ota.s3_upload("test/key", b"data", metadata={"signed": "true"})
 
         mock_s3.put_object.assert_called_once_with(
-            Bucket=deploy.OTA_BUCKET,
+            Bucket=ota.OTA_BUCKET,
             Key="test/key",
             Body=b"data",
             Metadata={"signed": "true"},
@@ -161,14 +160,13 @@ class TestDeploySigning:
     def test_s3_upload_no_metadata(self):
         """s3_upload works without metadata (backward compat)."""
         import ota
-        import ota_deploy as deploy
 
         mock_s3 = MagicMock()
         with patch.object(ota, "get_s3", return_value=mock_s3):
-            deploy.s3_upload("test/key", b"data")
+            ota.s3_upload("test/key", b"data")
 
         mock_s3.put_object.assert_called_once_with(
-            Bucket=deploy.OTA_BUCKET,
+            Bucket=ota.OTA_BUCKET,
             Key="test/key",
             Body=b"data",
         )
