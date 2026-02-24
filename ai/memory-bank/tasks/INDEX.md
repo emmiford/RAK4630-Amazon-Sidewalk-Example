@@ -39,7 +39,7 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (21)
+## Open Tasks (20)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -51,8 +51,7 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 |----|--------|-------|-------|------------|
 | TASK-102 | not started | — | Reflow RAK19001 even-row header pin solder joints | — |
 | TASK-030 | not started | Eliel | Fleet command safety — design investigation | — |
-| TASK-072 | partial pass | Eero | On-device Charge Now button GPIO verification | — |
-| TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | TASK-072 |
+| TASK-085 | not started | Eero | E2E Charge Now cloud opt-out verification | — |
 | TASK-086 | not started | Eliel | Terraform: add CMD_AUTH_KEY to scheduler Lambda | — |
 | TASK-087 | not started | Eliel | Generate + provision production auth key | TASK-086 |
 | TASK-088 | not started | Eero | Scheduler integration tests for signed payloads | — |
@@ -77,9 +76,10 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (89)
+## Completed Tasks (90)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-072 | On-device Charge Now button GPIO verification | MERGED DONE | 2026-02-17 | Eero |
 | TASK-113 | Investigate Board #2 BLE registration failure (CC310 defect + key transfer workaround) | MERGED DONE | 2026-02-23 | Eliel |
 | TASK-109 | PRD §2.0.3a — Definitive pin name cross-reference table | MERGED DONE | 2026-02-22 | Pam |
 | TASK-104 | Apply SAADC errata workaround + validate AIN1 recovery | MERGED DONE | 2026-02-22 | Eliel |
