@@ -702,13 +702,15 @@ Data privacy, retention policies, CCPA compliance, and operator documentation. C
 ### Milestone 11.1: Data Privacy
 
 #### Feature 11.1.1: Privacy Policy and Retention
-- **Story**: As a company, I want a data privacy policy and retention rules, so that customer data is handled responsibly and we comply with state privacy laws. **(M)**
-  - [x] Task: Define data retention policy (how long raw telemetry is kept vs. aggregated stats) — `DOC` — IMPLEMENTED (TASK-038) — `docs/data-retention.md`
-  - [x] Task: Write customer-facing privacy policy document — `DOC` — IMPLEMENTED (TASK-038) — `docs/privacy-policy.md`
-  - [ ] Task: Implement DynamoDB TTL for raw telemetry records (per retention policy) — `CLOUD` — NOT STARTED
-  - [ ] Task: Implement customer data deletion on device return/decommission — `CLOUD` — NOT STARTED (TASK-077)
-  - [x] Task: CCPA/state privacy law compliance review — `DOC` — IMPLEMENTED (TASK-038) — `docs/privacy-governance.md`
-  - [ ] Task: Verify no PII in CloudWatch logs — `CLOUD` — NOT STARTED — PRD 6.4.2: NOT VERIFIED
+- **Story**: As a company, I want data privacy controls and retention rules, so that customer data is handled responsibly and we comply with state privacy laws. **(M)**
+  - [x] Task: DynamoDB TTL on raw telemetry (90 days) — `CLOUD` — IMPLEMENTED
+  - [x] Task: Daily aggregation Lambda (3-year summary retention) — `CLOUD` — IMPLEMENTED (TASK-078)
+  - [x] Task: CloudWatch log retention (30 days, all Lambdas) — `CLOUD` — IMPLEMENTED (TASK-038)
+  - [x] Task: PII audit — no PII in Lambda log output (all 5 Lambdas verified) — `CLOUD` — IMPLEMENTED (TASK-038)
+  - [ ] Task: Customer-facing privacy policy — requires external counsel — `DOC+LEGAL` — NOT STARTED
+  - [ ] Task: CCPA/state compliance review — requires external counsel — `LEGAL` — NOT STARTED
+  - [ ] Task: Customer data deletion on device return/decommission — `CLOUD` — NOT STARTED (TASK-077)
+  - [ ] Task: Incident response plan — requires external counsel — `LEGAL` — NOT STARTED
 
 ### Milestone 11.2: Operator Documentation
 
