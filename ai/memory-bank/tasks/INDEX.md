@@ -65,7 +65,6 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
-| TASK-114 | committed | Eliel | ADR-010 — Amazon Sidewalk module selection (RAK4630) | — |
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
 | TASK-076 | not started | Pam | Engage external privacy consultant | — |
@@ -80,6 +79,7 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 ## Completed Tasks (90)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-114 | ADR-010 — Amazon Sidewalk module selection (RAK4630) | MERGED DONE | 2026-02-25 | Eliel |
 | TASK-072 | On-device Charge Now button GPIO verification | MERGED DONE | 2026-02-17 | Eero |
 | TASK-113 | Investigate Board #2 BLE registration failure (CC310 defect + key transfer workaround) | MERGED DONE | 2026-02-23 | Eliel |
 | TASK-109 | PRD §2.0.3a — Definitive pin name cross-reference table | MERGED DONE | 2026-02-22 | Pam |
