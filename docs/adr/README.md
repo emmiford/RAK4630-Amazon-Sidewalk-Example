@@ -40,3 +40,4 @@ What other approaches were evaluated?
 | [007](007-device-timestamp-as-sort-key.md) | Device timestamp as DynamoDB sort key (supplements ADR-006) | Accepted | 2026-02-22 |
 | [008](008-uplink-deduplication.md) | Sidewalk uplink deduplication (deterministic SK + conditional write) | Accepted | 2026-02-22 |
 | [009](009-tou-schedule-storage.md) | TOU schedule storage via DynamoDB table with static utility identification | Accepted | 2026-02-22 |
+| [010](010-sidewalk-module-selection.md) | Amazon Sidewalk module selection — RAK4630 | Accepted | 2026-02-25 |
