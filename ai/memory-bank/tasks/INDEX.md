@@ -65,6 +65,7 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
 |----|--------|-------|-------|------------|
+| TASK-114 | committed | Eliel | ADR-010 — Amazon Sidewalk module selection (RAK4630) | — |
 | TASK-049b | not started | Eliel | Platform button callback (GPIO interrupt) | — |
 | TASK-074 | not started | Eliel | Device registry GSI for fleet-scale health queries | — |
 | TASK-076 | not started | Pam | Engage external privacy consultant | — |
