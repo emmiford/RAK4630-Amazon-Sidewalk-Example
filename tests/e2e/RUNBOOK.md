@@ -14,7 +14,7 @@ Prerequisites: flashed device, Sidewalk gateway powered, AWS credentials configu
   aws dynamodb query --table-name evse-events \
     --key-condition-expression "device_id = :d AND #ts > :t" \
     --expression-attribute-names '{"#ts":"timestamp"}' \
-    --expression-attribute-values '{":d":{"S":"b319d001-6b08-4d88-b4ca-4d2d98a6d43c"},":t":{"N":"0"}}' \
+    --expression-attribute-values '{":d":{"S":"<your-device-id>"},":t":{"N":"0"}}' \
     --scan-index-forward --limit 1 --no-paginate \
     --query "SortKeyCondition"
   ```
@@ -65,7 +65,7 @@ Prerequisites: flashed device, Sidewalk gateway powered, AWS credentials configu
   aws dynamodb query --table-name evse-events \
     --key-condition-expression "device_id = :d AND #ts > :t" \
     --expression-attribute-names '{"#ts":"timestamp"}' \
-    --expression-attribute-values '{":d":{"S":"b319d001-6b08-4d88-b4ca-4d2d98a6d43c"},":t":{"N":"0"}}' \
+    --expression-attribute-values '{":d":{"S":"<your-device-id>"},":t":{"N":"0"}}' \
     --scan-index-forward --limit 1 --no-paginate
   ```
 - [ ] Verify uplink byte 7 has fault bits set (upper nibble)

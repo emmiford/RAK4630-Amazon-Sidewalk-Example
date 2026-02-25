@@ -13,7 +13,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # --- Constants ---
-DEVICE_ID = "b319d001-6b08-4d88-b4ca-4d2d98a6d43c"
+DEVICE_ID = os.environ.get("SIDEWALK_DEVICE_ID", "")
 TABLE_NAME = "evse-events"
 OTA_BUCKET = "evse-ota-firmware-dev"
 BASELINE_KEY = "ota/baseline.bin"

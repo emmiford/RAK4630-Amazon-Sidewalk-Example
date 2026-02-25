@@ -15,6 +15,7 @@ Usage:
 import argparse
 import base64
 import json
+import os
 import struct
 import time
 from datetime import datetime, timedelta
@@ -28,7 +29,7 @@ TELEMETRY_MAGIC = 0xE5
 PAYLOAD_VERSION = 0x0A
 EPOCH_OFFSET = 1767225600  # 2026-01-01T00:00:00Z
 
-WIRELESS_DEVICE_ID = "b319d001-6b08-4d88-b4ca-4d2d98a6d43c"
+WIRELESS_DEVICE_ID = os.environ.get("SIDEWALK_DEVICE_ID", "")
 DEVICE_SC_ID = "SC-C014EA63"
 DECODE_LAMBDA_NAME = "uplink-decoder"
 AGGREGATION_LAMBDA_NAME = "daily-aggregation"

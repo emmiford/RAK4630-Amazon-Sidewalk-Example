@@ -8,7 +8,7 @@
 **Related**: EXP-009b (AIN naming confusion), EXP-010, EXP-012
 
 > **Source**: DynamoDB table `sidewalk-v1-device_events_v2`, queried 2026-02-21.
-> **Device**: `b319d001-6b08-4d88-b4ca-4d2d98a6d43c`.
+> **Device**: `<device-id>`.
 > **Note**: The DynamoDB table was subsequently destroyed. This document is the only surviving record of this data.
 
 ---

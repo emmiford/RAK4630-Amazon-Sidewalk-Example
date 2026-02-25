@@ -14,8 +14,8 @@ import device_registry as reg  # noqa: E402
 class TestGenerateScShortId:
     def test_deterministic(self):
         """Same input always produces the same short ID."""
-        id1 = reg.generate_sc_short_id("b319d001-6b08-4d88-b4ca-4d2d98a6d43c")
-        id2 = reg.generate_sc_short_id("b319d001-6b08-4d88-b4ca-4d2d98a6d43c")
+        id1 = reg.generate_sc_short_id("test0001-aaaa-bbbb-cccc-000000000001")
+        id2 = reg.generate_sc_short_id("test0001-aaaa-bbbb-cccc-000000000001")
         assert id1 == id2
 
     def test_format(self):
@@ -41,7 +41,7 @@ class TestGenerateScShortId:
     def test_known_value(self):
         """Verify against a pre-computed SHA-256."""
         import hashlib
-        device_id = "b319d001-6b08-4d88-b4ca-4d2d98a6d43c"
+        device_id = "test0001-aaaa-bbbb-cccc-000000000001"
         expected_hex = hashlib.sha256(device_id.encode()).hexdigest()[:8].upper()
         assert reg.generate_sc_short_id(device_id) == f"SC-{expected_hex}"
 
