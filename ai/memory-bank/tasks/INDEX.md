@@ -39,7 +39,7 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 | Utz | UX architect — CSS systems, layout, information architecture |
 | Pam | Product manager — strategy, prioritization, roadmap |
 
-## Open Tasks (20)
+## Open Tasks (21)
 
 ### P1 — Required for v1.0
 | ID | Status | Owner | Title | Blocked By |
@@ -61,6 +61,7 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 | TASK-098 | not started | Eliel | Cloud v1.1 — Decode HEAT flag in Lambda + DynamoDB | TASK-097 |
 | TASK-099 | not started | Bobby | Commissioning checklist update for inline pass-through wiring | — |
 | TASK-103 | not started | — | Validate external button and potentiometer hardware independently | TASK-102 |
+| TASK-117 | not started | Oliver | Execute EXP-001 — BLE-less LoRa-only Sidewalk feasibility test | — |
 
 ### P3 — Nice-to-have
 | ID | Status | Owner | Title | Blocked By |
@@ -76,9 +77,12 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (90)
+## Completed Tasks (92)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
+| TASK-116 | Brand book HTML + checklist SVG rebrand | MERGED DONE | 2026-02-25 | Bobby |
+| TASK-116 | Brand book HTML + checklist SVG rebrand | MERGED DONE | 2026-02-25 | Bobby |
+| TASK-115 | EXP-001 — Can Sidewalk operate LoRa-only without BLE compiled in? | MERGED DONE | 2026-02-25 | Oliver |
 | TASK-114 | ADR-010 — Amazon Sidewalk module selection (RAK4630) | MERGED DONE | 2026-02-25 | Eliel |
 | TASK-072 | On-device Charge Now button GPIO verification | MERGED DONE | 2026-02-17 | Eero |
 | TASK-113 | Investigate Board #2 BLE registration failure (CC310 defect + key transfer workaround) | MERGED DONE | 2026-02-23 | Eliel |
