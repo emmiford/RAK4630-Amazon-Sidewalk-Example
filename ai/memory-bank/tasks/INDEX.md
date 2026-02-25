@@ -77,7 +77,7 @@ Biggest risk: UL listing — no timeline, no budget, no NRTL engagement.
 | TASK-083 | not started | Eliel | Automate data export for Right to Know | — |
 | TASK-089 | in progress | Eliel | Update technical-design.md for v0x09 + event buffer drain | — |
 
-## Completed Tasks (92)
+## Completed Tasks (95)
 | ID | Title | Status | Date | Agent |
 |----|-------|--------|------|-------|
 | TASK-116 | Brand book HTML + checklist SVG rebrand | MERGED DONE | 2026-02-25 | Bobby |
