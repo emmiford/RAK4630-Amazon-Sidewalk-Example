@@ -27,7 +27,7 @@ Keep all event types (telemetry, OTA, scheduler, diagnostics, interlock) in one 
 **Rejected:** Separate tables per feature (more Terraform resources, more IAM policies, cross-table merges for timeline reconstruction).
 
 ### Decision 2: SC-XXXXXXXX as primary key across all tables
-The events table migrates from UUID (`b319d001-...`) to SC-ID (`SC-A1B2C3D4`) as the partition key. All tables use SC-ID as PK for consistency.
+The events table migrates from UUID to SC-ID (`SC-A1B2C3D4`) as the partition key. All tables use SC-ID as PK for consistency.
 
 **Rationale:** Human-readable, consistent PK eliminates cross-table join friction. SC-IDs are derived from the UUID via SHA-256 hash (first 4 bytes, hex-encoded), so the mapping is deterministic. The original `wireless_device_id` (UUID) is kept as a non-key attribute for IoT Wireless API calls that require it.
 

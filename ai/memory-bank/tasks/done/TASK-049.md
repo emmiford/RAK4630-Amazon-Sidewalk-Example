@@ -25,7 +25,7 @@ TASK-036 merged code for the device registry DynamoDB table, but `terraform appl
 - [x] Lambda environment variable `DEVICE_REGISTRY_TABLE` set correctly
 - [x] Lambda has IAM permissions to read/write the registry table
 - [x] Physical verification: device uplink auto-provisions registry entry in DynamoDB
-- [x] SC-C014EA63 matches expected SHA-256 for device `b319d001-6b08-4d88-b4ca-4d2d98a6d43c`
+- [x] SC-C014EA63 matches expected SHA-256 for device `<device-id>`
 
 ## Testing Requirements
 - [x] `terraform plan` shows only expected additions
@@ -37,7 +37,7 @@ TASK-036 merged code for the device registry DynamoDB table, but `terraform appl
 ```json
 {
   "device_id": "SC-C014EA63",
-  "wireless_device_id": "b319d001-6b08-4d88-b4ca-4d2d98a6d43c",
+  "wireless_device_id": "<device-id>",
   "sidewalk_id": "BFFF8E87CE",
   "status": "active",
   "app_version": 0,

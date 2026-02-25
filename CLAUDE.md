@@ -277,4 +277,4 @@ Also update the corresponding row in `ai/memory-bank/tasks/INDEX.md`. When a tas
 - Hardware: RAK4631 (nRF52840 + SX1262 LoRa)
 - Serial: `/dev/tty.usbmodem101` (USB CDC ACM)
 - Programmer: `/dev/tty.usbmodem1102` (DAPLink)
-- AWS device ID: `b319d001-6b08-4d88-b4ca-4d2d98a6d43c`
+- AWS device ID: `<your-device-id>` (set `SIDEWALK_DEVICE_ID` env var for CLI tools)
